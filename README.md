@@ -1,5 +1,18 @@
-# pipegoose
-Pipeline Parallelism for transformers model
+# 🚧 PipeGoose - Pipeline Parallelism for transformers model - WIP
+
+This project is actively under development.
+
+```python:
+from transformer import AutoModel, AutoTokenizer
+from pipegoose import Pipeline
+
+model = AutoModel.from_pretrained("bloom-560")
+tokenizer = AutoTokenizer.from_pretrained("bloom-560")
+
+pipeline = Pipeline(model, tokenizer, partrition=partrition_func)
+
+pipeline.fit(dataloader, n_microbatches=16)
+```
 
 **Implementation Details**
 
