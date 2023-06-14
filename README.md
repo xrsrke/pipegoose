@@ -1,9 +1,11 @@
 # 🚧 PipeGoose: Pipeline Parallelism for transformers model - WIP
 
+![pipeline](pipeline.png)
+
 This project is actively under development. Check out my learning progress [here](https://twitter.com/xariusrke/status/1667999818554413057)
 
 
-```python:
+``` python
 from transformer import AutoModel, AutoTokenizer
 from pipegoose import Pipeline
 
