@@ -16,6 +16,7 @@ torchtyping = "^0.1.4"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.3.2"
+pre-commit = "^3.3.3"
 
 [build-system]
 requires = ["poetry-core"]
