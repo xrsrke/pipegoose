@@ -1,7 +1,6 @@
-from typing import List, Generator, Tuple, Dict
-from queue import Queue
 from contextlib import contextmanager
-from threading import Thread
+from queue import Queue
+from typing import Dict, Generator, List, Tuple
 
 import torch
 
@@ -20,6 +19,7 @@ def spawn_worker(devices: List[torch.device]) -> Generator[Tuple[Queue, Queue]]:
             in_queue = Queue()
             out_queue = Queue()
             workers[device] = (in_queue, out_queue)
+
 
 # class Worker:
 #     def __init__(self, devices: List[torch.device]):
