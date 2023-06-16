@@ -1,0 +1,35 @@
+site_name: PipeGoose - Pipeline Parallism for 🤗 `transformers` models
+repo_url: https://github.com/xrsrke/pipegoose
+nav:
+  - Home: index.md
+theme:
+  name: material
+  features:
+    # - navigation.instant
+    - navigation.tracking
+    # - navigation.tabs
+    # - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: light black
+      toggle:
+        icon: material/lightbulb
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to dark mode
+plugins:
+  - mkdocstrings
+watch:
+  - .  # reload docs for any file changes
