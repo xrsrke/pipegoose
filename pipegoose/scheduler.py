@@ -2,14 +2,14 @@ from abc import abstractclassmethod
 from typing import Iterable, List, Tuple
 
 
-class Scheduler:
+class BaseScheduler:
     @abstractclassmethod
     def generate(self):
         raise NotImplementedError
 
 
-class DetermisticScheduler(Scheduler):
-    def __init__(self, n_patritions: int, n_microbatches):
+class DetermisticScheduler(BaseScheduler):
+    def __init__(self, n_patritions: int, n_microbatches: int):
         assert (
             n_patritions > 0
         ), "The number of partitions must be \

@@ -10,7 +10,7 @@ class StartDependency(torch.autograd.Function):
         return input, phony
 
     @staticmethod
-    def backward(ctx, grad_input: torch.Tensor, grad_phony) -> torch.Tensor:
+    def backward(ctx, grad_input: torch.Tensor, grad_phony: torch.Tensor) -> torch.Tensor:
         return grad_input
 
 
@@ -20,7 +20,7 @@ class EndDependency(torch.autograd.Function):
         return input
 
     @staticmethod
-    def backward(ctx: Any, grad_input) -> torch.Tensor:
+    def backward(ctx: Any, grad_input: torch.Tensor) -> torch.Tensor:
         return grad_input, None
 
 
