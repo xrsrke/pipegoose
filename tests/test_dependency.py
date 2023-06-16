@@ -20,13 +20,10 @@ def test_create_dependency():
             logs.append(ctx.number)
             return None, grad_output
 
-    batch1, batch2 = create_backward_dependency(
-        source_tensor=batch1,
-        target_tensor=batch2
-    )
+    batch1, batch2 = create_backward_dependency(source_tensor=batch1, target_tensor=batch2)
 
     batch1 = Operation.apply(1, batch1)
     batch2 = Operation.apply(2, batch2)
-    (batch1+batch2).backward()
+    (batch1 + batch2).backward()
 
     assert logs == [2, 1]

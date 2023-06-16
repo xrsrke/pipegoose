@@ -24,10 +24,7 @@ class EndDependency(torch.autograd.Function):
         return grad_input, None
 
 
-def create_backward_dependency(
-    source_tensor: torch.Tensor,
-    target_tensor: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def create_backward_dependency(source_tensor: torch.Tensor, target_tensor: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     source_tensor, phony = StartDependency.apply(source_tensor)
     target_tensor = EndDependency.apply(target_tensor, phony)
 
