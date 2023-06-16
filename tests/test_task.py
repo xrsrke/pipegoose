@@ -9,7 +9,7 @@ def test_task():
         count += 1
         return count
 
-    task = Task(func=counter)
+    task = Task(compute=counter)
 
     output = task()
 
