@@ -1,12 +1,12 @@
 from contextlib import contextmanager
 from queue import Queue
 from threading import Thread
-from typing import Dict, Generator, List, Tuple
+from typing import Annotated, Dict, Generator, List, Tuple
 
 import torch
 
 
-def wait_and_execute_worker(device: torch.device, in_queue: Queue, out_queue: Queue):
+def wait_and_execute_worker(device: torch.device, in_queue: Queue, out_queue: Queue) -> None:
     while True:
         func = in_queue.get()
         if func is None:
@@ -23,7 +23,16 @@ def wait_and_execute_worker(device: torch.device, in_queue: Queue, out_queue: Qu
 
 
 @contextmanager
-def spawn_worker(devices: List[torch.device]) -> Generator[Tuple[List[Queue], List[Queue]], None, None]:
+def spawn_worker(
+    devices: List[torch.device],
+) -> Generator[
+    Tuple[
+        Annotated[List[Queue], "A list of in_queue"],
+        Annotated[List[Queue], "A list of out_queue"],
+    ],
+    None,
+    None,
+]:
     in_queues: List[Queue] = []
     out_queues: List[Queue] = []
 

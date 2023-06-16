@@ -1,5 +1,5 @@
 from abc import abstractclassmethod
-from typing import Iterable, List, Tuple
+from typing import Annotated, Iterable, List, Tuple
 
 
 class BaseScheduler:
@@ -22,7 +22,7 @@ class DetermisticScheduler(BaseScheduler):
         self.n_patritions = n_patritions
         self.n_microbatches = n_microbatches
 
-    def generate(self) -> Iterable[List[Tuple[int, int]]]:
+    def generate(self) -> Iterable[List[Tuple[Annotated[int, "batch_idx"], Annotated[int, "partition_idx"]]]]:
         # (microbatch_idx, partrition_idx)
         n_clock_cycles = self.n_patritions + self.n_microbatches - 1
 
