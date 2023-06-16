@@ -1,12 +1,35 @@
 from contextlib import contextmanager
 from queue import Queue
 from typing import Dict, Generator, List, Tuple
+from threading import Thread
 
 import torch
 
 
+def wait_and_execute_worker(
+    device: torch.device,
+    in_queue: Queue,
+    out_queue: Queue
+):
+    while True:
+        func = in_queue.get()
+        if func is None:
+            break
+
+        try:
+            output = func()
+        except Exception:
+            # output, bool
+            out_queue.put((None, False))
+            continue
+
+        out_queue.put((output, True))
+
+
 @contextmanager
-def spawn_worker(devices: List[torch.device]) -> Generator[Tuple[Queue, Queue]]:
+def spawn_worker(
+    devices: List[torch.device]
+) -> Generator[Tuple[List[Queue], List[Queue]], None, None]:
     in_queues: List[Queue] = []
     out_queues: List[Queue] = []
 
@@ -19,6 +42,18 @@ def spawn_worker(devices: List[torch.device]) -> Generator[Tuple[Queue, Queue]]:
             in_queue = Queue()
             out_queue = Queue()
             workers[device] = (in_queue, out_queue)
+
+            thread = Thread(
+                target=wait_and_execute_worker,
+                args=(device, in_queue, out_queue),
+                daemon=True
+            )
+            thread.start()
+
+        in_queues.append(in_queue)
+        out_queues.append(out_queue)
+
+    yield (in_queues, out_queues)
 
 
 # class Worker:
