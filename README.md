@@ -9,8 +9,8 @@ Honk honk honk! This project is actively under development. Check out my learnin
 from transformer import AutoModel, AutoTokenizer
 from pipegoose import Pipeline
 
-model = AutoModel.from_pretrained("bloom-560")
-tokenizer = AutoTokenizer.from_pretrained("bloom-560")
+model = AutoModel.from_pretrained("bloom")
+tokenizer = AutoTokenizer.from_pretrained("bloom")
 
 pipeline = Pipeline(model, tokenizer, partrition=partrition_func)
 
