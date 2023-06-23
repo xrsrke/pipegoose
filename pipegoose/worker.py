@@ -1,25 +1,32 @@
 from contextlib import contextmanager
+from dataclasses import dataclass
 from queue import Queue
 from threading import Thread
-from typing import Annotated, Dict, Generator, List, Tuple
+from typing import Annotated, Any, Dict, Generator, List, Tuple
 
 import torch
 
 
+@dataclass
+class QueueOutput:
+    output: Any
+    is_success: bool
+    is_done: bool = False
+
+
 def wait_and_execute_worker(device: torch.device, in_queue: Queue, out_queue: Queue) -> None:
     while True:
-        func = in_queue.get()
-        if func is None:
+        task = in_queue.get()
+        if task is None:
             break
 
         try:
-            output = func()
+            output = task()
         except Exception:
-            # output, bool
-            out_queue.put((None, False))
+            out_queue.put(QueueOutput(output=None, is_success=False))
             continue
 
-        out_queue.put((output, True))
+        out_queue.put(QueueOutput(output=output, is_success=True))
 
 
 @contextmanager
@@ -27,8 +34,8 @@ def spawn_worker(
     devices: List[torch.device],
 ) -> Generator[
     Tuple[
-        Annotated[List[Queue], "A list of in_queue"],
-        Annotated[List[Queue], "A list of out_queue"],
+        Annotated[List[Queue], "A list of tasks to be executed"],
+        Annotated[List[Queue], "A list of tasks has been executed"],
     ],
     None,
     None,
