@@ -26,3 +26,5 @@ pipeline.fit(dataloader, n_microbatches=16)
 - Potential support includes:
     - Callbacks within the pipeline: `Callback(function, microbatch_idx, partition_idx)` for before and after the forward, backward, and recompute steps (for gradient checkpointing).
     - Mixed precision training.
+    - Elastic training
+    - Fault-tolerance
