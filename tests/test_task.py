@@ -11,7 +11,7 @@ def test_task():
 
     task = Task(compute=counter)
 
-    output = task()
+    output = task.compute()
 
     assert output == 1
     assert count == 1

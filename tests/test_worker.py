@@ -6,7 +6,7 @@ import torch
 from pipegoose.worker import spawn_worker
 
 
-def test_spawn_worker():
+def test_spawn_worker_with_non_task():
     DEVICES = [torch.device("cpu"), torch.device("cpu")]
     TARGET_DEVICE_IDX = len(DEVICES) - 1
     N_LOOP = 10
@@ -31,3 +31,7 @@ def test_spawn_worker():
     for _ in range(N_LOOP):
         output = out_queues[TARGET_DEVICE_IDX].get()
         assert output == (1, True)
+
+
+def test_spawn_worker_with_task():
+    pass

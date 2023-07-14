@@ -2,31 +2,43 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from queue import Queue
 from threading import Thread
-from typing import Annotated, Any, Dict, Generator, List, Tuple
+from typing import Annotated, Any, Dict, Generator, List, NoReturn, Tuple
 
 import torch
+
+from pipegoose.task import Task
+
+
+class InQueueTask:
+    pass
+
+
+class OutQueueTask:
+    pass
 
 
 @dataclass
 class QueueOutput:
+    task: Task
     output: Any
-    is_success: bool
     is_done: bool = False
 
 
-def wait_and_execute_worker(device: torch.device, in_queue: Queue, out_queue: Queue) -> None:
+def wait_and_execute(device: torch.device, in_queue: Queue, out_queue: Queue) -> NoReturn:
+    """Wait for a task and execute it."""
     while True:
         task = in_queue.get()
-        if task is None:
+
+        if task.is_done is True:
             break
 
         try:
-            output = task()
+            output = task.compute()
         except Exception:
-            out_queue.put(QueueOutput(output=None, is_success=False))
+            out_queue.put(QueueOutput(task=task, output=None, is_done=False))
             continue
 
-        out_queue.put(QueueOutput(output=output, is_success=True))
+        out_queue.put(QueueOutput(task=task, output=output, is_done=True))
 
 
 @contextmanager
@@ -40,6 +52,7 @@ def spawn_worker(
     None,
     None,
 ]:
+    """Spawn new worker threads."""
     in_queues: List[Queue] = []
     out_queues: List[Queue] = []
 
@@ -53,7 +66,7 @@ def spawn_worker(
             out_queue = Queue()
             workers[device] = (in_queue, out_queue)
 
-            thread = Thread(target=wait_and_execute_worker, args=(device, in_queue, out_queue), daemon=True)
+            thread = Thread(target=wait_and_execute, args=(device, in_queue, out_queue), daemon=True)
             thread.start()
 
         in_queues.append(in_queue)

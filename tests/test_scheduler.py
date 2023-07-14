@@ -22,6 +22,6 @@ from pipegoose.scheduler import DetermisticScheduler
     ],
 )
 def test_determistic_scheduler(n_microbatches, n_patritions, expected_schedule):
-    scheduler = DetermisticScheduler(n_microbatches=n_microbatches, n_patritions=n_patritions)
+    scheduler = DetermisticScheduler()
 
-    assert list(scheduler.generate()) == expected_schedule
+    assert list(scheduler.generate(n_microbatches=n_microbatches, n_patritions=n_patritions)) == expected_schedule

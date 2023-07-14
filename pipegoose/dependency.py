@@ -29,3 +29,10 @@ def create_backward_dependency(source_tensor: torch.Tensor, target_tensor: torch
     target_tensor = EndDependency.apply(target_tensor, phony)
 
     return source_tensor, target_tensor
+
+
+class Wait(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, prev_stream, next_stream, input: torch.Tensor) -> torch.Tensor:
+        ctx.prev_stream = prev_stream
+        ctx.next_stream = next_stream

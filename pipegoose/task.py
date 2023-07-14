@@ -1,4 +1,7 @@
+from enum import Enum
 from typing import Any, Callable
+
+from pipegoose.microbatch import Batch
 
 
 class BaseTask:
@@ -6,6 +9,15 @@ class BaseTask:
         return self.compute(*args, **kwargs)
 
 
-class Task(BaseTask):
-    def __init__(self, compute: Callable) -> Any:
-        self.compute = compute
+class TaskStatus(Enum):
+    DONE = "DONE"
+    NOT_DONE = "NOT_DONE"
+
+
+class Task:
+    def __init__(self, compute: Callable[[], Batch], is_done: TaskStatus = TaskStatus.NOT_DONE):
+        self._compute = compute
+        self.is_done = is_done
+
+    def compute(self) -> Batch:
+        return self._compute()

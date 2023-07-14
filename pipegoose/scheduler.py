@@ -1,29 +1,37 @@
-from abc import abstractclassmethod
+from abc import ABC, abstractclassmethod
 from typing import Annotated, Iterable, List, Tuple
 
 
-class BaseScheduler:
+class BaseScheduler(ABC):
     @abstractclassmethod
     def generate(self):
         raise NotImplementedError
 
 
 class DetermisticScheduler(BaseScheduler):
-    def __init__(self, n_patritions: int, n_microbatches: int):
-        assert (
-            n_patritions > 0
-        ), "The number of partitions must be \
-            greater than 0"
+    """
+    torchgpipe: On-the-fly Pipeline Parallelism for Training Giant Models
+    https://arxiv.org/abs/2004.09910
+
+    Section 3.2.1: Forward Dependency: Deterministic Clock-cycle
+    """
+
+    def generate(
+        self,
+        n_microbatches: int,
+        n_patritions: int,
+    ) -> Iterable[List[Tuple[Annotated[int, "batch_idx"], Annotated[int, "partition_idx"]]]]:
         assert (
             n_microbatches > 0
         ), "The number of microbatches must be \
             greater than 0"
+        assert (
+            n_patritions > 0
+        ), "The number of partitions must be \
+            greater than 0"
 
         self.n_patritions = n_patritions
         self.n_microbatches = n_microbatches
-
-    def generate(self) -> Iterable[List[Tuple[Annotated[int, "batch_idx"], Annotated[int, "partition_idx"]]]]:
-        # (microbatch_idx, partrition_idx)
         n_clock_cycles = self.n_patritions + self.n_microbatches - 1
 
         for clock_idx in range(n_clock_cycles):
