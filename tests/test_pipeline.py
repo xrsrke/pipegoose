@@ -30,9 +30,6 @@ def test_run_pipeline():
             self.partrition_idx = partrition_idx
 
         def forward(self, x):
-            import time
-
-            time.sleep(1)
             timeline.append((self.microbatch_idx, self.partrition_idx))
             self.microbatch_idx += 1
             return x + 1

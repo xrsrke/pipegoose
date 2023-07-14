@@ -1,5 +1,5 @@
 from queue import Queue
-from typing import List, NoReturn, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 from torch import nn
@@ -26,7 +26,7 @@ class Pipeline:
         self.devices = devices
         self.scheduler = scheduler
 
-    def fit(self) -> NoReturn:
+    def fit(self):
         batches = self.batches
         partritions = self.partritions
         devices = self.devices
@@ -40,7 +40,7 @@ class Pipeline:
                 # self._create_dependency(schedule)
                 self._compute(schedule, in_queues, out_queues)
 
-    # def _create_dependency(self, schedule: List[Tuple[int, int]]) -> NoReturn:
+    # def _create_dependency(self, schedule: List[Tuple[int, int]]):
     #     """Enforce the dependency between batches and partritions."""
     #     batches = self.batches
 
@@ -68,7 +68,6 @@ class Pipeline:
             in_queues[partrition_idx].put(task)
 
         for microbatch_idx, partrition_idx in schedule:
-            # output = out_queues[partrition_id
             queue_output = out_queues[partrition_idx].get()
             task, output = queue_output.task, queue_output.output
 

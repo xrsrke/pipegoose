@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from queue import Queue
 from threading import Thread
-from typing import Annotated, Any, Dict, Generator, List, NoReturn, Tuple
+from typing import Annotated, Any, Dict, Generator, List, Tuple
 
 import torch
 
@@ -24,7 +24,7 @@ class QueueOutput:
     is_done: bool = False
 
 
-def wait_and_execute(device: torch.device, in_queue: Queue, out_queue: Queue) -> NoReturn:
+def wait_and_execute(device: torch.device, in_queue: Queue, out_queue: Queue):
     """Wait for a task and execute it."""
     while True:
         task = in_queue.get()
