@@ -10,8 +10,8 @@ class BaseTask:
 
 
 class TaskStatus(Enum):
-    DONE = "DONE"
-    NOT_DONE = "NOT_DONE"
+    DONE = 1
+    NOT_DONE = 2
 
 
 class Task:

@@ -21,6 +21,14 @@ class Pipeline:
         devices: Optional[List[torch.device]] = None,
         scheduler: BaseScheduler = DetermisticScheduler(),
     ) -> None:
+        """Initialize the pipeline.
+
+        Args:
+            batches (List[Batch]): A list of micro-batches.
+            partritions (List[nn.Sequential]): A patritioned model.
+            devices (Optional[List[torch.device]], optional): A list of devices. Defaults to None.
+            scheduler (BaseScheduler, optional): _description_. Defaults to DetermisticScheduler().
+        """
         self.batches = batches
         self.partritions = partritions
         self.devices = devices
@@ -49,7 +57,7 @@ class Pipeline:
     #             # create_backward_dependency()
     #             pass
 
-    def _compute(self, schedule: List[Tuple[int, int]], in_queues: List[Queue], out_queues: List[Queue]) -> NoReturn:
+    def _compute(self, schedule: List[Tuple[int, int]], in_queues: List[Queue], out_queues: List[Queue]):
         """Compute the partritions."""
         batches = self.batches
         partritions = self.partritions
