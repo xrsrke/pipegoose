@@ -1,13 +1,11 @@
-from typing import List, Optional
+from typing import List
 
+import torch
 from torch import nn
+
+from pipegoose.partrition import BasePartitioner
 
 
 class GPipe:
-    def __init__(
-        self,
-        module: nn.Sequential,
-        balances: Optional[List[int]],
-        n_partritions: int,
-    ) -> None:
-        self.n_partritions = n_partritions
+    def __init__(self, module: nn.Sequential, devices: List[torch.device], partritioner: BasePartitioner) -> None:
+        pass
