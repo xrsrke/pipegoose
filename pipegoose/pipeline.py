@@ -4,10 +4,9 @@ from typing import List, Optional, Tuple
 import torch
 from torch import nn
 
+from pipegoose.dependency import create_backward_dependency
 from pipegoose.microbatch import Batch
 from pipegoose.scheduler import BaseScheduler, DetermisticScheduler
-
-# from pipegoose.dependency import create_backward_dependency
 from pipegoose.worker import Task, spawn_worker
 
 
@@ -45,17 +44,16 @@ class Pipeline:
 
         with spawn_worker(devices) as (in_queues, out_queues):
             for schedule in scheduler.generate(n_batches, n_partritions):
-                # self._create_dependency(schedule)
+                self._depend(schedule)
                 self._compute(schedule, in_queues, out_queues)
 
-    # def _create_dependency(self, schedule: List[Tuple[int, int]]):
-    #     """Enforce the dependency between batches and partritions."""
-    #     batches = self.batches
+    def _depend(self, schedule: List[Tuple[int, int]]):
+        """Enforce the dependency between batches and partritions."""
+        batches = self.batches
 
-    #     for microbatch_idx, partrition_idx in schedule:
-    #         if microbatch_idx != 0:
-    #             # create_backward_dependency()
-    #             pass
+        for microbatch_idx, partrition_idx in schedule:
+            if microbatch_idx != 0:
+                create_backward_dependency(batches[microbatch_idx - 1], batches[microbatch_idx])
 
     def _compute(self, schedule: List[Tuple[int, int]], in_queues: List[Queue], out_queues: List[Queue]):
         """Compute the partritions."""

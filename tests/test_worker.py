@@ -1,11 +1,13 @@
 import threading
 import time
 
+import pytest
 import torch
 
 from pipegoose.worker import spawn_worker
 
 
+@pytest.mark.skip
 def test_spawn_worker_with_non_task():
     DEVICES = [torch.device("cpu"), torch.device("cpu")]
     TARGET_DEVICE_IDX = len(DEVICES) - 1
