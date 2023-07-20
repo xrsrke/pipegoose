@@ -77,3 +77,6 @@ def test_forward_and_backward_pipeline():
         (0, 0),
     ]
     assert batch.grad is not None
+    for partrition in partritions:
+        for param in partrition.parameters():
+            assert param.grad is not None
