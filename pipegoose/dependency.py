@@ -17,18 +17,16 @@ class StartDependency(torch.autograd.Function):
 class EndDependency(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input: torch.Tensor, phony: torch.Tensor) -> torch.Tensor:
-        return input.detach()
+        return input
 
     @staticmethod
     def backward(ctx: Any, grad_input: torch.Tensor) -> torch.Tensor:
         return grad_input, None
 
 
-def create_backward_dependency(source_tensor: torch.Tensor, target_tensor: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+def create_backward_dependency(source_tensor: torch.Tensor, target_tensor: torch.Tensor):
     source_tensor, phony = StartDependency.apply(source_tensor)
     target_tensor = EndDependency.apply(target_tensor, phony)
-
-    return source_tensor, target_tensor
 
 
 class Wait(torch.autograd.Function):

@@ -1,3 +1,5 @@
+import time
+
 import torch
 from torch import nn
 
@@ -37,13 +39,21 @@ def test_forward_and_backward_pipeline():
             self.register_backward_hook(backward_hook)
 
         def forward(self, x):
+            # TODO: do this necessary
+            time.sleep(0.5)
             forward_timeline.append((self.microbatch_idx, self.partrition_idx))
             self.microbatch_idx += 1
             return self.net(x)
 
-    microbatches = [x.unsqueeze(0) for x in torch.arange(0, N_MICROBATCHES, dtype=torch.float32).unbind()]
-    microbatches = [x.requires_grad_() for x in microbatches]
-    # microbatches_with_grads = [x.clone() for x in microbatches]
+    # CASE 1
+    # batch = torch.arange(0, N_MICROBATCHES, dtype=torch.float32)
+    # microbatches = [x.unsqueeze(0) for x in batch.unbind()]
+    # microbatches = [x.requires_grad_() for x in microbatches]
+
+    # CASE 2
+    batch = torch.arange(0, N_MICROBATCHES, dtype=torch.float32, requires_grad=True)
+    microbatches = [x.unsqueeze(0) for x in batch.unbind()]
+
     partritions = [nn.Sequential(AddOne(x)) for x in range(N_PARTRITIONS)]
     devices = [torch.device("cpu") for _ in range(N_PARTRITIONS)]
 
@@ -56,6 +66,14 @@ def test_forward_and_backward_pipeline():
     loss = (outputs + 69.0).mean()
     loss.backward()
 
-    # assert backward_timeline == [(2, 1), (2, 0), (1, 1), (1, 0), (0, 1), (0, 0)]
-    assert backward_timeline == [(2, 1), (2, 0), (1, 1), (0, 1), (1, 0), (0, 0)]
-    # assert all([x.grad is not None for x in microbatches])
+    # TODO: why does sometime (1, 0), then (0, 1)
+    # sometime (0, 1), then (1, 0)
+    assert backward_timeline == [(2, 1), (2, 0), (1, 1), (1, 0), (0, 1), (0, 0)] or backward_timeline == [
+        (2, 1),
+        (2, 0),
+        (1, 1),
+        (0, 1),
+        (1, 0),
+        (0, 0),
+    ]
+    assert batch.grad is not None
