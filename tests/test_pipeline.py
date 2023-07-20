@@ -1,3 +1,4 @@
+import copy
 import time
 
 import torch
@@ -80,3 +81,19 @@ def test_forward_and_backward_pipeline():
     for partrition in partritions:
         for param in partrition.parameters():
             assert param.grad is not None
+
+    non_parallel_model = nn.Sequential(*[copy.deepcopy(x[0]) for x in partritions])
+    # for param in non_parallel_model.parameters():
+    #     param.grad = None
+
+    # non_parallel_model = nn.Sequential(*[x[0] for x in partritions])
+    non_parallel_outputs = [non_parallel_model(x.unsqueeze(0)) for x in batch.unbind()]
+
+    for x, y in zip(outputs, non_parallel_outputs):
+        assert torch.allclose(x, y)
+
+    for x in non_parallel_outputs:
+        loss = (x + 69.0).mean()
+        loss.backward()
+
+    # assert partritions[0][0].net.weight.grad == non_parallel_model[0].net.weight.grad
