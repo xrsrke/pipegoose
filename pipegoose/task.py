@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, auto
 from typing import Any, Callable
 
 from pipegoose.microbatch import Batch
@@ -10,8 +10,8 @@ class BaseTask:
 
 
 class TaskStatus(Enum):
-    DONE = 1
-    NOT_DONE = 2
+    DONE = auto()
+    NOT_DONE = auto()
 
 
 class Task:

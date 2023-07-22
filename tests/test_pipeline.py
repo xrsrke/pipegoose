@@ -64,8 +64,9 @@ def test_forward_and_backward_pipeline():
     assert forward_timeline == [(0, 0), (1, 0), (0, 1), (2, 0), (1, 1), (2, 1)]
 
     outputs = torch.cat([microbatch.unsqueeze(0) for microbatch in microbatches])
-    loss = (outputs + 69.0).mean()
-    loss.backward()
+    outputs[0].mean().backward()
+    # loss = outputs.mean()
+    # loss.backward()
 
     # TODO: why does sometime (1, 0), then (0, 1)
     # sometime (0, 1), then (1, 0)
@@ -83,17 +84,20 @@ def test_forward_and_backward_pipeline():
             assert param.grad is not None
 
     non_parallel_model = nn.Sequential(*[copy.deepcopy(x[0]) for x in partritions])
-    # for param in non_parallel_model.parameters():
-    #     param.grad = None
+    for param in non_parallel_model.parameters():
+        param.grad = None
 
     # non_parallel_model = nn.Sequential(*[x[0] for x in partritions])
-    non_parallel_outputs = [non_parallel_model(x.unsqueeze(0)) for x in batch.unbind()]
+    non_parallel_batch = copy.deepcopy(batch)
+    non_parallel_batch.grad = None
+    non_parallel_outputs = [non_parallel_model(x.unsqueeze(0)) for x in non_parallel_batch.unbind()]
 
     for x, y in zip(outputs, non_parallel_outputs):
         assert torch.allclose(x, y)
 
     for x in non_parallel_outputs:
-        loss = (x + 69.0).mean()
+        loss = x.mean()
         loss.backward()
 
+    # pass
     # assert partritions[0][0].net.weight.grad == non_parallel_model[0].net.weight.grad
