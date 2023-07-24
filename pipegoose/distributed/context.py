@@ -133,7 +133,7 @@ class ParallelContext:
         self._local_ranks[mode] = rank
 
     def get_world_size(self, mode: ParallelMode) -> int:
-        return self._world_size[mode]
+        return self._world_sizes[mode]
 
     def add_world_size(self, mode: ParallelMode, world_size: int) -> int:
         self._local_world_size[mode] = world_size
