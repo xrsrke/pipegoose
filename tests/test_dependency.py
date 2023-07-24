@@ -37,6 +37,7 @@ def test_create_dependency():
 
     (output2 + output1).mean().backward()
 
+    # NOTE: event torchgpipe doesn't pass this test lmao
     assert timeline == [2, 1]
     assert batch1.grad is not None
     assert batch2.grad is not None

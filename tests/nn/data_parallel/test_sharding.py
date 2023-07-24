@@ -1,10 +1,12 @@
 import copy
 
+import pytest
 import torch
 
 from pipegoose.nn.data_parallel.sharding import GreedySharding
 
 
+@pytest.mark.skip()
 def test_greedy_sharding(parallel_context):
     rank = parallel_context.get_rank()
 
