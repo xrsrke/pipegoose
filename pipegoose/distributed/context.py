@@ -1,5 +1,4 @@
 import random
-from enum import Enum
 from typing import List, Literal
 
 import torch
@@ -14,15 +13,7 @@ from pipegoose.distributed._initializers.initialize_pipeline import (
 from pipegoose.distributed._initializers.initialize_tensor import (
     TensorParallelGroupInitializer,
 )
-
-
-class ParallelMode(Enum):
-    GLOBAL = "global"
-
-    TENSOR = "tensor"
-    PIPELINE = "pipeline"
-    DATA = "data"
-
+from pipegoose.distributed.mode import ParallelMode
 
 DistributedBackend = Literal["gloo", "mpi", "nccl"]
 
