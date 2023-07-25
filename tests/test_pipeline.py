@@ -61,9 +61,6 @@ def test_forward_and_backward_pipeline():
         non_parallel_model = nn.Sequential(*[AddOne(partrition_idx=x, is_logging=False) for x in range(N_PARTRITIONS)])
         for non_parallel_layer, original_partition in zip(non_parallel_model, partritions):
             non_parallel_layer.load_state_dict(original_partition[0].state_dict())
-
-        # for param in non_parallel_model.parameters():
-        #     param.grad = None
         return non_parallel_model
 
     def create_non_parallel_batch(batch):
