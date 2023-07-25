@@ -24,7 +24,7 @@ class Pipeline:
 
         Args:
             batches (List[Batch]): A list of micro-batches.
-            partritions (List[nn.Sequential]): A patritioned model.
+            partritions (List[nn.Sequential]): A partitioned model.
             devices (Optional[List[torch.device]], optional): A list of devices. Defaults to None.
             scheduler (BaseScheduler, optional): _description_. Defaults to DetermisticScheduler().
         """

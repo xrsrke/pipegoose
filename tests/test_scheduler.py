@@ -4,7 +4,7 @@ from pipegoose.scheduler import DetermisticScheduler
 
 
 @pytest.mark.parametrize(
-    "n_microbatches, n_patritions, expected_schedule",
+    "n_microbatches, n_partitions, expected_schedule",
     [
         (1, 1, [[(0, 0)]]),
         (2, 1, [[(0, 0)], [(1, 0)]]),
@@ -21,7 +21,7 @@ from pipegoose.scheduler import DetermisticScheduler
         ),
     ],
 )
-def test_determistic_scheduler(n_microbatches, n_patritions, expected_schedule):
+def test_determistic_scheduler(n_microbatches, n_partitions, expected_schedule):
     scheduler = DetermisticScheduler()
 
-    assert list(scheduler.generate(n_microbatches=n_microbatches, n_patritions=n_patritions)) == expected_schedule
+    assert list(scheduler.generate(n_microbatches=n_microbatches, n_partitions=n_partitions)) == expected_schedule
