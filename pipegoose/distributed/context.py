@@ -1,7 +1,8 @@
-# import os
+import random
 from enum import Enum
 from typing import List, Literal
 
+import torch
 import torch.distributed as dist
 
 from pipegoose.distributed._initializers.initialize_data import (
@@ -45,10 +46,14 @@ class ParallelContext:
         pipeline_parallel_size: int,
         data_parallel_size: int,
     ):
+        num_gpus_per_model = tensor_parallel_size * pipeline_parallel_size
+
         assert world_size == tensor_parallel_size * pipeline_parallel_size, (
             "The total number of processes must be equal to the product of the ",
             "tensor parallel size and the pipeline parallel size.",
         )
+        assert world_size % data_parallel_size == 0
+        assert world_size == num_gpus_per_model * data_parallel_size
 
         self.tensor_parallel_size = tensor_parallel_size
         self.pipeline_parallel_size = pipeline_parallel_size
@@ -61,8 +66,12 @@ class ParallelContext:
         self._ranks_in_group = {}
         self._rank_to_devices = {}
 
+        self.local_rank = local_rank
+        self.local_world_size = local_world_size
+
         self.init_global_dist(rank, world_size, backend, host, port)
         self.init_parallel_groups()
+        self.set_seed(seed)
 
     def init_global_dist(self, rank: int, world_size: int, backend: DistributedBackend, host: str, port: int):
         """Initialize the global distributed group.
@@ -83,7 +92,7 @@ class ParallelContext:
         rank = self.get_global_rank()
         world_size = self.get_world_size(ParallelMode.GLOBAL)
 
-        initializer_params = {
+        params = {
             "rank": rank,
             "world_size": world_size,
             "tensor_parallel_size": self.tensor_parallel_size,
@@ -91,14 +100,14 @@ class ParallelContext:
             "data_parallel_size": self.data_parallel_size,
         }
 
-        initializer_results = [
-            TensorParallelGroupInitializer(**initializer_params).init_dist_group(),
-            PipelineParallelGroupInitializer(**initializer_params).init_dist_group(),
-            DataParallelGroupInitializer(**initializer_params).init_dist_group(),
+        results = [
+            TensorParallelGroupInitializer(**params).init_dist_group(),
+            PipelineParallelGroupInitializer(**params).init_dist_group(),
+            DataParallelGroupInitializer(**params).init_dist_group(),
         ]
 
-        for initializer_result in initializer_results:
-            self._register_dist(**initializer_result)
+        for result in results:
+            self._register_dist(**result)
 
     def _register_dist(
         self,
@@ -119,6 +128,26 @@ class ParallelContext:
         self.add_world_size(mode, local_world_size)
         self.add_group(mode, process_group)
         self.add_ranks_in_group(mode, ranks_in_group)
+
+    def set_seed(self, seed: int):
+        random.seed(seed)
+        torch.manual_seed(seed)
+
+        # TODO: set GPU seed
+        if torch.cuda.is_available():
+            # parallel_seed = seed
+            pass
+
+    def is_initialized(self, mode: ParallelMode) -> bool:
+        """Check if the parallel mode is initialized.
+
+        Args:
+            mode (ParallelMode): parallel mode
+
+        Returns:
+            bool: True if the parallel mode is initialized, False otherwise
+        """
+        return True if mode in self._groups else False
 
     def get_global_rank(self) -> int:
         return self.get_global_rank[ParallelMode.GLOBAL]

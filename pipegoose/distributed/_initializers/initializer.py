@@ -1,4 +1,16 @@
 from abc import ABC, abstractclassmethod
+from typing import TypedDict
+
+from torch.distributed import ProcessGroup
+
+from pipegoose.distributed import ParallelMode
+
+
+class ProcessGroupResult(TypedDict):
+    local_rank: int
+    group_world_size: int
+    process_group: ProcessGroup
+    mode: ParallelMode
 
 
 class ProcessGroupInitializer(ABC):
@@ -12,5 +24,5 @@ class ProcessGroupInitializer(ABC):
         self.data_parallel_size = data_parallel_size
 
     @abstractclassmethod
-    def init_dist_group(self):
+    def init_dist_group(self) -> ProcessGroupResult:
         raise NotImplementedError
