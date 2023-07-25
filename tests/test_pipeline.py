@@ -8,7 +8,7 @@ from pipegoose.pipeline import Pipeline
 
 class TestPipeline:
     N_MICROBATCHES = 3
-    N_partitions = 2
+    N_PARTITIONS = 2
 
     def setup_method(self):
         forward_timeline = []
@@ -40,15 +40,15 @@ class TestPipeline:
         self.AddOne = AddOne
         self.batch = torch.arange(0, self.N_MICROBATCHES, dtype=torch.float32, requires_grad=True)
         self.microbatches = [x.unsqueeze(0) for x in self.batch.unbind()]
-        self.partitions = [nn.Sequential(self.AddOne(partition_idx=x, is_logging=True)) for x in range(self.N_partitions)]
-        self.devices = [torch.device("cpu") for _ in range(self.N_partitions)]
+        self.partitions = [nn.Sequential(self.AddOne(partition_idx=x, is_logging=True)) for x in range(self.N_PARTITIONS)]
+        self.devices = [torch.device("cpu") for _ in range(self.N_PARTITIONS)]
         self.non_parallel_model = self.create_non_parallel_model(self.partitions)
         self.non_parallel_batch = self.create_non_parallel_batch(self.batch)
 
         self.results = {}
 
     def create_non_parallel_model(self, partitions):
-        non_parallel_model = nn.Sequential(*[self.AddOne(partition_idx=x, is_logging=False) for x in range(self.N_partitions)])
+        non_parallel_model = nn.Sequential(*[self.AddOne(partition_idx=x, is_logging=False) for x in range(self.N_PARTITIONS)])
         for non_parallel_layer, original_partition in zip(non_parallel_model, partitions):
             non_parallel_layer.load_state_dict(original_partition[0].state_dict())
         return non_parallel_model
@@ -59,27 +59,40 @@ class TestPipeline:
         return non_parallel_batch
 
     def test_forward_pass_and_backward(self):
-        pipeline = Pipeline(self.microbatches, self.partitions, self.devices)
+        N_PARTITIONS = self.N_PARTITIONS
+        batch = self.batch
+        microbatches = self.microbatches
+        partitions = self.partitions
+        devices = self.devices
+        forward_timeline = self.forward_timeline
+        backward_timeline = self.backward_timeline
 
-        assert pipeline.batches == self.microbatches
-        assert pipeline.partitions == self.partitions
-
-        pipeline.fit()
-
-        assert self.forward_timeline == [(0, 0), (1, 0), (0, 1), (2, 0), (1, 1), (2, 1)]
-
-        outputs = self.microbatches
-        non_parallel_outputs = [self.non_parallel_model(x.unsqueeze(0)) for x in self.non_parallel_batch.unbind()]
-        for x, y in zip(outputs, non_parallel_outputs):
-            assert torch.allclose(x, y)
+        non_parallel_batch = self.non_parallel_batch
+        non_parallel_model = self.non_parallel_model
 
         def loss_func(x):
             return x.mean()
 
+        pipeline = Pipeline(microbatches, partitions, devices)
+
+        assert pipeline.batches == microbatches
+        assert pipeline.partitions == partitions
+
+        pipeline.fit()
+
+        assert forward_timeline == [(0, 0), (1, 0), (0, 1), (2, 0), (1, 1), (2, 1)]
+
+        outputs = microbatches
+        non_parallel_outputs = [non_parallel_model(x.unsqueeze(0)) for x in non_parallel_batch.unbind()]
+
+        for x, y in zip(outputs, non_parallel_outputs):
+            assert torch.allclose(x, y)
+
         for x in outputs:
             loss = loss_func(x)
             loss.backward()
-        assert self.backward_timeline == [(2, 1), (2, 0), (1, 1), (1, 0), (0, 1), (0, 0)] or self.backward_timeline == [
+
+        assert backward_timeline == [(2, 1), (2, 0), (1, 1), (1, 0), (0, 1), (0, 0)] or backward_timeline == [
             (2, 1),
             (2, 0),
             (1, 1),
@@ -92,13 +105,12 @@ class TestPipeline:
             loss = loss_func(x)
             loss.backward()
 
-        assert self.batch.grad is not None
-        for partrition in self.partitions:
-            for param in partrition.parameters():
+        assert batch.grad is not None
+
+        for partition in partitions:
+            for param in partition.parameters():
                 assert param.grad is not None
 
-        for partition_idx in range(self.N_partitions):
-            for w1, w2 in zip(
-                self.partitions[partition_idx].parameters(), self.non_parallel_model[partition_idx].parameters()
-            ):
+        for partition_idx in range(N_PARTITIONS):
+            for w1, w2 in zip(partitions[partition_idx].parameters(), non_parallel_model[partition_idx].parameters()):
                 assert torch.allclose(w1.grad, w2.grad)
