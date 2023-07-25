@@ -15,6 +15,7 @@ torchtyping = "^0.1.4"
 mkdocs = "^1.4.3"
 mkdocstrings = "^0.22.0"
 mkdocs-material = "^9.1.16"
+pytest-order = "^1.1.0"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -12,7 +12,7 @@ def test_gpipe():
     model = nn.Sequential(layer1, layer2)
     input = torch.randn(10, 10, requires_grad=True)
 
-    model = GPipe(model, balances=[1, 1], n_partritions=2)
+    model = GPipe(model, balances=[1, 1], n_partitions=2)
     output = model(input)
     loss = output.sum()
     loss.backward()

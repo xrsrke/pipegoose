@@ -39,8 +39,8 @@ class DetermisticScheduler(BaseScheduler):
             end_partition = min(clock_idx + 1, self.n_partitions)
 
             tasks = []
-            for partrition_idx in range(start_partrition, end_partition):
-                microbatch_idx = clock_idx - partrition_idx
-                tasks.append((microbatch_idx, partrition_idx))
+            for partition_idx in range(start_partrition, end_partition):
+                microbatch_idx = clock_idx - partition_idx
+                tasks.append((microbatch_idx, partition_idx))
 
             yield tasks
