@@ -24,9 +24,20 @@ class GreedySharding(ShardingStategy):
 
     @torch.no_grad()
     def shard(self) -> torch.Tensor:
+        module = self.module
+
+        self._shard_parameters()
+
+        for name, param in module.named_parameters():
+            assert hasattr(param, "_is_sharded"), f"{name} is haven't sharded"
+
+        return module
+
+    def _shard_parameters(self) -> torch.Tensor:
+        module = self.module
         world_size = self.parallel_context.get_world_size()
 
-        for p in self.params:
+        for p in module.parameters():
             assert not hasattr(p, "_is_sharded")
 
             if world_size > 1:
