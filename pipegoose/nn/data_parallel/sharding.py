@@ -19,9 +19,6 @@ class GreedySharding(ShardingStategy):
         self.module = module
         self.parallel_context = parallel_context
 
-        # TODO: change
-        self.params = []
-
     @torch.no_grad()
     def shard(self) -> torch.Tensor:
         module = self.module
