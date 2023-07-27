@@ -163,3 +163,9 @@ class ParallelContext:
 
     def add_ranks_in_group(self, mode: ParallelMode, ranks_in_group: List[int]) -> int:
         self._ranks_in_group[mode] = ranks_in_group
+
+    def get_config(self, mode: ParallelMode) -> int:
+        maps = {
+            ParallelMode.TENSOR: self.tensor_parallel_size,
+        }
+        return maps[mode]
