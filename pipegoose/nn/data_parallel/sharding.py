@@ -11,7 +11,7 @@ from pipegoose.nn.data_parallel.utils import free_storage
 class ShardingStategy(ABC):
     @abstractclassmethod
     def shard(self):
-        raise NotImplementedError("")
+        raise NotImplementedError("You must implement shard method")
 
 
 class GreedySharding(ShardingStategy):
