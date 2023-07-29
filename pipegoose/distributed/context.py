@@ -7,12 +7,6 @@ import torch.distributed as dist
 from pipegoose.distributed._initializers.initialize_data import (
     DataParallelGroupInitializer,
 )
-from pipegoose.distributed._initializers.initialize_pipeline import (
-    PipelineParallelGroupInitializer,
-)
-from pipegoose.distributed._initializers.initialize_tensor import (
-    TensorParallelGroupInitializer,
-)
 from pipegoose.distributed.mode import ParallelMode
 
 DistributedBackend = Literal["gloo", "mpi", "nccl"]
@@ -37,14 +31,14 @@ class ParallelContext:
         pipeline_parallel_size: int,
         data_parallel_size: int,
     ):
-        num_gpus_per_model = tensor_parallel_size * pipeline_parallel_size
+        # num_gpus_per_model = tensor_parallel_size * pipeline_parallel_size
 
-        assert world_size == tensor_parallel_size * pipeline_parallel_size, (
-            "The total number of processes must be equal to the product of the ",
-            "tensor parallel size and the pipeline parallel size.",
-        )
-        assert world_size % data_parallel_size == 0
-        assert world_size == num_gpus_per_model * data_parallel_size
+        # assert world_size == tensor_parallel_size * pipeline_parallel_size, (
+        #     "The total number of processes must be equal to the product of the ",
+        #     "tensor parallel size and the pipeline parallel size.",
+        # )
+        # assert world_size % data_parallel_size == 0
+        # assert world_size == num_gpus_per_model * data_parallel_size
 
         self.tensor_parallel_size = tensor_parallel_size
         self.pipeline_parallel_size = pipeline_parallel_size
@@ -61,8 +55,8 @@ class ParallelContext:
         self.local_world_size = local_world_size
 
         self.init_global_dist(rank, world_size, backend, host, port)
-        self.init_parallel_groups()
-        self.set_seed(seed)
+        # self.init_parallel_groups()
+        # self.set_seed(seed)
 
     def init_global_dist(self, rank: int, world_size: int, backend: DistributedBackend, host: str, port: int):
         """Initialize the global distributed group.
@@ -74,7 +68,16 @@ class ParallelContext:
             host (str): communication host
             port (int): communication port
         """
-        process_group = dist.init_process_group(rank=rank, world_size=world_size, backend=backend, host=host, port=port)
+        # os.environ["MASTER_ADDR"] = str(host)
+        # os.environ["MASTER_PORT"] = str(port)
+        init_method = f"tcp://{host}:{port}"
+        process_group = dist.init_process_group(
+            # "gloo",
+            rank=rank,
+            world_size=world_size,
+            backend=backend,
+            init_method=init_method,
+        )
         ranks = list(range(world_size))
         self._register_dist(rank, world_size, process_group, ranks_in_group=ranks, mode=ParallelMode.GLOBAL)
         self.add_global_rank(ParallelMode.GLOBAL, rank)
@@ -92,8 +95,8 @@ class ParallelContext:
         }
 
         results = [
-            TensorParallelGroupInitializer(**params).init_dist_group(),
-            PipelineParallelGroupInitializer(**params).init_dist_group(),
+            # TensorParallelGroupInitializer(**params).init_dist_group(),
+            # PipelineParallelGroupInitializer(**params).init_dist_group(),
             DataParallelGroupInitializer(**params).init_dist_group(),
         ]
 
@@ -141,7 +144,7 @@ class ParallelContext:
         return True if mode in self._groups else False
 
     def get_global_rank(self) -> int:
-        return self.get_global_rank[ParallelMode.GLOBAL]
+        return self._global_ranks[ParallelMode.GLOBAL]
 
     def add_global_rank(self, mode: ParallelMode, rank: int) -> int:
         self._global_ranks[mode] = rank
@@ -156,7 +159,7 @@ class ParallelContext:
         return self._world_sizes[mode]
 
     def add_world_size(self, mode: ParallelMode, world_size: int) -> int:
-        self._local_world_size[mode] = world_size
+        self._world_sizes[mode] = world_size
 
     def add_group(self, mode: ParallelMode, group: dist.ProcessGroup) -> int:
         self._groups[mode] = group
