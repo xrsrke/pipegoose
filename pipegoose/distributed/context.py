@@ -144,7 +144,7 @@ class ParallelContext:
         return True if mode in self._groups else False
 
     def get_global_rank(self) -> int:
-        return self.get_global_rank[ParallelMode.GLOBAL]
+        return self._global_ranks[ParallelMode.GLOBAL]
 
     def add_global_rank(self, mode: ParallelMode, rank: int) -> int:
         self._global_ranks[mode] = rank

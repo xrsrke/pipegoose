@@ -25,7 +25,13 @@ class FullyShardedDataParallel(nn.Module):
         return output
 
     def _lazy_init(self):
-        self._streams: Dict[str, torch.cuda.Stream] = {}
+        self._init_streams()
+
+    def _setup_streams(self):
+        if torch.cuda.is_available():
+            self._streams: Dict[str, torch.cuda.Stream] = {}
+            self._streams["all_gather"] = torch.cuda.Stream()
+            self._streams["all_reduce"] = torch.cuda.Stream()
 
     def pre_forward_hook(self):
         pass
@@ -36,5 +42,5 @@ class FullyShardedDataParallel(nn.Module):
     def _rebuild_full_params(self):
         pass
 
-    def _register_backward_hook(self):
+    def _free_full_params(self):
         pass
