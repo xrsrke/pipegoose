@@ -59,7 +59,7 @@ def test_parallel_context_single_process():
 
     parallel_modes = [
         ParallelMode.TENSOR,
-        # ParallelMode.PIPELINE,
+        ParallelMode.PIPELINE,
         ParallelMode.DATA,
     ]
 
