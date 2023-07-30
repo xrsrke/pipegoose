@@ -8,9 +8,9 @@ from pipegoose.distributed.mode import ParallelMode
 
 class ProcessGroupResult(TypedDict):
     local_rank: int
-    group_world_size: int
+    local_world_size: int
     process_group: ProcessGroup
-    mode: ParallelMode
+    parallel_mode: ParallelMode
 
 
 class ProcessGroupInitializer(ABC):

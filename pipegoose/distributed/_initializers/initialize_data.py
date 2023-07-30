@@ -15,7 +15,7 @@ class DataParallelGroupInitializer(ProcessGroupInitializer):
     def init_dist_group(self) -> ProcessGroupResult:
         local_rank = None
         process_group = None
-        group_world_size = None
+        local_world_size = None
         ranks_in_groups = None
         mode = ParallelMode.DATA
 
@@ -24,18 +24,18 @@ class DataParallelGroupInitializer(ProcessGroupInitializer):
             end_rank = (i + 1) * self.num_pipeline_parallel_groups
 
             for j in range(self.tensor_parallel_size):
-                ranks = range(start_rank + j, end_rank, self.tensor_parallel_size)
+                ranks = list(range(start_rank + j, end_rank, self.tensor_parallel_size))
 
                 if self.rank in ranks:
                     process_group = dist.new_group(ranks=ranks)
                     local_rank = ranks.index(self.rank)
-                    group_world_size = len(ranks)
+                    local_world_size = len(ranks)
                     ranks_in_groups = ranks
 
         return {
             "local_rank": local_rank,
             "process_group": process_group,
-            "group_world_size": group_world_size,
+            "local_world_size": local_world_size,
             "ranks_in_group": ranks_in_groups,
-            "mode": mode,
+            "parallel_mode": mode,
         }

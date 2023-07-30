@@ -24,9 +24,7 @@ class ParallelizeModule(ABC):
 
 class ParallelizeLinear(ParallelizeModule):
     def parallelize(self):
-        # tensor_parallel_size = self.parallel_context.get_config(
-        #     mode=ParallelMode.TENSOR
-        # )
+        # tensor_parallel_size = parallel_context.tensor_paralell_size
         pass
 
     def deparallelize(self):
