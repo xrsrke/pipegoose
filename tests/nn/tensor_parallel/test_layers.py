@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch import nn
 
-from pipegoose.nn.tensor_parallel import ParallelizeLinear
+# from pipegoose.nn.tensor_parallel import ParallelizeLinear
 
 
 class FakeParallelContext:

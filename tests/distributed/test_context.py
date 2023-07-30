@@ -1,3 +1,4 @@
+import pytest
 from torch.distributed import ProcessGroup
 from torch.multiprocessing import Process
 
@@ -6,19 +7,23 @@ from pipegoose.distributed.mode import ParallelMode
 
 
 def run_worker(rank, world_size, seed, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-    parallel_context = ParallelContext(
-        rank=rank,
-        local_rank=rank,
-        world_size=world_size,
-        local_world_size=world_size,
-        host="localhost",
-        port=12355,
-        backend="gloo",
-        seed=seed,
-        tensor_parallel_size=tensor_parallel_size,
-        pipeline_parallel_size=pipeline_parallel_size,
-        data_parallel_size=data_parallel_size,
-    )
+    try:
+        parallel_context = ParallelContext(
+            rank=rank,
+            local_rank=rank,
+            world_size=world_size,
+            local_world_size=world_size,
+            host="localhost",
+            port=12355,
+            backend="gloo",
+            seed=seed,
+            tensor_parallel_size=tensor_parallel_size,
+            pipeline_parallel_size=pipeline_parallel_size,
+            data_parallel_size=data_parallel_size,
+        )
+        return parallel_context
+    except Exception as e:
+        pytest.fail(f"assertion failed: {e}")
 
     # try:
     #     # assert parallel_context.rank == rank
@@ -40,8 +45,6 @@ def run_worker(rank, world_size, seed, tensor_parallel_size, pipeline_parallel_s
     #     #     assert type(parallel_context.get_world_size(parallel_mode)) == int
     # except Exception as e:
     #     pytest.fail(f"assertion failed: {e}")
-
-    return parallel_context
 
 
 def test_parallel_context_single_process():
@@ -74,11 +77,27 @@ def test_parallel_context_single_process():
 
 
 def test_parallel_context_multiprocess():
-    world_size = 4
+    TENSOR_PARALLEL_SIZE = 1
+    PIPELINE_PARALLEL_SIZE = 2
+    DATA_PARALLEL_SIZE = 1
+    SEED = 69
+    WORLD_SIZE = 2
+
     processes = []
 
-    for rank in range(world_size):
-        p = Process(target=run_worker, args=(rank, world_size))
+    for rank in range(WORLD_SIZE):
+        p = Process(
+            target=run_worker,
+            args=(
+                rank,
+                WORLD_SIZE,
+                SEED,
+                TENSOR_PARALLEL_SIZE,
+                PIPELINE_PARALLEL_SIZE,
+                DATA_PARALLEL_SIZE,
+            ),
+            daemon=True,
+        )
         processes.append(p)
         p.start()
 
