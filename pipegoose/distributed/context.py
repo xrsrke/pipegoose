@@ -34,14 +34,19 @@ class ParallelContext:
         pipeline_parallel_size: int,
         data_parallel_size: int,
     ):
-        # num_gpus_per_model = tensor_parallel_size * pipeline_parallel_size
+        num_gpus_per_model = tensor_parallel_size * pipeline_parallel_size
 
-        # assert world_size == tensor_parallel_size * pipeline_parallel_size, (
-        #     "The total number of processes must be equal to the product of the ",
-        #     "tensor parallel size and the pipeline parallel size.",
-        # )
-        # assert world_size % data_parallel_size == 0
-        # assert world_size == num_gpus_per_model * data_parallel_size
+        assert world_size == tensor_parallel_size * pipeline_parallel_size, (
+            "The total number of processes must be equal to the product of the ",
+            "tensor parallel size and the pipeline parallel size.",
+        )
+        assert (
+            world_size % data_parallel_size == 0
+        ), "The total number of processes must be divisible by the data parallel size."
+        assert world_size == num_gpus_per_model * data_parallel_size, (
+            "The total number of processes must be equal to the product of the ",
+            "number of GPUs per model and the data parallel size.",
+        )
 
         self.tensor_parallel_size = tensor_parallel_size
         self.pipeline_parallel_size = pipeline_parallel_size
@@ -71,8 +76,6 @@ class ParallelContext:
             host (str): communication host
             port (int): communication port
         """
-        # os.environ["MASTER_ADDR"] = str(host)
-        # os.environ["MASTER_PORT"] = str(port)
         init_method = f"tcp://{host}:{port}"
         process_group = dist.init_process_group(
             rank=rank,
