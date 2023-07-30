@@ -153,19 +153,19 @@ class ParallelContext:
     def get_global_rank(self) -> int:
         return self._global_ranks[ParallelMode.GLOBAL]
 
-    def add_global_rank(self, parallel_mode: ParallelMode, rank: int) -> int:
+    def add_global_rank(self, parallel_mode: ParallelMode, rank: int):
         self._global_ranks[parallel_mode] = rank
 
     def get_local_rank(self, parallel_mode: ParallelMode) -> int:
         return self._local_ranks[parallel_mode]
 
-    def add_local_rank(self, parallel_mode: ParallelMode, rank: int) -> int:
+    def add_local_rank(self, parallel_mode: ParallelMode, rank: int):
         self._local_ranks[parallel_mode] = rank
 
     def get_world_size(self, parallel_mode: ParallelMode) -> int:
         return self._world_sizes[parallel_mode]
 
-    def add_world_size(self, parallel_mode: ParallelMode, world_size: int) -> int:
+    def add_world_size(self, parallel_mode: ParallelMode, world_size: int):
         self._world_sizes[parallel_mode] = world_size
 
     def add_group(self, parallel_mode: ParallelMode, group: dist.ProcessGroup) -> int:
@@ -174,7 +174,7 @@ class ParallelContext:
     def get_group(self, parallel_mode: ParallelMode) -> dist.ProcessGroup:
         return self._groups[parallel_mode]
 
-    def add_ranks_in_group(self, parallel_mode: ParallelMode, ranks_in_group: List[int]) -> int:
+    def add_ranks_in_group(self, parallel_mode: ParallelMode, ranks_in_group: List[int]):
         self._ranks_in_group[parallel_mode] = ranks_in_group
 
     def get_ranks_in_group(self, parallel_mode: ParallelMode) -> List[int]:
