@@ -4,12 +4,6 @@ from typing import List, Literal
 import torch
 import torch.distributed as dist
 
-from pipegoose.distributed._initializers.initialize_data import (
-    DataParallelGroupInitializer,
-)
-from pipegoose.distributed._initializers.initialize_pipeline import (
-    PipelineParallelGroupInitializer,
-)
 from pipegoose.distributed._initializers.initialize_tensor import (
     TensorParallelGroupInitializer,
 )
@@ -37,19 +31,19 @@ class ParallelContext:
         pipeline_parallel_size: int,
         data_parallel_size: int,
     ):
-        num_gpus_per_model = tensor_parallel_size * pipeline_parallel_size
+        # num_gpus_per_model = tensor_parallel_size * pipeline_parallel_size
 
-        assert world_size == tensor_parallel_size * pipeline_parallel_size, (
-            "The total number of processes must be equal to the product of the ",
-            "tensor parallel size and the pipeline parallel size.",
-        )
-        assert (
-            world_size % data_parallel_size == 0
-        ), "The total number of processes must be divisible by the data parallel size."
-        assert world_size == num_gpus_per_model * data_parallel_size, (
-            "The total number of processes must be equal to the product of the ",
-            "number of GPUs per model and the data parallel size.",
-        )
+        # assert world_size == tensor_parallel_size * pipeline_parallel_size, (
+        #     "The total number of processes must be equal to the product of the ",
+        #     "tensor parallel size and the pipeline parallel size.",
+        # )
+        # assert (
+        #     world_size % data_parallel_size == 0
+        # ), "The total number of processes must be divisible by the data parallel size."
+        # assert world_size == num_gpus_per_model * data_parallel_size, (
+        #     "The total number of processes must be equal to the product of the ",
+        #     "number of GPUs per model and the data parallel size.",
+        # )
 
         self.tensor_parallel_size = tensor_parallel_size
         self.pipeline_parallel_size = pipeline_parallel_size
@@ -102,11 +96,16 @@ class ParallelContext:
             "data_parallel_size": self.data_parallel_size,
         }
 
+        # import pdb
+        # pdb.set_trace()
+
         results = [
             TensorParallelGroupInitializer(**params).init_dist_group(),
-            PipelineParallelGroupInitializer(**params).init_dist_group(),
-            DataParallelGroupInitializer(**params).init_dist_group(),
+            # PipelineParallelGroupInitializer(**params).init_dist_group(),
+            # DataParallelGroupInitializer(**params).init_dist_group(),
         ]
+
+        # pdb.set_trace()
 
         for result in results:
             self._register_dist(**result)

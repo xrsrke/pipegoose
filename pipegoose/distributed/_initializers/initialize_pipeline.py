@@ -9,6 +9,7 @@ from pipegoose.distributed.mode import ParallelMode
 
 class PipelineParallelGroupInitializer(ProcessGroupInitializer):
     def init_dist_group(self) -> ProcessGroupResult:
+        backend = dist.get_backend()
         num_pipeline_parallel_groups = self.world_size // self.pipeline_parallel_size
         local_rank = None
         process_group = None
@@ -20,7 +21,7 @@ class PipelineParallelGroupInitializer(ProcessGroupInitializer):
             ranks = list(range(i, self.world_size, num_pipeline_parallel_groups))
 
             if self.rank in ranks:
-                process_group = dist.new_group(ranks=ranks)
+                process_group = dist.new_group(ranks=ranks, backend=backend)
                 local_rank = ranks.index(self.rank)
                 local_world_size = len(ranks)
                 ranks_in_group = ranks
