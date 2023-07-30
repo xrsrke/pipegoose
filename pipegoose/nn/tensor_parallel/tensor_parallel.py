@@ -1,9 +1,13 @@
-from abc import ABC, abstractclassmethod
-
 import torch
 from torch import nn
 
 from pipegoose.distributed.context import ParallelContext
+from pipegoose.nn.tensor_parallel.layers import (
+    ParallelizeAttention,
+    ParallelizeEmbedding,
+    ParallelizeLayerNorm,
+    ParallelizeLinear,
+)
 
 # from pipegoose.distributed.mode import ParallelMode
 
@@ -24,7 +28,9 @@ class ParallelizeModule(ABC):
 
 class ParallelizeLinear(ParallelizeModule):
     def parallelize(self):
-        # tensor_parallel_size = parallel_context.tensor_paralell_size
+        # tensor_parallel_size = self.parallel_context.get_config(
+        #     mode=ParallelMode.TENSOR
+        # )
         pass
 
     def deparallelize(self):
@@ -57,7 +63,16 @@ class TensorParallel:
 
     @torch.no_grad()
     def parallelize(self):
-        pass
+        paralleler = {
+            "linear": ParallelizeLinear,
+            "embedding": ParallelizeEmbedding,
+            "layer_norm": ParallelizeLayerNorm,
+            "attention": ParallelizeAttention,
+        }
+
+        for name, module in self.module.named_modules():
+            if name in paralleler:
+                paralleler[name](module, self.parallel_context).parallelize()
 
     def _parallelize_embedding(self):
         pass
@@ -66,3 +81,6 @@ class TensorParallel:
         for _, module in self.module.named_modules():
             if isinstance(module, nn.LayerNorm):
                 pass
+
+    def _resize_vocab_size(self, module: nn.Module):
+        pass
