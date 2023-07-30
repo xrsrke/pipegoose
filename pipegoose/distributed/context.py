@@ -7,6 +7,9 @@ import torch.distributed as dist
 from pipegoose.distributed._initializers.initialize_data import (
     DataParallelGroupInitializer,
 )
+from pipegoose.distributed._initializers.initialize_tensor import (
+    TensorParallelGroupInitializer,
+)
 from pipegoose.distributed.mode import ParallelMode
 
 DistributedBackend = Literal["gloo", "mpi", "nccl"]
@@ -94,7 +97,7 @@ class ParallelContext:
         }
 
         results = [
-            # TensorParallelGroupInitializer(**params).init_dist_group(),
+            TensorParallelGroupInitializer(**params).init_dist_group(),
             # PipelineParallelGroupInitializer(**params).init_dist_group(),
             DataParallelGroupInitializer(**params).init_dist_group(),
         ]

@@ -58,7 +58,7 @@ def test_parallel_context_single_process():
     parallel_context = run_worker(RANK, WORLD_SIZE, SEED, TENSOR_PARALLEL_SIZE, PIPELINE_PARALLEL_SIZE, DATA_PARALLEL_SIZE)
 
     parallel_modes = [
-        # ParallelMode.TENSOR,
+        ParallelMode.TENSOR,
         # ParallelMode.PIPELINE,
         ParallelMode.DATA,
     ]

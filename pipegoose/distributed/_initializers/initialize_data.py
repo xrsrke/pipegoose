@@ -16,8 +16,8 @@ class DataParallelGroupInitializer(ProcessGroupInitializer):
         local_rank = None
         process_group = None
         local_world_size = None
-        ranks_in_groups = None
-        mode = ParallelMode.DATA
+        ranks_in_group = None
+        parallel_mode = ParallelMode.DATA
 
         for i in range(self.pipeline_parallel_size):
             start_rank = i * self.num_pipeline_parallel_groups
@@ -30,12 +30,12 @@ class DataParallelGroupInitializer(ProcessGroupInitializer):
                     process_group = dist.new_group(ranks=ranks)
                     local_rank = ranks.index(self.rank)
                     local_world_size = len(ranks)
-                    ranks_in_groups = ranks
+                    ranks_in_group = ranks
 
         return {
             "local_rank": local_rank,
             "process_group": process_group,
             "local_world_size": local_world_size,
-            "ranks_in_group": ranks_in_groups,
-            "parallel_mode": mode,
+            "ranks_in_group": ranks_in_group,
+            "parallel_mode": parallel_mode,
         }
