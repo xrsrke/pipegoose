@@ -83,6 +83,11 @@ def test_parallel_context_single_process_cpu(backend):
         assert isinstance(parallel_context.get_group(parallel_mode), ProcessGroup)
         assert isinstance(parallel_context.get_ranks_in_group(parallel_mode), list)
 
+    if torch.cuda.is_available():
+        assert isinstance(torch.cuda.current_device(), int)
+
+    # TODO: test seed
+
     torch.distributed.destroy_process_group()
 
 

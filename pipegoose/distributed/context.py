@@ -67,6 +67,10 @@ class ParallelContext:
 
         self.init_global_dist(rank, world_size, backend, host, port)
         self.init_parallel_groups()
+
+        if torch.cuda.is_available():
+            self.set_device()
+
         # self.set_seed(seed)
 
     def init_global_dist(self, rank: int, world_size: int, backend: DistributedBackend, host: str, port: int):
@@ -134,6 +138,12 @@ class ParallelContext:
         self.add_world_size(parallel_mode, local_world_size)
         self.add_group(parallel_mode, process_group)
         self.add_ranks_in_group(parallel_mode, ranks_in_group)
+
+    def set_device(self):
+        num_devices_per_node = torch.cuda.device_count()
+        if num_devices_per_node > 0:
+            device = self.get_global_rank() % num_devices_per_node
+            torch.cuda.set_device(device)
 
     def set_seed(self, seed: int):
         random.seed(seed)

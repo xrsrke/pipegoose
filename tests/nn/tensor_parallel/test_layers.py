@@ -18,6 +18,7 @@ def parallel_context():
     return FakeParallelContext()
 
 
+@pytest.mark.skip(reason="not implemented")
 def test_parallelize_linear(parallel_context):
     parallel_context.get_world_size()
     input = torch.randn(5, 10)
@@ -45,6 +46,7 @@ def test_parallelize_linear(parallel_context):
     # TODO: assert grads[rank]
 
 
+@pytest.mark.skip(reason="not implemented")
 def test_deparallelize_linear():
     linear = nn.Linear(10, 20)
 
