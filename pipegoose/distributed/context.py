@@ -194,3 +194,10 @@ class ParallelContext:
 
     def get_ranks_in_group(self, parallel_mode: ParallelMode) -> List[int]:
         return self._ranks_in_group[parallel_mode]
+
+    def destroy(self):
+        for mode, group in self._groups.items():
+            if mode is not ParallelMode.GLOBAL:
+                dist.destroy_process_group(group)
+        dist.destroy_process_group()
+        self._groups.clear()

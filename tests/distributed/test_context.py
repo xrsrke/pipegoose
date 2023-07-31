@@ -88,7 +88,10 @@ def test_parallel_context_single_process_cpu(backend):
 
     # TODO: test seed
 
-    torch.distributed.destroy_process_group()
+    parallel_context.destroy()
+
+    for parallel_mode in parallel_modes:
+        assert parallel_context.is_initialized(parallel_mode) is False
 
 
 def test_parallel_context_multiprocess_cpu():
