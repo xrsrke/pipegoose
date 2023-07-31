@@ -4,6 +4,12 @@ from typing import List, Literal
 import torch
 import torch.distributed as dist
 
+from pipegoose.distributed._initializers.initialize_data import (
+    DataParallelGroupInitializer,
+)
+from pipegoose.distributed._initializers.initialize_pipeline import (
+    PipelineParallelGroupInitializer,
+)
 from pipegoose.distributed._initializers.initialize_tensor import (
     TensorParallelGroupInitializer,
 )
@@ -74,13 +80,17 @@ class ParallelContext:
             port (int): communication port
         """
         init_method = f"tcp://{host}:{port}"
-        process_group = dist.init_process_group(
+        dist.init_process_group(
             rank=rank,
             world_size=world_size,
             backend=backend,
             init_method=init_method,
         )
         ranks = list(range(world_size))
+        process_group = dist.new_group(
+            ranks=ranks,
+            backend=dist.get_backend(),
+        )
         self._register_dist(rank, world_size, process_group, ranks_in_group=ranks, parallel_mode=ParallelMode.GLOBAL)
         self.add_global_rank(ParallelMode.GLOBAL, rank)
 
@@ -96,16 +106,11 @@ class ParallelContext:
             "data_parallel_size": self.data_parallel_size,
         }
 
-        # import pdb
-        # pdb.set_trace()
-
         results = [
             TensorParallelGroupInitializer(**params).init_dist_group(),
-            # PipelineParallelGroupInitializer(**params).init_dist_group(),
-            # DataParallelGroupInitializer(**params).init_dist_group(),
+            PipelineParallelGroupInitializer(**params).init_dist_group(),
+            DataParallelGroupInitializer(**params).init_dist_group(),
         ]
-
-        # pdb.set_trace()
 
         for result in results:
             self._register_dist(**result)
