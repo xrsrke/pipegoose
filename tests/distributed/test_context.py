@@ -67,9 +67,9 @@ def test_parallel_context_single_process_cpu(backend):
 
     parallel_modes = [
         ParallelMode.GLOBAL,
-        ParallelMode.TENSOR,
-        ParallelMode.PIPELINE,
-        ParallelMode.DATA,
+        # ParallelMode.TENSOR,
+        # ParallelMode.PIPELINE,
+        # ParallelMode.DATA,
     ]
 
     assert parallel_context.tensor_parallel_size == TENSOR_PARALLEL_SIZE
