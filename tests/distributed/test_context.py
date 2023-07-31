@@ -1,11 +1,17 @@
+import pytest
+import torch
 from torch.distributed import ProcessGroup
 from torch.multiprocessing import Process
 
 from pipegoose.distributed.context import ParallelContext
 from pipegoose.distributed.mode import ParallelMode
 
+skip_if_no_cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
 
-def run_worker(rank, world_size, seed, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+backend = ["gloo", pytest.param("nccl", marks=skip_if_no_cuda)]
+
+
+def run_worker(rank, world_size, seed, backend, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     parallel_context = ParallelContext(
         rank=rank,
         local_rank=rank,
@@ -44,7 +50,8 @@ def run_worker(rank, world_size, seed, tensor_parallel_size, pipeline_parallel_s
     return parallel_context
 
 
-def test_parallel_context_single_process():
+@pytest.mark.parametrize("backend", backend)
+def test_parallel_context_single_process_cpu(backend):
     TENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
@@ -52,7 +59,9 @@ def test_parallel_context_single_process():
     RANK = 0
     WORLD_SIZE = 1
 
-    parallel_context = run_worker(RANK, WORLD_SIZE, SEED, TENSOR_PARALLEL_SIZE, PIPELINE_PARALLEL_SIZE, DATA_PARALLEL_SIZE)
+    parallel_context = run_worker(
+        RANK, WORLD_SIZE, SEED, backend, TENSOR_PARALLEL_SIZE, PIPELINE_PARALLEL_SIZE, DATA_PARALLEL_SIZE
+    )
 
     parallel_modes = [
         ParallelMode.GLOBAL,
@@ -74,8 +83,10 @@ def test_parallel_context_single_process():
         assert isinstance(parallel_context.get_group(parallel_mode), ProcessGroup)
         assert isinstance(parallel_context.get_ranks_in_group(parallel_mode), list)
 
+    torch.distributed.destroy_process_group()
 
-def test_parallel_context_multiprocess():
+
+def test_parallel_context_multiprocess_cpu():
     TENSOR_PARALLEL_SIZE = 2
     PIPELINE_PARALLEL_SIZE = 2
     DATA_PARALLEL_SIZE = 2
