@@ -4,15 +4,6 @@ from typing import List, Literal
 import torch
 import torch.distributed as dist
 
-from pipegoose.distributed._initializers.initialize_data import (
-    DataParallelGroupInitializer,
-)
-from pipegoose.distributed._initializers.initialize_pipeline import (
-    PipelineParallelGroupInitializer,
-)
-from pipegoose.distributed._initializers.initialize_tensor import (
-    TensorParallelGroupInitializer,
-)
 from pipegoose.distributed.mode import ParallelMode
 
 DistributedBackend = Literal["gloo", "mpi", "nccl"]
@@ -111,9 +102,9 @@ class ParallelContext:
         }
 
         results = [
-            TensorParallelGroupInitializer(**params).init_dist_group(),
-            PipelineParallelGroupInitializer(**params).init_dist_group(),
-            DataParallelGroupInitializer(**params).init_dist_group(),
+            # TensorParallelGroupInitializer(**params).init_dist_group(),
+            # PipelineParallelGroupInitializer(**params).init_dist_group(),
+            # DataParallelGroupInitializer(**params).init_dist_group(),
         ]
 
         for result in results:

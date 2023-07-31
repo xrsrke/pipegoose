@@ -1,7 +1,9 @@
+import subprocess
+import sys
+
 import pytest
 import torch
 from torch.distributed import ProcessGroup
-from torch.multiprocessing import Process
 
 from pipegoose.distributed.context import ParallelContext
 from pipegoose.distributed.mode import ParallelMode
@@ -94,31 +96,14 @@ def test_parallel_context_single_process_cpu(backend):
         assert parallel_context.is_initialized(parallel_mode) is False
 
 
-def test_parallel_context_multiprocess_cpu():
-    TENSOR_PARALLEL_SIZE = 2
-    PIPELINE_PARALLEL_SIZE = 2
-    DATA_PARALLEL_SIZE = 2
-    SEED = 69
-    WORLD_SIZE = 8
+def test_parallel_context_multiprocess():
+    command = [
+        sys.executable,
+        "-m",
+        "torch.distributed.launch",
+        "--nproc-per-node=8",
+        "./tests/distributed/init_parallel_context.py",
+    ]
+    result = subprocess.run(command, capture_output=True, text=True)
 
-    processes = []
-
-    for rank in range(WORLD_SIZE):
-        p = Process(
-            target=run_worker,
-            args=(
-                rank,
-                WORLD_SIZE,
-                SEED,
-                TENSOR_PARALLEL_SIZE,
-                PIPELINE_PARALLEL_SIZE,
-                DATA_PARALLEL_SIZE,
-            ),
-            daemon=True,
-        )
-        processes.append(p)
-        p.start()
-
-    for p in processes:
-        p.join()
-        assert p.exitcode == 0
+    assert result.returncode == 0, f"Command failed with output: {result.stdout}, {result.stderr}"
