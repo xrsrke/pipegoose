@@ -44,21 +44,25 @@ class ParallelizeModule(ABC):
 class ParallelizeLinear(ParallelizeModule):
     def parallelize(self):
         module = self.module
-        local_rank = self.parallel_context.get_local_rank(ParallelMode.TENSOR)
-        local_world_size = self.parallel_context.get_local_world_size(ParallelMode.TENSOR)
+        parallel_context = self.parallel_context
+
+        local_rank = parallel_context.get_local_rank(ParallelMode.TENSOR)
+        local_world_size = parallel_context.get_local_world_size(ParallelMode.TENSOR)
 
         input_size, output_size = module.weight.size()
         output_per_partition = output_size // local_world_size
 
         start_element = local_rank * output_per_partition
         end_element = (local_rank + 1) * output_per_partition
-        weight = module.weight.data[:, start_element:end_element]
+
+        weight = module.weight.data
+        module.weight.data = weight[:, start_element:end_element]
 
         if module.bias is not None:
-            bias = module.bias.data[start_element:end_element]
+            bias = module.bias.data
+            module.bias.data = bias[start_element:end_element]
 
-        # if is_linear_parallelizable(module) is True:
-        #     pass
+        return module
 
     def deparallelize(self):
         pass
