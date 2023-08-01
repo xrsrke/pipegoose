@@ -37,7 +37,7 @@ def run_worker(seed, tensor_parallel_size, pipeline_parallel_size, data_parallel
 
     parallel_modes = [
         ParallelMode.GLOBAL,
-        # ParallelMode.TENSOR,
+        ParallelMode.TENSOR,
         # ParallelMode.PIPELINE,
         # ParallelMode.DATA,
     ]
@@ -54,10 +54,10 @@ def run_worker(seed, tensor_parallel_size, pipeline_parallel_size, data_parallel
 
     # # TODO: test seed
 
-    # parallel_context.destroy()
+    parallel_context.destroy()
 
-    # for parallel_mode in parallel_modes:
-    #     assert parallel_context.is_initialized(parallel_mode) is False
+    for parallel_mode in parallel_modes:
+        assert parallel_context.is_initialized(parallel_mode) is False
 
 
 if __name__ == "__main__":
