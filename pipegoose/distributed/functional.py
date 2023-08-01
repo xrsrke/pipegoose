@@ -4,8 +4,8 @@ import torch
 import torch.distributed as dist
 from torch.distributed import ReduceOp
 
-from pipegoose.distributed.context import ParallelContext
-from pipegoose.distributed.mode import ParallelMode
+from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.distributed.parallel_mode import ParallelMode
 
 
 def scatter(
@@ -21,6 +21,7 @@ def scatter(
         return tensor
 
     assert tensor.size(dim) % world_size
+
     tensor_list = torch.chunk(tensor, world_size, dim=dim)
     return tensor_list[rank]
 
@@ -34,6 +35,7 @@ def reduce(
     parallel_mode: Optional[ParallelContext] = None,
 ) -> torch.Tensor:
     world_size = parallel_context.get_world_size(parallel_mode)
+
     if world_size == 1:
         return tensor
 
@@ -54,8 +56,10 @@ def broadcast(
     parallel_mode: Optional[ParallelMode] = None,
 ) -> torch.Tensor:
     world_size = parallel_context.get_world_size(parallel_mode)
+
     if world_size == 1:
         return tensor
+
     group = parallel_context.get_group(parallel_mode)
     work = dist.broadcast(tensor, src=src, group=group, async_op=async_op)
 
@@ -91,10 +95,9 @@ def all_gather(
         return input
 
     tensor_list = [torch.empty_like(tensor) for _ in range(world_size)]
-
     work = dist.all_gather(tensor_list=tensor_list, tensor=tensor, async_op=async_op, group=group)
-
     tensor_list = torch.cat(tensor_list, dim=dim)
+
     if async_op:
         return tensor_list, work
     else:
