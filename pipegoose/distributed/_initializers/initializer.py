@@ -3,7 +3,7 @@ from typing import TypedDict
 
 from torch.distributed import ProcessGroup
 
-from pipegoose.distributed.mode import ParallelMode
+from pipegoose.distributed.parallel_mode import ParallelMode
 
 
 class ProcessGroupResult(TypedDict):

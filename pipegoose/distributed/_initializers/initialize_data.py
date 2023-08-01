@@ -4,7 +4,7 @@ from pipegoose.distributed._initializers.initializer import (
     ProcessGroupInitializer,
     ProcessGroupResult,
 )
-from pipegoose.distributed.mode import ParallelMode
+from pipegoose.distributed.parallel_mode import ParallelMode
 
 
 class DataParallelGroupInitializer(ProcessGroupInitializer):

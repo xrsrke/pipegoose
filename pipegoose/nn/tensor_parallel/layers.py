@@ -2,8 +2,8 @@ from abc import ABC, abstractclassmethod
 
 from torch import nn
 
-from pipegoose.distributed.context import ParallelContext
-from pipegoose.distributed.mode import ParallelMode
+from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.distributed.parallel_mode import ParallelMode
 
 
 class ColumnParallelLinear(nn.Module):

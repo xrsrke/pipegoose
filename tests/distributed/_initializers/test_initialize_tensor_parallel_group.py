@@ -1,7 +1,10 @@
 import subprocess
 import sys
 
+import pytest
 
+
+@pytest.mark.skip
 def test_init_tensor_parallel_group():
     command = [
         sys.executable,

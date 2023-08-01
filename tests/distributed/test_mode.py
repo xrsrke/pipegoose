@@ -1,4 +1,4 @@
-from pipegoose.distributed.mode import ParallelMode
+from pipegoose.distributed.parallel_mode import ParallelMode
 
 
 def test_parallel_mode():

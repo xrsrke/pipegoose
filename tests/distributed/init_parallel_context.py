@@ -3,8 +3,8 @@ import os
 import torch
 from torch.distributed import ProcessGroup
 
-from pipegoose.distributed.context import ParallelContext
-from pipegoose.distributed.mode import ParallelMode
+from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.distributed.parallel_mode import ParallelMode
 
 
 def run_worker(seed, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):

@@ -10,7 +10,7 @@ from pipegoose.distributed._initializers.initialize_data import (
 from pipegoose.distributed._initializers.initialize_tensor import (
     TensorParallelGroupInitializer,
 )
-from pipegoose.distributed.mode import ParallelMode
+from pipegoose.distributed.parallel_mode import ParallelMode
 
 DistributedBackend = Literal["gloo", "mpi", "nccl"]
 
