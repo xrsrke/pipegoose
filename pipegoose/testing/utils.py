@@ -17,8 +17,12 @@ def find_free_port(min_port: int = 2000, max_port: int = 65000) -> int:
             continue
 
 
-def spawn(func, nprocs=1, **kwargs):
-    # port = find_free_port()
-    # wrapped_func = partial(func, world_size=nprocs, port=port, **kwargs)
-    wrapped_func = partial(func, **kwargs)
+def spawn(func, nprocs: int = 1, **kwargs):
+    if kwargs.get("port") is None:
+        port = find_free_port()
+    else:
+        port = kwargs["port"]
+        kwargs.pop("port")
+
+    wrapped_func = partial(func, world_size=nprocs, port=port, **kwargs)
     mp.spawn(wrapped_func, nprocs=nprocs)
