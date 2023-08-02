@@ -29,7 +29,8 @@ def init_tensor_parallel_group(rank, world_size, host, port, tensor_parallel_siz
 
     assert isinstance(result["local_rank"], int)
     assert isinstance(result["local_world_size"], int)
-    # assert isinstance(result["process_group"], ProcessGroup)
+    # TODO: how to assert process_group?
+    assert result["process_group"] is not None
     assert isinstance(result["ranks_in_group"], list)
     assert result["parallel_mode"] == ParallelMode.DATA
 

@@ -45,6 +45,9 @@ def init_parallel_context(
         if parallel_mode is ParallelMode.GLOBAL:
             assert parallel_context.is_initialized(parallel_mode) is True
             assert isinstance(parallel_context.get_group(parallel_mode), ProcessGroup)
+        else:
+            # TODO: how to assert process_group?
+            assert parallel_context.get_group(parallel_mode) is not None
 
         assert type(parallel_context.get_local_rank(parallel_mode)) == int
         assert type(parallel_context.get_world_size(parallel_mode)) == int
@@ -52,8 +55,8 @@ def init_parallel_context(
 
     parallel_context.destroy()
 
-    # for parallel_mode in parallel_modes:
-    #     assert parallel_context.is_initialized(parallel_mode) is False
+    for parallel_mode in parallel_modes:
+        assert parallel_context.is_initialized(parallel_mode) is False
 
 
 @pytest.mark.parametrize(
