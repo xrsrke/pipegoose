@@ -1,8 +1,8 @@
 import pytest
 import torch
 
-from pipegoose.distributed._initializers.initialize_tensor import (
-    TensorParallelGroupInitializer,
+from pipegoose.distributed._initializers.initialize_pipeline import (
+    PipelineParallelGroupInitializer,
 )
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.testing.utils import spawn
@@ -18,7 +18,7 @@ def init_tensor_parallel_group(rank, world_size, host, port, tensor_parallel_siz
         init_method=init_method,
     )
 
-    result = TensorParallelGroupInitializer(
+    result = PipelineParallelGroupInitializer(
         rank,
         world_size,
         tensor_parallel_size=tensor_parallel_size,
@@ -30,7 +30,7 @@ def init_tensor_parallel_group(rank, world_size, host, port, tensor_parallel_siz
     assert isinstance(result["local_world_size"], int)
     # assert isinstance(result["process_group"], ProcessGroup)
     assert isinstance(result["ranks_in_group"], list)
-    assert result["parallel_mode"] == ParallelMode.TENSOR
+    assert result["parallel_mode"] == ParallelMode.PIPELINE
 
     # dist.destroy_process_group(result["process_group"])
     # dist.destroy_process_group()
