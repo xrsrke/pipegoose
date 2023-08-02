@@ -41,12 +41,10 @@ def init_tensor_parallel_group(rank, world_size, host, port, tensor_parallel_siz
     [(1, 1, 1, 1), (8, 2, 2, 2)],
 )
 def test_init_tensor_parallel_group(world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-    port = 14511
     spawn(
         init_tensor_parallel_group,
         nprocs=world_size,
         host="localhost",
-        port=port,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=data_parallel_size,
