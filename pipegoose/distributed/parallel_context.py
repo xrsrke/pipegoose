@@ -133,7 +133,8 @@ class ParallelContext:
         rank = self.get_global_rank()
         world_size = self.get_world_size(ParallelMode.GLOBAL)
 
-        # NOTE: ensure all processes have joined the global group before creating other groups
+        # NOTE: ensure all processes have joined the global group
+        # before creating other groups
         torch.distributed.barrier()
 
         params = {
@@ -157,9 +158,9 @@ class ParallelContext:
         self,
         local_rank: int,
         local_world_size: int,
-        process_group: dist.ProcessGroup = None,  # TODO: remove after fix dist.new_group()
-        ranks_in_group: List[int] = None,
-        parallel_mode: ParallelMode = None,
+        process_group: dist.ProcessGroup,
+        ranks_in_group: List[int],
+        parallel_mode: ParallelMode,
     ):
         """Register distributed group based on the parallel mode.
 
@@ -170,11 +171,6 @@ class ParallelContext:
         """
         self.add_local_rank(parallel_mode, local_rank)
         self.add_world_size(parallel_mode, local_world_size)
-
-        # TODO: remove after fix dist.new_group()
-        # if parallel_mode == ParallelMode.GLOBAL:
-        #     self.add_group(parallel_mode, process_group)
-
         self.add_group(parallel_mode, process_group)
         self.add_ranks_in_group(parallel_mode, ranks_in_group)
 
