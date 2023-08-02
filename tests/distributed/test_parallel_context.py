@@ -1,5 +1,6 @@
 import pytest
 import torch
+from torch.distributed import ProcessGroup
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
@@ -41,10 +42,12 @@ def init_parallel_context(
     assert parallel_context.get_global_rank() == rank
 
     for parallel_mode in parallel_modes:
-        # assert parallel_context.is_initialized(parallel_mode) is True
+        if parallel_mode is ParallelMode.GLOBAL:
+            assert parallel_context.is_initialized(parallel_mode) is True
+            assert isinstance(parallel_context.get_group(parallel_mode), ProcessGroup)
+
         assert type(parallel_context.get_local_rank(parallel_mode)) == int
         assert type(parallel_context.get_world_size(parallel_mode)) == int
-        # assert isinstance(parallel_context.get_group(parallel_mode), ProcessGroup)
         assert isinstance(parallel_context.get_ranks_in_group(parallel_mode), list)
 
     # parallel_context.destroy()
