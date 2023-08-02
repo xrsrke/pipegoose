@@ -1,3 +1,4 @@
+import os
 import random
 from typing import List, Literal
 
@@ -20,6 +21,36 @@ class ParallelContext:
     https://github.com/EleutherAI/oslo/blob/f16c73bc5893cd6cefe65e70acf6d88428a324e1/oslo/torch/distributed/parallel_context.py#L53
     """
 
+    @classmethod
+    def from_torch(
+        cls,
+        seed: int,
+        backend: DistributedBackend,
+        tensor_parallel_size: int,
+        pipeline_parallel_size: int,
+        data_parallel_size: int,
+    ):
+        rank = int(os.environ["RANK"])
+        local_rank = int(os.environ["LOCAL_RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
+        local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
+        host = os.environ["MASTER_ADDR"]
+        port = int(os.environ["MASTER_PORT"])
+
+        return cls(
+            rank=rank,
+            local_rank=local_rank,
+            world_size=world_size,
+            local_world_size=local_world_size,
+            host=host,
+            port=port,
+            seed=seed,
+            backend=backend,
+            tensor_parallel_size=tensor_parallel_size,
+            pipeline_parallel_size=pipeline_parallel_size,
+            data_parallel_size=data_parallel_size,
+        )
+
     def __init__(
         self,
         rank: int,
@@ -28,8 +59,8 @@ class ParallelContext:
         local_world_size: int,
         host: str,
         port: int,
-        backend: DistributedBackend,
         seed: int,
+        backend: DistributedBackend,
         tensor_parallel_size: int,
         pipeline_parallel_size: int,
         data_parallel_size: int,
