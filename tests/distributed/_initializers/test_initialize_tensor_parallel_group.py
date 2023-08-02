@@ -1,18 +1,49 @@
-import subprocess
-import sys
-
 import pytest
+import torch
+from torch.distributed import ProcessGroup
+
+from pipegoose.distributed._initializers.initialize_tensor import (
+    TensorParallelGroupInitializer,
+)
+from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.testing.utils import spawn
 
 
-@pytest.mark.skip
-def test_init_tensor_parallel_group():
-    command = [
-        sys.executable,
-        "-m",
-        "torch.distributed.launch",
-        "--nproc-per-node=8",
-        "./tests/distributed/_initializers/init_tensor_parallel_group.py",
-    ]
-    result = subprocess.run(command, capture_output=True, text=True)
+def init_tensor_parallel_group(rank, world_size, host, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    init_method = f"tcp://{host}:{port}"
 
-    assert result.returncode == 0, f"Command failed with output: {result.stdout}, {result.stderr}"
+    torch.distributed.init_process_group(
+        rank=rank,
+        world_size=world_size,
+        backend="gloo",
+        init_method=init_method,
+    )
+
+    result = TensorParallelGroupInitializer(
+        rank,
+        world_size,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=data_parallel_size,
+    ).init_dist_group()
+
+    assert isinstance(result["local_rank"], int)
+    assert isinstance(result["local_world_size"], int)
+    assert isinstance(result["process_group"], ProcessGroup)
+    assert isinstance(result["ranks_in_group"], list)
+    assert result["parallel_mode"] == ParallelMode.TENSOR
+
+
+@pytest.mark.parametrize("world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 1, 1, 1)])
+def test_init_tensor_parallel_group(world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    PORT = 12345
+
+    spawn(
+        init_tensor_parallel_group,
+        nprocs=world_size,
+        host="localhost",
+        port=PORT,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=data_parallel_size,
+    )
