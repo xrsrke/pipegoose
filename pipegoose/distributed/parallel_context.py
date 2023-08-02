@@ -133,6 +133,9 @@ class ParallelContext:
         rank = self.get_global_rank()
         world_size = self.get_world_size(ParallelMode.GLOBAL)
 
+        # NOTE: ensure all processes have joined the global group before creating other groups
+        torch.distributed.barrier()
+
         params = {
             "rank": rank,
             "world_size": world_size,
@@ -169,9 +172,10 @@ class ParallelContext:
         self.add_world_size(parallel_mode, local_world_size)
 
         # TODO: remove after fix dist.new_group()
-        if parallel_mode == ParallelMode.GLOBAL:
-            self.add_group(parallel_mode, process_group)
+        # if parallel_mode == ParallelMode.GLOBAL:
+        #     self.add_group(parallel_mode, process_group)
 
+        self.add_group(parallel_mode, process_group)
         self.add_ranks_in_group(parallel_mode, ranks_in_group)
 
     def set_device(self):
@@ -231,8 +235,14 @@ class ParallelContext:
         return self._ranks_in_group[parallel_mode]
 
     def destroy(self):
+        assert self.is_initialized(ParallelMode.GLOBAL), "Global group must be initialized before destroying."
         for mode, group in self._groups.items():
+            assert self.is_initialized(mode), f"{mode} group must be initialized before destroying."
             if mode is not ParallelMode.GLOBAL:
+                dist.barrier()
                 dist.destroy_process_group(group)
+
+        dist.barrier()
         dist.destroy_process_group()
+
         self._groups.clear()

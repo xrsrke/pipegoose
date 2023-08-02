@@ -50,8 +50,7 @@ def init_parallel_context(
         assert type(parallel_context.get_world_size(parallel_mode)) == int
         assert isinstance(parallel_context.get_ranks_in_group(parallel_mode), list)
 
-    # parallel_context.destroy()
-    torch.distributed.destroy_process_group()
+    parallel_context.destroy()
 
     # for parallel_mode in parallel_modes:
     #     assert parallel_context.is_initialized(parallel_mode) is False
