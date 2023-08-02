@@ -8,6 +8,9 @@ import torch.distributed as dist
 from pipegoose.distributed._initializers.initialize_data import (
     DataParallelGroupInitializer,
 )
+from pipegoose.distributed._initializers.initialize_pipeline import (
+    PipelineParallelGroupInitializer,
+)
 from pipegoose.distributed._initializers.initialize_tensor import (
     TensorParallelGroupInitializer,
 )
@@ -140,7 +143,7 @@ class ParallelContext:
 
         results = [
             TensorParallelGroupInitializer(**params).init_dist_group(),
-            # PipelineParallelGroupInitializer(**params).init_dist_group(),
+            PipelineParallelGroupInitializer(**params).init_dist_group(),
             DataParallelGroupInitializer(**params).init_dist_group(),
         ]
 
@@ -151,9 +154,9 @@ class ParallelContext:
         self,
         local_rank: int,
         local_world_size: int,
-        process_group: dist.ProcessGroup,
-        ranks_in_group: List[int],
-        parallel_mode: ParallelMode,
+        process_group: dist.ProcessGroup = None,  # TODO: remove after fix dist.new_group()
+        ranks_in_group: List[int] = None,
+        parallel_mode: ParallelMode = None,
     ):
         """Register distributed group based on the parallel mode.
 
@@ -164,7 +167,11 @@ class ParallelContext:
         """
         self.add_local_rank(parallel_mode, local_rank)
         self.add_world_size(parallel_mode, local_world_size)
-        self.add_group(parallel_mode, process_group)
+
+        # TODO: remove after fix dist.new_group()
+        if parallel_mode == ParallelMode.GLOBAL:
+            self.add_group(parallel_mode, process_group)
+
         self.add_ranks_in_group(parallel_mode, ranks_in_group)
 
     def set_device(self):
