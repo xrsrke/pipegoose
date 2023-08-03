@@ -7,14 +7,32 @@ from pipegoose.distributed.functional import (
     reduce,
     scatter,
 )
+from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.testing.utils import spawn
+
 
 # @pytest.fixture(scope="module")
-# def parallel_context():
-#     return ParallelContext()
+def init_parallel_context(rank, world_size, port):
+    parallel_context = ParallelContext(
+        rank=rank,
+        local_rank=rank,
+        world_size=world_size,
+        local_world_size=world_size,
+        host="localhost",
+        port=port,
+        seed=69,
+        backend="gloo",
+        tensor_parallel_size=1,
+        pipeline_parallel_size=1,
+        data_parallel_size=1,
+    )
+
+    return parallel_context
 
 
-def test_scatter(parallel_context):
+def run_scatter(rank, world_size, port):
+    parallel_context = init_parallel_context(rank, world_size, port)
     world_size = parallel_context.get_world_size(ParallelMode.GLOBAL)
     rank = parallel_context.get_local_rank(ParallelMode.GLOBAL)
 
@@ -30,10 +48,14 @@ def test_scatter(parallel_context):
     )
 
     assert isinstance(x, torch.Tensor)
-    assert x.size() == (2, 1)
-    assert x == torch.chunks(xs, world_size, dim=DIM)[rank]
+    # assert x.size() == temp.siz
+    assert torch.equal(x, torch.chunk(temp, world_size, dim=DIM)[rank])
     assert x.dtype == temp.dtype
     assert x.requires_grad == temp.requires_grad
+
+
+def test_scatter():
+    spawn(run_scatter, nprocs=1)
 
 
 def test_reduce(parallel_context):
@@ -99,3 +121,7 @@ def test_all_reduce(parallel_context):
 
 def test_reduce_scatter(parallel_context):
     pass
+
+
+# if __name__ == "__main__":
+#     spawn(run_scatter, nprocs=1)
