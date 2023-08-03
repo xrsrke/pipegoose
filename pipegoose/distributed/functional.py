@@ -104,10 +104,6 @@ def all_gather(
         return tensor_list
 
 
-def reduce_scatter():
-    pass
-
-
 def all_reduce(
     tensor: torch.Tensor,
     op: ReduceOp = ReduceOp.SUM,
@@ -127,3 +123,7 @@ def all_reduce(
         return tensor, work
     else:
         return tensor
+
+
+def reduce_scatter():
+    pass
