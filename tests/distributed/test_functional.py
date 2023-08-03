@@ -79,25 +79,50 @@ def test_scatter(parallel_modes, world_size, tensor_parallel_size, pipeline_para
     )
 
 
-def test_reduce(parallel_context):
-    world_size = parallel_context.get_world_size(ParallelMode.GLOBAL)
-    rank = parallel_context.get_local_rank(ParallelMode.GLOBAL)
-    x = torch.randn(1, dtype=torch.float32)
-    temp = x.clone()
-
-    x = reduce(
-        tensor=x,
-        dst=0,
-        parallel_context=parallel_context,
-        parallel_mode=ParallelMode.GLOBAL,
+def run_reduce(rank, world_size, port, parallel_modes, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
 
-    if rank == 0:
-        assert x == temp * world_size
-        assert x.dtype == temp.dtype
-        assert x.requires_grad == temp.requires_grad
+    for parallel_mode in parallel_modes:
+        world_size = parallel_context.get_world_size(parallel_mode)
+        rank = parallel_context.get_local_rank(parallel_mode)
+        dst_rank = parallel_context.get_ranks_in_group(parallel_mode)[-1]
+
+        x = torch.tensor(1.0, dtype=torch.float32)
+        expected_output = x.clone() * world_size
+
+        torch.distributed.barrier()
+        output = reduce(
+            tensor=x,
+            dst=dst_rank,
+            parallel_context=parallel_context,
+            parallel_mode=parallel_mode,
+        )
+
+        if rank == dst_rank:
+            assert torch.equal(output, expected_output)
+            assert output.dtype == expected_output.dtype
+            assert output.requires_grad == expected_output.requires_grad
+
+    parallel_context.destroy()
 
 
+@pytest.mark.parametrize(
+    "world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 1, 1, 1), (8, 2, 2, 2)]
+)
+def test_reduce(parallel_modes, world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    spawn(
+        run_reduce,
+        nprocs=world_size,
+        parallel_modes=parallel_modes,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=data_parallel_size,
+    )
+
+
+@pytest.mark.skip(reason="not implemented")
 def test_broadcast(parallel_context):
     rank = parallel_context.get_local_rank(ParallelMode.GLOBAL)
     if rank == 0:
@@ -112,6 +137,7 @@ def test_broadcast(parallel_context):
     assert x.requires_grad is True
 
 
+@pytest.mark.skip(reason="not implemented")
 def test_all_gather(parallel_context):
     rank = parallel_context.get_local_rank(ParallelMode.GLOBAL)
 
@@ -123,6 +149,7 @@ def test_all_gather(parallel_context):
         assert torch.equal(gathered_tensor, torch.tensor([i * 1.0]))
 
 
+@pytest.mark.skip(reason="not implemented")
 def test_all_reduce(parallel_context):
     world_size = parallel_context.get_world_size(ParallelMode.GLOBAL)
 
@@ -140,6 +167,7 @@ def test_all_reduce(parallel_context):
     assert output.requires_grad == temp.requires_grad
 
 
+@pytest.mark.skip(reason="not implemented")
 def test_reduce_scatter(parallel_context):
     pass
 

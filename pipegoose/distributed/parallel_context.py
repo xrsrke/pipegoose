@@ -172,6 +172,7 @@ class ParallelContext:
         self.add_local_rank(parallel_mode, local_rank)
         self.add_world_size(parallel_mode, local_world_size)
         self.add_group(parallel_mode, process_group)
+        # TODO: remove this
         self.add_ranks_in_group(parallel_mode, ranks_in_group)
 
     def set_device(self):
