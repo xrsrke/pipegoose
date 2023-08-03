@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 from pipegoose.distributed.functional import (
@@ -12,7 +13,6 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.testing.utils import spawn
 
 
-# @pytest.fixture(scope="module")
 def init_parallel_context(rank, world_size, port):
     parallel_context = ParallelContext(
         rank=rank,
@@ -23,39 +23,40 @@ def init_parallel_context(rank, world_size, port):
         port=port,
         seed=69,
         backend="gloo",
-        tensor_parallel_size=1,
-        pipeline_parallel_size=1,
-        data_parallel_size=1,
+        tensor_parallel_size=2,
+        pipeline_parallel_size=2,
+        data_parallel_size=2,
     )
 
     return parallel_context
 
 
-def run_scatter(rank, world_size, port):
+def run_scatter(rank, world_size, port, parallel_mode):
     parallel_context = init_parallel_context(rank, world_size, port)
-    world_size = parallel_context.get_world_size(ParallelMode.GLOBAL)
-    rank = parallel_context.get_local_rank(ParallelMode.GLOBAL)
+    world_size = parallel_context.get_world_size(parallel_mode)
+    rank = parallel_context.get_local_rank(parallel_mode)
 
     DIM = -1
     xs = torch.randn(2, world_size, dtype=torch.float32)
-    temp = xs.clone()
+    expected = torch.chunk(xs.clone(), world_size, dim=DIM)[rank]
 
     x = scatter(
         xs,
         dim=DIM,
         parallel_context=parallel_context,
-        parallel_mode=ParallelMode.GLOBAL,
+        parallel_mode=parallel_mode,
     )
 
     assert isinstance(x, torch.Tensor)
-    # assert x.size() == temp.siz
-    assert torch.equal(x, torch.chunk(temp, world_size, dim=DIM)[rank])
-    assert x.dtype == temp.dtype
-    assert x.requires_grad == temp.requires_grad
+    assert x.size() == expected.shape
+    assert torch.equal(x, expected)
+    assert x.dtype == expected.dtype
+    assert x.requires_grad == expected.requires_grad
 
 
-def test_scatter():
-    spawn(run_scatter, nprocs=1)
+@pytest.mark.parametrize("parallel_mode", [ParallelMode.GLOBAL, ParallelMode.TENSOR, ParallelMode.PIPELINE, ParallelMode.DATA])
+def test_scatter(parallel_mode):
+    spawn(run_scatter, nprocs=8, parallel_mode=parallel_mode)
 
 
 def test_reduce(parallel_context):

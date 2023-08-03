@@ -20,7 +20,7 @@ def scatter(
     if world_size == 1:
         return tensor
 
-    assert tensor.size(dim) % world_size
+    assert tensor.size(dim) % world_size == 0
 
     tensor_list = torch.chunk(tensor, world_size, dim=dim)
     return tensor_list[rank]
