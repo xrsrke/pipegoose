@@ -62,6 +62,8 @@ def run_scatter(rank, world_size, port, parallel_modes, tensor_parallel_size, pi
         assert x.dtype == expected.dtype
         assert x.requires_grad == expected.requires_grad
 
+    parallel_context.destroy()
+
 
 @pytest.mark.parametrize(
     "world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 1, 1, 1), (8, 2, 2, 2)]

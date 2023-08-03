@@ -68,19 +68,19 @@ class ParallelContext:
         pipeline_parallel_size: int,
         data_parallel_size: int,
     ):
-        # num_gpus_per_model = tensor_parallel_size * pipeline_parallel_size
+        num_gpus_per_model = tensor_parallel_size * pipeline_parallel_size
 
-        # assert world_size == tensor_parallel_size * pipeline_parallel_size, (
-        #     "The total number of processes must be equal to the product of the ",
-        #     "tensor parallel size and the pipeline parallel size.",
-        # )
-        # assert (
-        #     world_size % data_parallel_size == 0
-        # ), "The total number of processes must be divisible by the data parallel size."
-        # assert world_size == num_gpus_per_model * data_parallel_size, (
-        #     "The total number of processes must be equal to the product of the ",
-        #     "number of GPUs per model and the data parallel size.",
-        # )
+        assert (
+            world_size % data_parallel_size == 0
+        ), "The total number of processes must be divisible by the data parallel size."
+        assert world_size % num_gpus_per_model == 0, (
+            "The total number of processes must be divisible by"
+            "the number of GPUs per model (tensor_parallel_size * pipeline_parallel_size)."
+        )
+        assert num_gpus_per_model * data_parallel_size == world_size, (
+            "The number of process requires to train all replicas",
+            "must be equal to the world size.",
+        )
 
         self.tensor_parallel_size = tensor_parallel_size
         self.pipeline_parallel_size = pipeline_parallel_size
