@@ -13,7 +13,12 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.testing.utils import spawn
 
 
-def init_parallel_context(rank, world_size, port):
+@pytest.fixture
+def parallel_modes():
+    return [ParallelMode.GLOBAL, ParallelMode.TENSOR, ParallelMode.PIPELINE, ParallelMode.DATA]
+
+
+def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     parallel_context = ParallelContext(
         rank=rank,
         local_rank=rank,
@@ -23,40 +28,53 @@ def init_parallel_context(rank, world_size, port):
         port=port,
         seed=69,
         backend="gloo",
-        tensor_parallel_size=2,
-        pipeline_parallel_size=2,
-        data_parallel_size=2,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=data_parallel_size,
     )
 
     return parallel_context
 
 
-def run_scatter(rank, world_size, port, parallel_mode):
-    parallel_context = init_parallel_context(rank, world_size, port)
-    world_size = parallel_context.get_world_size(parallel_mode)
-    rank = parallel_context.get_local_rank(parallel_mode)
-
-    DIM = -1
-    xs = torch.randn(2, world_size, dtype=torch.float32)
-    expected = torch.chunk(xs.clone(), world_size, dim=DIM)[rank]
-
-    x = scatter(
-        xs,
-        dim=DIM,
-        parallel_context=parallel_context,
-        parallel_mode=parallel_mode,
+def run_scatter(rank, world_size, port, parallel_modes, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
 
-    assert isinstance(x, torch.Tensor)
-    assert x.size() == expected.shape
-    assert torch.equal(x, expected)
-    assert x.dtype == expected.dtype
-    assert x.requires_grad == expected.requires_grad
+    for parallel_mode in parallel_modes:
+        world_size = parallel_context.get_world_size(parallel_mode)
+        rank = parallel_context.get_local_rank(parallel_mode)
+
+        DIM = -1
+        xs = torch.randn(2, world_size, dtype=torch.float32)
+        expected = torch.chunk(xs.clone(), world_size, dim=DIM)[rank]
+
+        x = scatter(
+            xs,
+            dim=DIM,
+            parallel_context=parallel_context,
+            parallel_mode=parallel_mode,
+        )
+
+        assert isinstance(x, torch.Tensor)
+        assert x.size() == expected.shape
+        assert torch.equal(x, expected)
+        assert x.dtype == expected.dtype
+        assert x.requires_grad == expected.requires_grad
 
 
-@pytest.mark.parametrize("parallel_mode", [ParallelMode.GLOBAL, ParallelMode.TENSOR, ParallelMode.PIPELINE, ParallelMode.DATA])
-def test_scatter(parallel_mode):
-    spawn(run_scatter, nprocs=8, parallel_mode=parallel_mode)
+@pytest.mark.parametrize(
+    "world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 1, 1, 1), (8, 2, 2, 2)]
+)
+def test_scatter(parallel_modes, world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    spawn(
+        run_scatter,
+        nprocs=world_size,
+        parallel_modes=parallel_modes,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=data_parallel_size,
+    )
 
 
 def test_reduce(parallel_context):
