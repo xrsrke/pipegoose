@@ -75,3 +75,22 @@ def test_init_parallel_context(world_size, tensor_parallel_size, pipeline_parall
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=data_parallel_size,
     )
+
+
+# def test_init_parallel_context_twice():
+#     WORLD_SIZE = 1
+#     TENSOR_PARALLEL_SIZE = 1
+#     PIPELINE_PARALLEL_SIZE = 1
+#     DATA_PARALLEL_SIZE = 1
+#     SEED = 69
+#     BACKEND = "gloo"
+
+#     spawn(
+#         init_parallel_context,
+#         nprocs=WORLD_SIZE,
+#         seed=SEED,
+#         backend=BACKEND,
+#         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+#         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+#         data_parallel_size=DATA_PARALLEL_SIZE,
+#     )
