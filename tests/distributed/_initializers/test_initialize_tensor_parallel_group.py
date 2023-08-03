@@ -38,8 +38,8 @@ def init_tensor_parallel_group(
     assert isinstance(result["local_world_size"], int)
     # TODO: how to assert process_group?
     assert result["process_group"] is not None
-    assert result["ranks_in_group"] == expected_group
     assert isinstance(result["ranks_in_group"], list)
+    assert result["ranks_in_group"] == expected_group
     assert result["parallel_mode"] == ParallelMode.TENSOR
 
     dist.barrier()
