@@ -92,10 +92,14 @@ def all_gather(
     group = parallel_context.get_group(parallel_mode)
 
     if world_size == 1:
-        return input
+        return tensor
 
     tensor_list = [torch.empty_like(tensor) for _ in range(world_size)]
     work = dist.all_gather(tensor_list=tensor_list, tensor=tensor, async_op=async_op, group=group)
+
+    if tensor.dim() == 0:
+        tensor_list = [tensor.unsqueeze(dim=0) for tensor in tensor_list]
+
     tensor_list = torch.cat(tensor_list, dim=dim)
 
     if async_op:
