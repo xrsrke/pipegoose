@@ -42,25 +42,27 @@ def run_scatter(rank, world_size, port, parallel_modes, tensor_parallel_size, pi
     )
 
     for parallel_mode in parallel_modes:
-        world_size = parallel_context.get_world_size(parallel_mode)
         rank = parallel_context.get_local_rank(parallel_mode)
+        ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode)
 
-        DIM = -1
-        xs = torch.randn(2, world_size, dtype=torch.float32)
-        expected = torch.chunk(xs.clone(), world_size, dim=DIM)[rank]
+        if rank in ranks_in_group:
+            DIM = -1
+            world_size = parallel_context.get_world_size(parallel_mode)
+            xs = torch.randn(2, world_size, dtype=torch.float32)
+            expected = torch.chunk(xs.clone(), world_size, dim=DIM)[rank]
 
-        x = scatter(
-            xs,
-            dim=DIM,
-            parallel_context=parallel_context,
-            parallel_mode=parallel_mode,
-        )
+            x = scatter(
+                xs,
+                dim=DIM,
+                parallel_context=parallel_context,
+                parallel_mode=parallel_mode,
+            )
 
-        assert isinstance(x, torch.Tensor)
-        assert x.size() == expected.shape
-        assert torch.equal(x, expected)
-        assert x.dtype == expected.dtype
-        assert x.requires_grad == expected.requires_grad
+            assert isinstance(x, torch.Tensor)
+            assert x.size() == expected.shape
+            assert torch.equal(x, expected)
+            assert x.dtype == expected.dtype
+            assert x.requires_grad == expected.requires_grad
 
     parallel_context.destroy()
 
@@ -85,24 +87,27 @@ def run_reduce(rank, world_size, port, parallel_modes, tensor_parallel_size, pip
     )
 
     for parallel_mode in parallel_modes:
-        world_size = parallel_context.get_world_size(parallel_mode)
         rank = parallel_context.get_local_rank(parallel_mode)
-        dst_rank = parallel_context.get_ranks_in_group(parallel_mode)[-1]
+        ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode)
 
-        x = torch.tensor(1.0, dtype=torch.float32)
-        expected_output = x.clone() * world_size
+        if rank in ranks_in_group:
+            world_size = parallel_context.get_world_size(parallel_mode)
+            dst_rank = parallel_context.get_ranks_in_group(parallel_mode)[-1]
 
-        reduce(
-            tensor=x,
-            dst=dst_rank,
-            parallel_context=parallel_context,
-            parallel_mode=parallel_mode,
-        )
+            x = torch.tensor(1.0, dtype=torch.float32)
+            expected_output = x.clone() * world_size
 
-        if rank == dst_rank:
-            assert torch.equal(x, expected_output)
-            assert x.dtype == expected_output.dtype
-            assert x.requires_grad == expected_output.requires_grad
+            reduce(
+                tensor=x,
+                dst=dst_rank,
+                parallel_context=parallel_context,
+                parallel_mode=parallel_mode,
+            )
+
+            if rank == dst_rank:
+                assert torch.equal(x, expected_output)
+                assert x.dtype == expected_output.dtype
+                assert x.requires_grad == expected_output.requires_grad
 
     parallel_context.destroy()
 
@@ -241,7 +246,3 @@ def test_all_reduce(parallel_modes, world_size, tensor_parallel_size, pipeline_p
 @pytest.mark.skip(reason="not implemented")
 def test_reduce_scatter(parallel_context):
     pass
-
-
-# if __name__ == "__main__":
-#     spawn(run_scatter, nprocs=1)
