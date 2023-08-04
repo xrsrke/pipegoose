@@ -122,19 +122,43 @@ def test_reduce(parallel_modes, world_size, tensor_parallel_size, pipeline_paral
     )
 
 
-@pytest.mark.skip(reason="not implemented")
-def test_broadcast(parallel_context):
-    rank = parallel_context.get_local_rank(ParallelMode.GLOBAL)
-    if rank == 0:
-        x = torch.tensor(6.9, dtype=torch.float16, requires_grad=True)
-    else:
-        x = torch.tensor(4.2, dtype=torch.float32)
+def run_broadcast(rank, world_size, port, parallel_modes, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
 
-    broadcast(x, src=0, parallel_context=parallel_context, parallel_mode=ParallelMode.GLOBAL)
+    for parallel_mode in parallel_modes:
+        rank = parallel_context.get_local_rank(parallel_mode)
+        ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode)
 
-    assert torch.equal(x, torch.tensor(6.9))
-    assert x.dtype == torch.float16
-    assert x.requires_grad is True
+        if rank == ranks_in_group:
+            src_rank = parallel_context.get_ranks_in_group(parallel_mode)[-1]
+            if rank == src_rank:
+                x = torch.tensor(6.9, dtype=torch.float32, requires_grad=True)
+            else:
+                x = torch.tensor(4.2, dtype=torch.float32)
+
+            broadcast(x, src=src_rank, parallel_context=parallel_context, parallel_mode=parallel_mode)
+
+            assert torch.equal(x, torch.tensor(6.9))
+            assert x.dtype == torch.float32
+            assert x.requires_grad is True
+
+    parallel_context.destroy()
+
+
+@pytest.mark.parametrize(
+    "world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 1, 1, 1), (8, 2, 2, 2)]
+)
+def test_broadcast(parallel_modes, world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    spawn(
+        run_broadcast,
+        nprocs=world_size,
+        parallel_modes=parallel_modes,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=data_parallel_size,
+    )
 
 
 @pytest.mark.skip(reason="not implemented")
