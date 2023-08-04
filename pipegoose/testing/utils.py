@@ -1,6 +1,7 @@
 import random
 import socket
 from functools import partial
+from typing import Callable
 
 import torch.multiprocessing as mp
 
@@ -17,7 +18,7 @@ def find_free_port(min_port: int = 2000, max_port: int = 65000) -> int:
             continue
 
 
-def spawn(func, nprocs: int = 1, **kwargs):
+def spawn(func: Callable, nprocs: int = 1, **kwargs):
     if kwargs.get("port") is None:
         port = find_free_port()
     else:
