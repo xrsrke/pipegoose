@@ -56,7 +56,7 @@ def init_tensor_parallel_group(
 def test_init_tensor_parallel_group(world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, groups):
     spawn(
         init_tensor_parallel_group,
-        nprocs=world_size,
+        world_size=world_size,
         host="localhost",
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,

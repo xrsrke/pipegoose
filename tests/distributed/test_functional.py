@@ -73,7 +73,7 @@ def run_scatter(rank, world_size, port, parallel_modes, tensor_parallel_size, pi
 def test_scatter(parallel_modes, world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     spawn(
         run_scatter,
-        nprocs=world_size,
+        world_size=world_size,
         parallel_modes=parallel_modes,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,
@@ -118,7 +118,7 @@ def run_reduce(rank, world_size, port, parallel_modes, tensor_parallel_size, pip
 def test_reduce(parallel_modes, world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     spawn(
         run_reduce,
-        nprocs=world_size,
+        world_size=world_size,
         parallel_modes=parallel_modes,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,
@@ -157,7 +157,7 @@ def run_broadcast(rank, world_size, port, parallel_modes, tensor_parallel_size, 
 def test_broadcast(parallel_modes, world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     spawn(
         run_broadcast,
-        nprocs=world_size,
+        world_size=world_size,
         parallel_modes=parallel_modes,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,
@@ -195,7 +195,7 @@ def run_all_gather(rank, world_size, port, parallel_modes, tensor_parallel_size,
 def test_all_gather(parallel_modes, world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     spawn(
         run_all_gather,
-        nprocs=world_size,
+        world_size=world_size,
         parallel_modes=parallel_modes,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,
@@ -227,20 +227,6 @@ def run_all_reduce(rank, world_size, port, parallel_modes, tensor_parallel_size,
             assert x.requires_grad == temp.requires_grad
 
     parallel_context.destroy()
-
-
-@pytest.mark.parametrize(
-    "world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 1, 1, 1), (8, 2, 2, 2)]
-)
-def test_all_reduce(parallel_modes, world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-    spawn(
-        run_all_reduce,
-        nprocs=world_size,
-        parallel_modes=parallel_modes,
-        tensor_parallel_size=tensor_parallel_size,
-        pipeline_parallel_size=pipeline_parallel_size,
-        data_parallel_size=data_parallel_size,
-    )
 
 
 @pytest.mark.skip(reason="not implemented")

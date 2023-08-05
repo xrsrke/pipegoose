@@ -68,7 +68,7 @@ def test_init_parallel_context(world_size, tensor_parallel_size, pipeline_parall
 
     spawn(
         init_parallel_context,
-        nprocs=world_size,
+        world_size=world_size,
         seed=SEED,
         backend=BACKEND,
         tensor_parallel_size=tensor_parallel_size,
