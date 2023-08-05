@@ -12,7 +12,7 @@ from pipegoose.nn.tensor_parallel.layers import (
     ParallelizeLinear,
 )
 
-# from pipegoose.distributed.mode import ParallelMode
+# from pipegoose.distributed.parallel_mode import ParallelMode
 
 
 # class ParallelizeModule(ABC):

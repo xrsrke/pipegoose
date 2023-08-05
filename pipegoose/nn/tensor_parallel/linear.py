@@ -4,8 +4,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from pipegoose.distributed.context import ParallelContext
-from pipegoose.distributed.mode import ParallelMode
+from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.distributed.parallel_mode import ParallelMode
 
 
 class ParallelLinear(nn.Module):
