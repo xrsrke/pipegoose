@@ -7,14 +7,20 @@ Honk honk honk! This project is actively under development. Check out my learnin
 
 ``` python
 from transformer import AutoModel, AutoTokenizer
-from pipegoose import Pipeline
+from pipegoose import Pipeline, ParallelContext
 
 model = AutoModel.from_pretrained("bloom")
 tokenizer = AutoTokenizer.from_pretrained("bloom")
 
-pipeline = Pipeline(model, tokenizer, partrition=partrition_func)
+parallel_context = ParallelContext(
+    tensor_parallel_size = 2,
+    pipeline_parallel_size = 2,
+    data_parallel_size = 2
+)
 
-pipeline.fit(dataloader, n_microbatches=16)
+pipeline = Pipeline(model, tokenizer, parallel_context)
+
+pipeline.fit(dataloader)
 ```
 
 **Implementation Details**
