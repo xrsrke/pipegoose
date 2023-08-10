@@ -13,9 +13,9 @@ model = AutoModel.from_pretrained("bloom")
 tokenizer = AutoTokenizer.from_pretrained("bloom")
 
 parallel_context = ParallelContext(
-    tensor_parallel_size = 2,
-    pipeline_parallel_size = 2,
-    data_parallel_size = 2
+    tensor_parallel_size=2,
+    pipeline_parallel_size=2,
+    data_parallel_size=2
 )
 
 pipeline = Pipeline(model, tokenizer, parallel_context)
