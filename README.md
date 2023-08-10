@@ -1,4 +1,4 @@
-# 🚧 PipeGoose: Pipeline Parallelism for transformers model - WIP
+# 🚧 PipeGoose: Train 🤗 `transformers` in 3D parallelism - WIP
 
 ![pipeline](parallelism-deepspeed-3d.png)
 
