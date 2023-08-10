@@ -1,6 +1,6 @@
 # 🚧 PipeGoose: Pipeline Parallelism for transformers model - WIP
 
-![pipeline](pipeline.png)
+![pipeline](parallelism-deepspeed-3d.png)
 
 Honk honk honk! This project is actively under development. Check out my learning progress [here](https://twitter.com/xariusrke/status/1667999818554413057).
 
@@ -20,6 +20,7 @@ pipeline.fit(dataloader, n_microbatches=16)
 **Implementation Details**
 
 - Supports training `transformers` model.
+- Supports ZeRO-1 and ZeRO-Offload.
 - Implements parallel compute and data transfer using separate CUDA streams.
 - Gradient checkpointing will be implemented by enforcing virtual dependency in the backpropagation graph, ensuring that the activation for gradient checkpoint will be recomputed just in time for each (micro-batch, partition).
 - Custom algorithms for model partitioning with two default partitioning models based on elapsed time and GPU memory consumption per layer.
