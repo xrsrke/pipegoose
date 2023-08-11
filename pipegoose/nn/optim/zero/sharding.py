@@ -26,8 +26,8 @@ class ParameterSharding:
                 sizes[next_rank] += param.numel()
 
             for rank, params in enumerate(param_lists):
-                params_group_rank = copy.copy(param_group)
-                params_group_rank["params"] = params
-                partition_parameters[rank].append(params_group_rank)
+                partitioned_param_group = copy.copy(param_group)
+                partitioned_param_group["params"] = params
+                partition_parameters[rank].append(partitioned_param_group)
 
         return partition_parameters
