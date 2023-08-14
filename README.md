@@ -1,6 +1,6 @@
 # 🚧 PipeGoose: Train 🤗 `transformers` in 3D parallelism - WIP
 
-![pipeline](parallelism-deepspeed-3d.png)
+![pipeline](3d-parallelism.png)
 
 Honk honk honk! This project is actively under development. Check out my learning progress [here](https://twitter.com/xariusrke/status/1667999818554413057).
 
