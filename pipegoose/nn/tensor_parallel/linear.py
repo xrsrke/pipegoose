@@ -37,10 +37,10 @@ class ParallelColumnLinear(nn.Module):
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         input_parallel = broadcast_tensor_1d(input, self.parallel_context)
-        outputs = F.linear(input_parallel, self.weight, self.bias)
+        outputs = F.linear(input_parallel, self.weight)
 
-        # if self.bias is True:
-        #     outputs = outputs + self.bias
+        if self.bias is True:
+            outputs = outputs + self.bias
 
         if self.gather_output:
             outputs = gather_tensor_1d(outputs, dim=-1, parallel_context=self.parallel_context)
