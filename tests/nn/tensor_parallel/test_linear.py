@@ -57,16 +57,21 @@ def run_parallel_column_linear(
             parallel_context=parallel_context,
         )
 
-        partition_size = params["weights"].shape[0] // local_world_size
+        partition_size = params["weight"].shape[0] // local_world_size
         partition_start, partition_end = local_rank * partition_size, (local_rank + 1) * partition_size
 
-        model.weight.data = params["weights"][partition_start:partition_end, :]
-        model.bias.data = params["biases"][partition_start:partition_end]
+        model.weight.data = params["weight"][partition_start:partition_end, :]
+        model.bias.data = params["bias"][partition_start:partition_end]
 
         parallel_outputs = model(inputs)
 
         assert parallel_outputs.shape == (batch_size, out_features)
         assert torch.allclose(parallel_outputs, outputs)
+
+        parallel_outputs.sum().backward()
+
+        assert torch.allclose(model.weight.grad, grads["weight"][local_rank])
+        assert torch.allclose(model.bias.grad, grads["bias"][local_rank])
 
 
 def test_parallel_column_linear():
@@ -81,13 +86,13 @@ def test_parallel_column_linear():
     outputs.sum().backward()
 
     params = {
-        "weights": model.weight.detach().requires_grad_(False),
-        "biases": model.bias.detach().requires_grad_(False),
+        "weight": model.weight.detach().requires_grad_(False),
+        "bias": model.bias.detach().requires_grad_(False),
     }
 
     grads = {
-        "weights": model.weight.grad.detach().requires_grad_(False),
-        "biases": model.bias.grad.detach().requires_grad_(False),
+        "weight": model.weight.grad.detach().requires_grad_(False),
+        "bias": model.bias.grad.detach().requires_grad_(False),
     }
 
     spawn(
