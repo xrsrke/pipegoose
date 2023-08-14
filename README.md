@@ -35,3 +35,7 @@ pipeline.fit(dataloader)
     - Mixed precision training.
     - Elastic training
     - Fault-tolerance
+
+**Appreciation**
+
+Big thanks to 🤗 [Hugging Face](https://huggingface.co/) for sponsoring this project with 8x A100 GPUs for testing!
