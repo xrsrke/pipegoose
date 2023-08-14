@@ -19,6 +19,7 @@ def test_shard_optimizer_states():
     model = AutoModel.from_pretrained("gpt2")
     optim = SGD(model.parameters(), lr=0.01)
     param_groups = optim.param_groups
+    # COPY_OF_PARAM_GROUPS = deepcopy(param_groups)
 
     sharder = ParameterSharding(param_groups, parallel_context)
     sharded_params = sharder.shard()
