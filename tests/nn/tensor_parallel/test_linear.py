@@ -4,7 +4,7 @@ from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.tensor_parallel.linear import ParallelColumnLinear, RowParallelLinear
+from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
 from pipegoose.testing.utils import spawn
 
 
@@ -50,7 +50,7 @@ def run_parallel_column_linear(
     if local_rank in ranks_in_group:
         local_world_size = parallel_context.get_world_size(parallel_mode=ParallelMode.TENSOR)
 
-        model = ParallelColumnLinear(
+        model = ColumnParallelLinear(
             in_features,
             out_features,
             bias=True,

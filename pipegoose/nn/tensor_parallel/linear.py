@@ -14,7 +14,7 @@ from pipegoose.nn.tensor_parallel._operations import (
 )
 
 
-class ParallelColumnLinear(nn.Module):
+class ColumnParallelLinear(nn.Module):
     def __init__(
         self,
         in_features: int,
