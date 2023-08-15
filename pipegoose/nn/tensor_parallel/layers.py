@@ -6,27 +6,6 @@ from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 
 
-class ColumnParallelLinear(nn.Module):
-    pass
-
-
-class RowParallelLinear(nn.Module):
-    pass
-
-
-class ParallelMLP(nn.Module):
-    def __init__(self, parallel_context: ParallelContext):
-        super().__init__()
-        # world_size = parallel_context.get_world_size()
-        self.dense_h_to_4h = ColumnParallelLinear()
-        self.dense_4h_to_h = RowParallelLinear()
-        self.activation_func = nn.GELU()
-
-
-class ParallelTransformer(nn.Module):
-    pass
-
-
 class ParallelizeModule(ABC):
     def __init__(self, module: nn.Module, parallel_context: ParallelContext):
         self.module = module
@@ -74,8 +53,4 @@ class ParallelizeEmbedding(ParallelizeModule):
 
 
 class ParallelizeLayerNorm(ParallelizeModule):
-    pass
-
-
-class ParallelizeAttention(ParallelizeModule):
     pass
