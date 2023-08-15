@@ -1,9 +1,10 @@
+import pytest
 import torch
 from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.tensor_parallel.linear import ParallelColumnLinear
+from pipegoose.nn.tensor_parallel.linear import ParallelColumnLinear, RowParallelLinear
 from pipegoose.testing.utils import spawn
 
 
@@ -74,7 +75,58 @@ def run_parallel_column_linear(
         assert torch.allclose(model.bias.grad, grads["bias"][local_rank])
 
 
-def test_parallel_column_linear():
+def run_parallel_row_linear(
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    batch_size,
+    in_features,
+    out_features,
+    inputs,
+    outputs,
+    params,
+    grads,
+):
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
+    local_rank = parallel_context.get_local_rank(parallel_mode=ParallelMode.TENSOR)
+    ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode=ParallelMode.TENSOR)
+
+    if local_rank in ranks_in_group:
+        local_world_size = parallel_context.get_world_size(parallel_mode=ParallelMode.TENSOR)
+
+        model = RowParallelLinear(
+            in_features,
+            out_features,
+            bias=True,
+            parallel_context=parallel_context,
+        )
+
+        partition_size = params["weight"].shape[1] // local_world_size
+        partition_start, partition_end = local_rank * partition_size, (local_rank + 1) * partition_size
+
+        model.weight.data = params["weight"][:, partition_start:partition_end]
+        model.bias.data = params["bias"]
+
+        parallel_outputs = model(inputs)
+
+        assert parallel_outputs.shape == outputs.shape
+        assert torch.allclose(parallel_outputs, outputs)
+
+        parallel_outputs.sum().backward()
+
+        weight_grad_chunks = torch.split(grads["weight"], partition_size, dim=1)
+
+        assert torch.allclose(model.weight.grad, weight_grad_chunks[local_rank])
+        assert torch.allclose(model.bias.grad, grads["bias"])
+
+
+@pytest.mark.parametrize("run_linear", [run_parallel_column_linear, run_parallel_row_linear])
+def test_parallel_linear(run_linear):
     batch_size = 5
     in_features = 10
     out_features = 20
@@ -96,11 +148,11 @@ def test_parallel_column_linear():
     }
 
     spawn(
-        run_parallel_column_linear,
-        world_size=8,
+        run_linear,
+        world_size=2,
         tensor_parallel_size=2,
-        pipeline_parallel_size=2,
-        data_parallel_size=2,
+        pipeline_parallel_size=1,
+        data_parallel_size=1,
         batch_size=batch_size,
         in_features=in_features,
         out_features=out_features,
