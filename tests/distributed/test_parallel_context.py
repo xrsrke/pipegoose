@@ -11,6 +11,44 @@ skip_if_no_cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA
 backend = ["gloo", pytest.param("nccl", marks=skip_if_no_cuda)]
 
 
+# map local rank to next rank based in [world_size][parallel_mode][local_rank]
+LOCAL_RANK_TO_NEXT_RANK = {
+    1: {
+        ParallelMode.TENSOR: {0: 0},
+        ParallelMode.PIPELINE: {0: 0},
+        ParallelMode.DATA: {0: 0},
+        ParallelMode.GLOBAL: {0: 0},
+    },
+    8: {
+        ParallelMode.TENSOR: {0: 1, 1: 0},
+        ParallelMode.PIPELINE: {
+            0: 1,
+            1: 0,
+        },
+        ParallelMode.DATA: {0: 1, 1: 0},
+        ParallelMode.GLOBAL: {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 0},
+    },
+}
+
+LOCAL_RANK_TO_PREV_RANK = {
+    1: {
+        ParallelMode.TENSOR: {0: 0},
+        ParallelMode.PIPELINE: {0: 0},
+        ParallelMode.DATA: {0: 0},
+        ParallelMode.GLOBAL: {0: 0},
+    },
+    8: {
+        ParallelMode.TENSOR: {0: 1, 1: 0},
+        ParallelMode.PIPELINE: {
+            0: 1,
+            1: 0,
+        },
+        ParallelMode.DATA: {0: 1, 1: 0},
+        ParallelMode.GLOBAL: {0: 7, 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6},
+    },
+}
+
+
 def init_parallel_context(
     rank, world_size, seed, backend, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
 ):
@@ -42,6 +80,8 @@ def init_parallel_context(
     assert parallel_context.get_global_rank() == rank
 
     for parallel_mode in parallel_modes:
+        local_rank = parallel_context.get_local_rank(parallel_mode)
+
         if parallel_mode is ParallelMode.GLOBAL:
             assert parallel_context.is_initialized(parallel_mode) is True
             assert isinstance(parallel_context.get_group(parallel_mode), ProcessGroup)
@@ -52,6 +92,15 @@ def init_parallel_context(
         assert type(parallel_context.get_local_rank(parallel_mode)) == int
         assert type(parallel_context.get_world_size(parallel_mode)) == int
         assert isinstance(parallel_context.get_ranks_in_group(parallel_mode), list)
+
+        assert isinstance(parallel_context.get_next_local_rank(local_rank, parallel_mode), int)
+        assert isinstance(parallel_context.get_prev_local_rank(local_rank, parallel_mode), int)
+
+        next_local_rank = parallel_context.get_next_local_rank(local_rank, parallel_mode)
+        assert next_local_rank == LOCAL_RANK_TO_NEXT_RANK[world_size][parallel_mode][local_rank]
+
+        prev_local_rank = parallel_context.get_prev_local_rank(local_rank, parallel_mode)
+        assert prev_local_rank == LOCAL_RANK_TO_PREV_RANK[world_size][parallel_mode][local_rank]
 
     parallel_context.destroy()
 

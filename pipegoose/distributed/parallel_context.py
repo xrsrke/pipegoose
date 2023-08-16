@@ -232,6 +232,14 @@ class ParallelContext:
         # return self._ranks_in_group[parallel_mode]
         return dist.get_process_group_ranks(self._groups[parallel_mode])
 
+    def get_next_local_rank(self, rank, parallel_mode: ParallelMode) -> int:
+        world_size = self.get_world_size(parallel_mode)
+        return (rank + 1) % world_size
+
+    def get_prev_local_rank(self, rank, parallel_mode: ParallelMode) -> int:
+        world_size = self.get_world_size(parallel_mode)
+        return (rank - 1) % world_size
+
     def destroy(self):
         assert self.is_initialized(ParallelMode.GLOBAL), "Global group must be initialized before destroying."
         for mode, group in self._groups.items():
