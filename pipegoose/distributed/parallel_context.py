@@ -229,7 +229,6 @@ class ParallelContext:
         self._ranks_in_group[parallel_mode] = ranks_in_group
 
     def get_ranks_in_group(self, parallel_mode: ParallelMode) -> List[int]:
-        # return self._ranks_in_group[parallel_mode]
         return dist.get_process_group_ranks(self._groups[parallel_mode])
 
     def get_next_local_rank(self, rank, parallel_mode: ParallelMode) -> int:
