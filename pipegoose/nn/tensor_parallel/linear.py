@@ -9,7 +9,7 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel._operations import (
     broadcast_tensor_1d,
     gather_tensor_1d,
-    reduce_tensor_1d,
+    reduce,
     scatter_tensor_1d,
 )
 
@@ -77,7 +77,7 @@ class RowParallelLinear(nn.Module):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         input_parallel = scatter_tensor_1d(input, dim=-1, parallel_context=self.parallel_context)
         output_parallel = F.linear(input_parallel, self.weight)
-        outputs = reduce_tensor_1d(output_parallel, parallel_context=self.parallel_context)
+        outputs = reduce(output_parallel, parallel_context=self.parallel_context)
 
         if self.bias is not None:
             outputs = outputs + self.bias

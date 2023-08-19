@@ -87,5 +87,5 @@ def scatter_tensor_1d(input, dim, parallel_context):
     return _Scatter.apply(input, dim, parallel_context)
 
 
-def reduce_tensor_1d(input, parallel_context):
+def reduce(input, parallel_context):
     return _Reduce.apply(input, parallel_context)
