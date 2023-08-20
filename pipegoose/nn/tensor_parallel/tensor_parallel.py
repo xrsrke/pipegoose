@@ -78,6 +78,11 @@ class TensorParallel:
                 paralleler[name](module, self.parallel_context).parallelize()
 
     def _parallelize_embedding(self):
+        for module_name, module in self.module.named_modules():
+            if isinstance(module, nn.Embedding):
+                pass
+
+    def _parallelize_linear(self):
         pass
 
     def _parallize_layernorm(self):
