@@ -6,21 +6,6 @@ import torch.distributed as dist
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 
-# class DataType(Enum):
-#     torch.bfloat16 = auto()
-#     torch.float16 = auto()
-#     torch.float32 = auto()
-#     torch.float64 = auto()
-
-#     torch.uint8 = auto()
-#     torch.int = auto()
-#     torch.int16 = auto()
-#     torch.int32 = auto()
-#     torch.int64 = auto()
-
-#     torch.bool = auto()
-
-
 ID_TO_DTYPE = [
     torch.bfloat16,
     torch.float16,
