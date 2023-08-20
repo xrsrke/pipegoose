@@ -131,3 +131,11 @@ def all_reduce(
 
 def reduce_scatter():
     pass
+
+
+def send():
+    pass
+
+
+def recv():
+    pass

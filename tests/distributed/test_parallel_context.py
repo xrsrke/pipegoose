@@ -93,9 +93,6 @@ def init_parallel_context(
         assert type(parallel_context.get_world_size(parallel_mode)) == int
         assert isinstance(parallel_context.get_ranks_in_group(parallel_mode), list)
 
-        assert isinstance(parallel_context.get_next_local_rank(local_rank, parallel_mode), int)
-        assert isinstance(parallel_context.get_prev_local_rank(local_rank, parallel_mode), int)
-
         next_local_rank = parallel_context.get_next_local_rank(local_rank, parallel_mode)
         assert next_local_rank == LOCAL_RANK_TO_NEXT_RANK[world_size][parallel_mode][local_rank]
 
