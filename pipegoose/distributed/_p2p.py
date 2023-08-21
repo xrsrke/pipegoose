@@ -23,11 +23,6 @@ DTYPE_TO_ID = {dtype: idx for idx, dtype in enumerate(ID_TO_DTYPE)}
 
 
 class _P2P:
-    """
-    Inpsired from OSLO
-    Their implementation is just so good.
-    """
-
     def __init__(self):
         self._INSTRUCTIONS = {
             torch.Tensor: {"send": self._send_tensor, "recv": self._recv_tensor},
