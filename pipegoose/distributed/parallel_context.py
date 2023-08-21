@@ -4,6 +4,7 @@ from typing import List, Literal
 
 import torch
 import torch.distributed as dist
+import torch.distributed.rpc as rpc
 
 from pipegoose.distributed._initializers.initialize_data import (
     DataParallelGroupInitializer,
@@ -17,6 +18,9 @@ from pipegoose.distributed._initializers.initialize_tensor import (
 from pipegoose.distributed.parallel_mode import ParallelMode
 
 DistributedBackend = Literal["gloo", "mpi", "nccl"]
+
+
+WORKER_NAME = "WORKER_{}"
 
 
 class ParallelContext:
@@ -102,6 +106,10 @@ class ParallelContext:
         if torch.cuda.is_available():
             self.set_device()
 
+        self.rpc_worker_map = {rank: WORKER_NAME.format(rank) for rank in self.get_ranks_in_group(ParallelMode.GLOBAL)}
+        # TODO: add initialize from torch launcher
+        self.init_rpc_workers(host, port)
+
         # self.set_seed(seed)
 
     def init_global_dist(self, rank: int, world_size: int, backend: DistributedBackend, host: str, port: int):
@@ -153,6 +161,18 @@ class ParallelContext:
 
         for result in results:
             self._register_dist(**result)
+
+    def init_rpc_workers(self, host: str, port: int):
+        if self.pipeline_parallel_size > 1:
+            init_method = f"tcp://{host}:{port}"
+            options = rpc.TensorPipeRpcBackendOptions(
+                init_method=init_method,
+            )
+
+            rank = self.get_global_rank()
+            world_size = self.get_world_size(ParallelMode.GLOBAL)
+
+            rpc.init_rpc(name=self.rpc_worker_map[rank], rank=rank, world_size=world_size, rpc_backend_options=options)
 
     def _register_dist(
         self,
@@ -249,5 +269,6 @@ class ParallelContext:
 
         dist.barrier()
         dist.destroy_process_group()
+        rpc.shutdown()
 
         self._groups.clear()
