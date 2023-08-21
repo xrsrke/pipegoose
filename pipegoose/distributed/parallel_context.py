@@ -170,10 +170,11 @@ class ParallelContext:
             )
 
             rank = self.get_global_rank()
+            ranks = self.get_ranks_in_group(ParallelMode.GLOBAL)
             world_size = self.get_world_size(ParallelMode.GLOBAL)
 
             if torch.cuda.is_available():
-                for _rank in self.get_ranks_in_group(ParallelMode.GLOBAL):
+                for _rank in ranks:
                     if _rank == rank:
                         continue
                     options.set_device_map(WORKER_NAME.format(_rank), {rank: _rank})
