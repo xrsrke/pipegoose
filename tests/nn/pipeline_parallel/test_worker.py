@@ -7,6 +7,7 @@ import torch
 from pipegoose.nn.pipeline_parallel._worker import spawn_worker
 
 
+# TODO: write this test
 @pytest.mark.skip
 def test_spawn_worker_with_non_task():
     DEVICES = [torch.device("cpu"), torch.device("cpu")]
