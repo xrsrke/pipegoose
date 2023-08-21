@@ -3,7 +3,7 @@ from typing import List
 import torch
 from torch import nn
 
-from pipegoose.partrition import BasePartitioner
+from pipegoose.nn.pipeline_parallel.partrition import BasePartitioner
 
 
 class GPipe:

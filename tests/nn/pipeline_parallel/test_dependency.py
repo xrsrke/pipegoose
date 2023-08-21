@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from pipegoose.dependency import create_backward_dependency
+from pipegoose.nn.pipeline_parallel._dependency import create_backward_dependency
 
 
 def test_create_dependency():
@@ -45,7 +45,10 @@ def test_create_dependency():
 
 
 def test_fork_join_enable_grad():
-    from pipegoose.dependency import EndDependency, StartDependency
+    from pipegoose.nn.pipeline_parallel._dependency import (
+        EndDependency,
+        StartDependency,
+    )
 
     x = torch.rand(1, requires_grad=True)
 

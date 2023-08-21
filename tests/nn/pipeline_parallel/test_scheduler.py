@@ -1,6 +1,6 @@
 import pytest
 
-from pipegoose.scheduler import DetermisticScheduler
+from pipegoose.nn.pipeline_parallel.scheduler import DetermisticScheduler
 
 
 @pytest.mark.parametrize(

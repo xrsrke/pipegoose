@@ -1,7 +1,7 @@
 from enum import Enum, auto
 from typing import Any, Callable
 
-from pipegoose.microbatch import Batch
+from pipegoose.nn.pipeline_parallel.microbatch import Batch
 
 
 class BaseTask:

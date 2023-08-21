@@ -1,4 +1,4 @@
-from pipegoose.task import Task
+from pipegoose.nn.pipeline_parallel._task import Task
 
 
 def test_task():

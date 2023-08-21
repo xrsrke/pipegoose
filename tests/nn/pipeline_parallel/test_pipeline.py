@@ -3,7 +3,7 @@ import time
 import torch
 from torch import nn
 
-from pipegoose.pipeline import Pipeline
+from pipegoose.nn.pipeline_parallel._pipeline import Pipeline
 
 
 class TestPipeline:

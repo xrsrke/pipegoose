@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch import nn
 
-from pipegoose.gpipe import GPipe
+from pipegoose.nn.pipeline_parallel.gpipe import GPipe
 
 
 @pytest.mark.skip

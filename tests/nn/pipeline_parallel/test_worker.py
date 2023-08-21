@@ -4,7 +4,7 @@ import time
 import pytest
 import torch
 
-from pipegoose.worker import spawn_worker
+from pipegoose.nn.pipeline_parallel._worker import spawn_worker
 
 
 @pytest.mark.skip

@@ -5,7 +5,7 @@ from typing import List
 import torch
 from torch import nn
 
-from pipegoose.batch import Batch
+from pipegoose.nn.pipeline_parallel.batch import Batch
 
 
 class BasePartitioner(ABC):

@@ -2,7 +2,7 @@ from typing import Tuple
 
 import torch
 
-from pipegoose.stream import (
+from pipegoose.nn.pipeline_parallel.stream import (
     StreamType,
     default_stream,
     get_device,

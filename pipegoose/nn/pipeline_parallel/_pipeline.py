@@ -4,10 +4,10 @@ from typing import List, Optional, Tuple
 import torch
 from torch import nn
 
-from pipegoose.dependency import create_backward_dependency
-from pipegoose.microbatch import Batch
-from pipegoose.scheduler import BaseScheduler, DetermisticScheduler
-from pipegoose.worker import Task, spawn_worker
+from pipegoose.nn.pipeline_parallel._dependency import create_backward_dependency
+from pipegoose.nn.pipeline_parallel._worker import Task, spawn_worker
+from pipegoose.nn.pipeline_parallel.microbatch import Batch
+from pipegoose.nn.pipeline_parallel.scheduler import BaseScheduler, DetermisticScheduler
 
 
 class Pipeline:
