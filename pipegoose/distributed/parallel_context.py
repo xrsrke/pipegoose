@@ -269,6 +269,8 @@ class ParallelContext:
 
         dist.barrier()
         dist.destroy_process_group()
-        rpc.shutdown()
+
+        if self.pipeline_parallel_size > 1:
+            rpc.shutdown()
 
         self._groups.clear()

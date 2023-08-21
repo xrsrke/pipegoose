@@ -79,6 +79,7 @@ def init_parallel_context(
     assert parallel_context.data_parallel_size == data_parallel_size
 
     assert parallel_context.get_global_rank() == rank
+
     if pipeline_parallel_size > 1:
         assert rpc._is_current_rpc_agent_set() is True
 
