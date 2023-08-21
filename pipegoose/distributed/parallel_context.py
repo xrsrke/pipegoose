@@ -172,6 +172,12 @@ class ParallelContext:
             rank = self.get_global_rank()
             world_size = self.get_world_size(ParallelMode.GLOBAL)
 
+            if torch.cuda.is_available():
+                for _rank in self.get_ranks_in_group(ParallelMode.GLOBAL):
+                    if _rank == rank:
+                        continue
+                    options.set_device_map(WORKER_NAME.format(_rank), {rank: _rank})
+
             rpc.init_rpc(name=self.rpc_worker_map[rank], rank=rank, world_size=world_size, rpc_backend_options=options)
 
     def _register_dist(
