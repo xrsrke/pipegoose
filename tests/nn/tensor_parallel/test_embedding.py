@@ -9,7 +9,7 @@ from pipegoose.testing.utils import spawn
 
 
 def run_parallel_embedding(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, input, output, weight
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, input, output, weight, grads
 ):
     parallel_context = ParallelContext(
         rank=rank,
@@ -33,16 +33,20 @@ def run_parallel_embedding(
         EMBEDDING_DIM = weight.shape[1]
         parallel_embedding = ParallelEmbedding(NUM_EMBEDDING, EMBEDDING_DIM, parallel_context=parallel_context)
 
-        def get_partition_weight(weight):
+        def get_partition(x):
             local_world_size = parallel_context.get_world_size(parallel_mode=ParallelMode.TENSOR)
             num_embeddings_per_partition = NUM_EMBEDDING // local_world_size
-            chunks = torch.split(weight, num_embeddings_per_partition, dim=0)
+            chunks = torch.split(x, num_embeddings_per_partition, dim=0)
             return chunks[local_rank]
 
-        parallel_embedding.weight.data = get_partition_weight(weight)
+        parallel_embedding.weight.data = get_partition(weight)
         parallel_output = parallel_embedding(input)
 
         assert torch.allclose(parallel_output, output)
+
+        parallel_output.sum().backward()
+
+        assert torch.allclose(parallel_embedding.weight.grad.data, get_partition(grads))
 
 
 def test_parallel_embedding():
@@ -53,6 +57,8 @@ def test_parallel_embedding():
     embedding = nn.Embedding(NUM_EMBEDDING, EMBEDDING_DIM)
     weight = deepcopy(embedding.weight.data)
     output = embedding(input)
+    output.sum().backward()
+    grads = deepcopy(embedding.weight.grad.data)
 
     spawn(
         run_parallel_embedding,
@@ -63,4 +69,5 @@ def test_parallel_embedding():
         input=input.detach(),
         output=output.detach(),
         weight=weight.detach(),
+        grads=grads.detach(),
     )
