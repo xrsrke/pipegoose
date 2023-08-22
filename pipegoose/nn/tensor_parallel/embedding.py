@@ -6,7 +6,7 @@ from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.tensor_parallel._operations import reduce
+from pipegoose.nn.tensor_parallel._operations import reduce_to_tensor_group
 
 
 class ParallelEmbedding(nn.Module):
@@ -45,6 +45,6 @@ class ParallelEmbedding(nn.Module):
         if self.world_size > 1:
             parallel_output[input_mask, :] = 0.0
 
-        output = reduce(parallel_output, parallel_context=self.parallel_context)
+        output = reduce_to_tensor_group(parallel_output, parallel_context=self.parallel_context)
 
         return output

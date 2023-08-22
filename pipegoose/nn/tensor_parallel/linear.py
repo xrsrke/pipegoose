@@ -7,10 +7,10 @@ from torch import nn
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel._operations import (
-    broadcast_tensor_1d,
-    gather_tensor_1d,
-    reduce,
-    scatter_tensor_1d,
+    broadcast_to_tensor_group,
+    gather_to_tensor_group,
+    reduce_to_tensor_group,
+    scatter_to_tensor_group,
 )
 
 
@@ -38,14 +38,14 @@ class ColumnParallelLinear(nn.Module):
         return out_features // local_world_size
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        input_parallel = broadcast_tensor_1d(input, self.parallel_context)
+        input_parallel = broadcast_to_tensor_group(input, self.parallel_context)
         outputs = F.linear(input_parallel, self.weight)
 
         if self.bias is not None:
             outputs = outputs + self.bias
 
         if self.gather_output:
-            outputs = gather_tensor_1d(outputs, dim=-1, parallel_context=self.parallel_context)
+            outputs = gather_to_tensor_group(outputs, dim=-1, parallel_context=self.parallel_context)
 
         return outputs
 
@@ -75,9 +75,9 @@ class RowParallelLinear(nn.Module):
         return in_features // local_world_size
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        input_parallel = scatter_tensor_1d(input, dim=-1, parallel_context=self.parallel_context)
+        input_parallel = scatter_to_tensor_group(input, dim=-1, parallel_context=self.parallel_context)
         output_parallel = F.linear(input_parallel, self.weight)
-        outputs = reduce(output_parallel, parallel_context=self.parallel_context)
+        outputs = reduce_to_tensor_group(output_parallel, parallel_context=self.parallel_context)
 
         if self.bias is not None:
             outputs = outputs + self.bias

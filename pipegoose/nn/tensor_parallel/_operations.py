@@ -75,17 +75,17 @@ class _Reduce(Function):
         return (grad, None)
 
 
-def broadcast_tensor_1d(input: torch.Tensor, parallel_context: ParallelContext):
+def broadcast_to_tensor_group(input: torch.Tensor, parallel_context: ParallelContext):
     return _Broadcast.apply(input, parallel_context)
 
 
-def gather_tensor_1d(input: torch.Tensor, dim: int, parallel_context: ParallelContext):
+def gather_to_tensor_group(input: torch.Tensor, dim: int, parallel_context: ParallelContext):
     return _Gather.apply(input, dim, parallel_context)
 
 
-def scatter_tensor_1d(input, dim, parallel_context):
+def scatter_to_tensor_group(input, dim, parallel_context):
     return _Scatter.apply(input, dim, parallel_context)
 
 
-def reduce(input, parallel_context):
+def reduce_to_tensor_group(input, parallel_context):
     return _Reduce.apply(input, parallel_context)
