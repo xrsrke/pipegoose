@@ -1,9 +1,11 @@
 from copy import deepcopy
 
+import pytest
 import torch
 from torch import nn
 
-from pipegoose.distributed.parallel_context import ParallelContext, ParallelMode
+from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
 from pipegoose.testing.utils import spawn
 
@@ -49,7 +51,8 @@ def run_parallel_embedding(
         assert torch.allclose(parallel_embedding.weight.grad.data, get_partition(grads))
 
 
-def test_parallel_embedding():
+@pytest.mark.parametrize("tensor_parallel_size", [1, 2])
+def test_parallel_embedding(tensor_parallel_size):
     NUM_EMBEDDING = 100
     EMBEDDING_DIM = 10
 
@@ -62,8 +65,8 @@ def test_parallel_embedding():
 
     spawn(
         run_parallel_embedding,
-        world_size=2,
-        tensor_parallel_size=2,
+        world_size=tensor_parallel_size,
+        tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=1,
         data_parallel_size=1,
         input=input.detach(),

@@ -23,6 +23,7 @@ class ParallelEmbedding(nn.Module):
         self.vocab_start_idx, self.vocab_end_idx = self._get_vocab_range_idx(
             num_embeddings, parallel_context.get_local_rank(ParallelMode.TENSOR), world_size
         )
+        self.world_size = world_size
 
     def _get_vocab_range_idx(self, num_embeddings: int, rank: int, world_size: int) -> Tuple[int, int]:
         num_embeddings_per_partition = num_embeddings // world_size
@@ -31,14 +32,18 @@ class ParallelEmbedding(nn.Module):
         return start_idx, end_idx
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        # TODO: handle if world_size == 1
-        input_mask = (input < self.vocab_start_idx) | (input >= self.vocab_end_idx)
-        # align global embedding indices to local embedding indices
-        masked_input = input.clone() - self.vocab_start_idx
-        masked_input[input_mask] = 0
+        if self.world_size > 1:
+            input_mask = (input < self.vocab_start_idx) | (input >= self.vocab_end_idx)
+            # align global embedding indices to local embedding indices
+            masked_input = input.clone() - self.vocab_start_idx
+            masked_input[input_mask] = 0
+        else:
+            masked_input = input
 
         parallel_output = F.embedding(masked_input, self.weight)
-        parallel_output[input_mask, :] = 0.0
+
+        if self.world_size > 1:
+            parallel_output[input_mask, :] = 0.0
 
         output = reduce(parallel_output, parallel_context=self.parallel_context)
 
