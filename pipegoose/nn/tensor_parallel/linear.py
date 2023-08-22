@@ -6,7 +6,7 @@ from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.tensor_parallel._operations import (
+from pipegoose.nn.tensor_parallel._functional import (
     broadcast_to_tensor_group,
     gather_to_tensor_group,
     reduce_to_tensor_group,

@@ -67,6 +67,7 @@ def run_parallel_column_linear(
         parallel_outputs = model(inputs)
 
         assert parallel_outputs.shape == (batch_size, out_features)
+        # NOTE: sometimes it's not equal due to small relative differences (rtol)
         assert torch.allclose(parallel_outputs, outputs)
 
         parallel_outputs.sum().backward()

@@ -6,7 +6,7 @@ from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.tensor_parallel._operations import reduce_to_tensor_group
+from pipegoose.nn.tensor_parallel._functional import reduce_to_tensor_group
 
 
 class ParallelEmbedding(nn.Module):
