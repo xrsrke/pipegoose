@@ -350,6 +350,17 @@ files = [
 ]
 
 [[package]]
+name = "einops"
+version = "0.6.1"
+description = "A new flavour of deep learning operations"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "einops-0.6.1-py3-none-any.whl", hash = "sha256:99149e46cc808956b174932fe563d920db4d6e5dadb8c6ecdaa7483b7ef7cfc3"},
+    {file = "einops-0.6.1.tar.gz", hash = "sha256:f95f8d00f4ded90dbc4b19b6f98b177332614b0357dde66997f3ae5d474dc8c8"},
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.1.1"
 description = "Backport of PEP 654 (exception groups)"
@@ -2079,4 +2090,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "35780c34961ad87791db50975a42136e2d5eb2117a542c987ea80818de3c4ab1"
+content-hash = "911416d0e7cef05b4e5391b021573486d28a443a5c9e39e8ffa5d8bdada56a73"

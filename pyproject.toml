@@ -16,6 +16,7 @@ mkdocs = "^1.4.3"
 mkdocstrings = "^0.22.0"
 mkdocs-material = "^9.1.16"
 pytest-order = "^1.1.0"
+einops = "^0.6.1"
 
 
 [tool.poetry.group.dev.dependencies]
