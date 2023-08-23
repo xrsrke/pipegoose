@@ -38,4 +38,4 @@ pipeline.fit(dataloader)
 
 **Appreciation**
 
-Big thanks to 🤗 [Hugging Face](https://huggingface.co/) for sponsoring this project with 8x A100 GPUs for testing!
+Big thanks to 🤗 [Hugging Face](https://huggingface.co/) for sponsoring this project with 8x A100 GPUs for testing! And [https://twitter.com/zach_schrier](Zach Schrier) for monthly twitch donations
