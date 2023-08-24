@@ -1,7 +1,7 @@
 from torch.optim import SGD
 from transformers import AutoModel
 
-from pipegoose.nn.optim.zero.sharding import ParameterSharding
+from pipegoose.optim.zero.sharding import ParameterSharding
 
 
 class FakeParalellContext:

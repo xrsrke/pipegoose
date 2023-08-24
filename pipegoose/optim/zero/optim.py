@@ -5,8 +5,8 @@ from torch import nn
 from torch.optim import Optimizer
 
 from pipegoose.distributed.parallel_context import ParallelContext
-from pipegoose.nn.optim import DistributedOptimizer
-from pipegoose.nn.optim.zero.sharding import ParameterSharding
+from pipegoose.optim import DistributedOptimizer
+from pipegoose.optim.zero.sharding import ParameterSharding
 
 
 class ZeroRedundancyOptimizer(DistributedOptimizer):
