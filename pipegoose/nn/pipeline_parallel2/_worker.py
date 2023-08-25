@@ -1,12 +1,9 @@
-from abc import ABC, abstractclassmethod
 from queue import Queue
 from threading import Thread
 from typing import Callable, List
 
+from pipegoose.constants import PIPELINE_MAX_WORKERS, PIPELINE_MIN_WORKERS
 from pipegoose.nn.pipeline_parallel2._utils import sleep
-
-_MIN_WORKERS = 16
-_MAX_WORKERS = 32
 
 
 class Worker(Thread):
@@ -22,6 +19,7 @@ class Worker(Thread):
 
     def run(self):
         while True:
+            # TODO: separate alive and running
             job = self._selected_jobs.get()
             # self._running = True
 
@@ -74,30 +72,12 @@ class JobSelector(Thread):
             return job
 
 
-class BaseWorkerManager(ABC, Thread):
-    @abstractclassmethod
-    def pending_jobs(self):
-        raise NotImplementedError("not implemented")
-
-    @abstractclassmethod
-    def selected_jobs(self):
-        raise NotImplementedError("not implemented")
-
-    @abstractclassmethod
-    def worker_pool(self):
-        raise NotImplementedError("not implemented")
-
-    @abstractclassmethod
-    def spawn(self):
-        raise NotImplementedError("not implemented")
-
-
-class WorkerManager(BaseWorkerManager):
+class WorkerManager(Thread):
     def __init__(
         self,
-        num_workers: int = _MIN_WORKERS,
-        min_workers: int = _MIN_WORKERS,
-        max_workers: int = _MAX_WORKERS,
+        num_workers: int = PIPELINE_MIN_WORKERS,
+        min_workers: int = PIPELINE_MIN_WORKERS,
+        max_workers: int = PIPELINE_MAX_WORKERS,
         pending_jobs: Queue = Queue(),
         selected_jobs: Queue = Queue(),
     ):
@@ -155,7 +135,7 @@ class WorkerManager(BaseWorkerManager):
         self._spawn_pool_watcher()
 
     def destroy(self):
+        # TODO: fix this
         for worker in self.worker_pool:
             worker.join()
-
         # self.worker_pool.remove(worker)
