@@ -59,13 +59,13 @@ def run_broadcast(rank, world_size, port, parallel_modes, tensor_parallel_size, 
         ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode)
 
         if rank == ranks_in_group:
-            src_rank = parallel_context.get_ranks_in_group(parallel_mode)[-1]
-            if rank == src_rank:
+            src = parallel_context.get_ranks_in_group(parallel_mode)[-1]
+            if rank == src:
                 x = torch.tensor(6.9, dtype=torch.float32, requires_grad=True)
             else:
                 x = torch.tensor(4.2, dtype=torch.float32)
 
-            # Broadcast.apply(x, src=src_rank, parallel_context=parallel_context, parallel_mode=parallel_mode)
+            # Broadcast.apply(x, src=src, parallel_context=parallel_context, parallel_mode=parallel_mode)
 
             assert torch.equal(x, torch.tensor(6.9))
             assert x.dtype == torch.float32

@@ -29,9 +29,9 @@ def run_p2p(rank, world_size, port, pipeline_parallel_size):
     rank = parallel_context.get_local_rank(parallel_mode=ParallelMode.PIPELINE)
 
     data = torch.tensor([1.0, 2.0, 3.0], requires_grad=True, dtype=torch.float)
-    send(data, src_rank=0, dst_rank=1, parallel_context=parallel_context)
+    send(data, src=0, dst=1, parallel_context=parallel_context)
 
-    received_data = recv(src_rank=0, dst_rank=1, parallel_context=parallel_context)
+    received_data = recv(src=0, dst=1, parallel_context=parallel_context)
 
     if rank == 1:
         assert torch.allclose(data, received_data)

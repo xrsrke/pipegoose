@@ -136,17 +136,17 @@ def reduce_scatter():
 
 def send(
     data: Any,
-    src_rank: int,
-    dst_rank: int,
+    src: int,
+    dst: int,
     parallel_context: ParallelContext,
     parallel_mode: ParallelMode = ParallelMode.PIPELINE,
 ):
-    if src_rank == parallel_context.get_local_rank(parallel_mode):
-        _P2P().send(data, dst_rank, parallel_context, parallel_mode)
+    if src == parallel_context.get_local_rank(parallel_mode):
+        _P2P().send(data, dst, parallel_context, parallel_mode)
 
 
 def recv(
-    src_rank: int, dst_rank: int, parallel_context: ParallelContext, parallel_mode: ParallelMode = ParallelMode.PIPELINE
+    src: int, dst: int, parallel_context: ParallelContext, parallel_mode: ParallelMode = ParallelMode.PIPELINE
 ) -> Optional[Any]:
-    if dst_rank == parallel_context.get_local_rank(parallel_mode):
-        return _P2P().recv(src_rank, parallel_context, parallel_mode)
+    if dst == parallel_context.get_local_rank(parallel_mode):
+        return _P2P().recv(src, parallel_context, parallel_mode)

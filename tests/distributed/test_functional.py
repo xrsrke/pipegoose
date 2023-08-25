@@ -93,19 +93,19 @@ def test_scatter(world_size, tensor_parallel_size, pipeline_parallel_size, data_
 def reduce_logic(rank, ranks_in_group, parallel_context, parallel_mode):
     if rank in ranks_in_group:
         world_size = parallel_context.get_world_size(parallel_mode)
-        dst_rank = parallel_context.get_ranks_in_group(parallel_mode)[-1]
+        dst = parallel_context.get_ranks_in_group(parallel_mode)[-1]
 
         x = torch.tensor(1.0, dtype=torch.float32)
         expected_output = x.clone() * world_size
 
         reduce(
             tensor=x,
-            dst=dst_rank,
+            dst=dst,
             parallel_context=parallel_context,
             parallel_mode=parallel_mode,
         )
 
-        if rank == dst_rank:
+        if rank == dst:
             assert torch.equal(x, expected_output)
             assert x.dtype == expected_output.dtype
             assert x.requires_grad == expected_output.requires_grad
@@ -134,13 +134,13 @@ def run_broadcast(rank, world_size, port, parallel_modes, tensor_parallel_size, 
         ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode)
 
         if rank == ranks_in_group:
-            src_rank = parallel_context.get_ranks_in_group(parallel_mode)[-1]
-            if rank == src_rank:
+            src = parallel_context.get_ranks_in_group(parallel_mode)[-1]
+            if rank == src:
                 x = torch.tensor(6.9, dtype=torch.float32, requires_grad=True)
             else:
                 x = torch.tensor(4.2, dtype=torch.float32)
 
-            broadcast(x, src=src_rank, parallel_context=parallel_context, parallel_mode=parallel_mode)
+            broadcast(x, src=src, parallel_context=parallel_context, parallel_mode=parallel_mode)
 
             assert torch.equal(x, torch.tensor(6.9))
             assert x.dtype == torch.float32
