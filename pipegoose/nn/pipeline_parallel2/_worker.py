@@ -40,12 +40,12 @@ class WorkerPoolWatcher(Thread):
 
     def run(self):
         while True:
-            if self._is_new_worker_needed() is True:
-                self.spawn_worker()
+            num_working = self._num_working_workers()
 
-    def _is_new_worker_needed(self) -> bool:
-        num_working = self._num_working_workers()
-        return num_working < self.min_workers and num_working < self.max_workers
+            # TODO: should we spawn more than initial workers?
+            # TODO: fix race condition in some idle threads
+            if num_working < self.max_workers:
+                self.spawn_worker()
 
     def _num_working_workers(self) -> int:
         num_working = 0
