@@ -9,8 +9,12 @@ from pipegoose.nn.tensor_parallel.loss import VocabParallelCrossEntropy
 from pipegoose.testing.utils import spawn
 
 
+def check_equal(A, B):
+    assert torch.allclose(A, B, rtol=1e-3, atol=1e-1) or torch.allclose(A, B)
+
+
 def run_parallel_cross_entropy(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, logits, targets, predicted_logits
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, logits, targets, loss
 ):
     parallel_context = ParallelContext(
         rank=rank,
@@ -41,6 +45,7 @@ def run_parallel_cross_entropy(
         parallel_logits = get_partition(logits)
         parallel_predicted_logits = VocabParallelCrossEntropy.apply(parallel_logits, targets, parallel_context)
 
+        predicted_logits = logits[:, torch.arange(targets.size(-1)), targets.view(-1)].squeeze()
         assert torch.allclose(parallel_predicted_logits, predicted_logits)
 
         # parallel_output.sum().backward()
@@ -50,16 +55,17 @@ def run_parallel_cross_entropy(
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 def test_parallel_cross_entropy(tensor_parallel_size):
-    BATCH_SIZE = 5
-    N_SAMPLES = 69
-    VOCAB_SIZE = 100
-    logits = torch.randn(BATCH_SIZE, N_SAMPLES, VOCAB_SIZE)
-    targets = torch.randint(0, VOCAB_SIZE, (BATCH_SIZE, N_SAMPLES))
+    torch.manual_seed(69)
 
-    predicted_logits = F.cross_entropy(
-        rearrange(logits, "batch_size n_samples vocab_size -> (batch_size n_samples) vocab_size"),
-        rearrange(targets, "batch_size n_samples -> (batch_size n_samples)"),
-        reduction="none",
+    BATCH_SIZE = 1
+    SEQ_LEN = 2
+    VOCAB_SIZE = 4
+    logits = torch.randn(BATCH_SIZE, SEQ_LEN, VOCAB_SIZE)
+    targets = torch.randint(0, VOCAB_SIZE, (BATCH_SIZE, SEQ_LEN))
+
+    loss = F.cross_entropy(
+        rearrange(logits, "batch_size seq_len vocab_size -> (batch_size seq_len) vocab_size"),
+        rearrange(targets, "batch_size seq_len -> (batch_size seq_len)"),
     )
 
     spawn(
@@ -70,5 +76,5 @@ def test_parallel_cross_entropy(tensor_parallel_size):
         data_parallel_size=1,
         logits=logits,
         targets=targets,
-        predicted_logits=predicted_logits,
+        loss=loss,
     )

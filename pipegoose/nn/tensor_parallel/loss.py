@@ -35,17 +35,20 @@ class VocabParallelCrossEntropy(torch.autograd.Function):
             vocab_end_idx = vocab_start_idx + partition_vocab_size
             return vocab_start_idx, vocab_end_idx
 
-        parallel_logits = normalize_logits(parallel_logits)
+        # parallel_logits = normalize_logits(parallel_logits)
         vocab_start_idx, vocab_end_idx = get_vocab_start_end_idx(parallel_logits)
 
         target_mask = (targets < vocab_start_idx) | (targets >= vocab_end_idx)
         masked_targets = targets.clone() - vocab_start_idx
         masked_targets[target_mask] = 0
 
-        parallel_logits = rearrange(parallel_logits, "batch_size n_samples vocab_size -> (batch_size n_samples) vocab_size")
-        masked_targets_1d = rearrange(masked_targets, "batch_size n_samples -> (batch_size n_samples)")
+        parallel_logits = rearrange(parallel_logits, "batch_size seq_len vocab_size -> (batch_size seq_len) vocab_size")
+        masked_targets_1d = rearrange(masked_targets, "batch_size seq_len -> (batch_size seq_len)")
         predicted_logits = parallel_logits[torch.arange(masked_targets_1d.size(0)), masked_targets_1d]
-        predicted_logits[masked_targets.view(-1)] = 0.0
+
+        predicted_logits = torch.where(
+            rearrange(target_mask, "batch_size seq_len -> (batch_size seq_len)") == False, predicted_logits, 0.0
+        )
 
         predicted_logits = all_reduce(predicted_logits, parallel_context=parallel_context, parallel_mode=ParallelMode.TENSOR)
 
