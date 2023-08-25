@@ -43,10 +43,12 @@ def run_parallel_cross_entropy(
             return chunks[local_rank]
 
         parallel_logits = get_partition(logits)
-        parallel_predicted_logits = VocabParallelCrossEntropy.apply(parallel_logits, targets, parallel_context)
+        parallel_cross_entropy = VocabParallelCrossEntropy(parallel_context=parallel_context)
+        parallel_loss = parallel_cross_entropy(parallel_logits, targets)
 
-        predicted_logits = logits[:, torch.arange(targets.size(-1)), targets.view(-1)].squeeze()
-        assert torch.allclose(parallel_predicted_logits, predicted_logits)
+        # parallel_loss = logits[:, torch.arange(targets.size(-1)), targets.view(-1)].squeeze()
+        # assert torch.allclose(parallel_predicted_logits, predicted_logits)
+        assert torch.allclose(parallel_loss, loss)
 
         # parallel_output.sum().backward()
 
