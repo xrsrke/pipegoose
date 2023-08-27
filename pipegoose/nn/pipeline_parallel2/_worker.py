@@ -135,7 +135,7 @@ class WorkerManager(Thread):
         self._spawn_pool_watcher()
 
     def destroy(self):
-        # TODO: fix this
+        # TODO: why can't we join() here?
         for worker in self.worker_pool:
             worker.join()
         # self.worker_pool.remove(worker)

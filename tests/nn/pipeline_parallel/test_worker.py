@@ -38,3 +38,7 @@ def test_spawn_worker_with_non_task():
 
 def test_spawn_worker_with_task():
     pass
+
+
+def test_multinode_spawn_worker():
+    pass

@@ -29,14 +29,14 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
             normalized_parallel_logits = parallel_logits - logit_max.unsqueeze(-1)
             return normalized_parallel_logits
 
-        def get_vocab_start_end_idx(parallel_logits):
-            partition_vocab_size = parallel_logits.shape[-1]
-            rank = parallel_context.get_local_rank(ParallelMode.TENSOR)
-            vocab_start_idx = rank * partition_vocab_size
-            vocab_end_idx = vocab_start_idx + partition_vocab_size
-            return vocab_start_idx, vocab_end_idx
-
         def get_predicted_logits(parallel_logits, targets):
+            def get_vocab_start_end_idx(parallel_logits):
+                partition_vocab_size = parallel_logits.shape[-1]
+                rank = parallel_context.get_local_rank(ParallelMode.TENSOR)
+                vocab_start_idx = rank * partition_vocab_size
+                vocab_end_idx = vocab_start_idx + partition_vocab_size
+                return vocab_start_idx, vocab_end_idx
+
             vocab_start_idx, vocab_end_idx = get_vocab_start_end_idx(parallel_logits)
             target_mask = (targets < vocab_start_idx) | (targets >= vocab_end_idx)
             masked_targets = targets.clone() - vocab_start_idx
@@ -53,6 +53,7 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
             )
             return predicted_logits
 
+        # NOTE: parallel cross entropy still works without normalizing logits
         parallel_logits = normalize_logits(parallel_logits)
         predicted_logits = get_predicted_logits(parallel_logits, targets)
 

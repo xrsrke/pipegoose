@@ -51,7 +51,8 @@ class BackwardJob(Job):
 
 
 class JobRegister(ABC):
-    pass
+    def __init__(self, data):
+        pass
 
 
 class JobSelector(Thread):
