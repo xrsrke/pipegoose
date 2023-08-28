@@ -137,5 +137,7 @@ class WorkerManager(Thread):
     def destroy(self):
         # TODO: why can't we join() here?
         for worker in self.worker_pool:
+            # TODO: wait for workers finish their jobs
+            # before joining
             worker.join()
         # self.worker_pool.remove(worker)
