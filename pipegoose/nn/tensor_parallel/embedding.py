@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -7,6 +5,7 @@ from torch import nn
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel._functional import reduce_to_tensor_group
+from pipegoose.nn.tensor_parallel._utils import get_vocab_range_idx
 
 
 class ParallelEmbedding(nn.Module):
@@ -20,16 +19,10 @@ class ParallelEmbedding(nn.Module):
 
         self.parallel_context = parallel_context
         self.weight = nn.Parameter(torch.randn(num_embeddings_per_partition, embedding_dim))
-        self.vocab_start_idx, self.vocab_end_idx = self._get_vocab_range_idx(
-            num_embeddings, parallel_context.get_local_rank(ParallelMode.TENSOR), world_size
+        self.vocab_start_idx, self.vocab_end_idx = get_vocab_range_idx(
+            num_embeddings_per_partition, rank=parallel_context.get_local_rank(ParallelMode.TENSOR)
         )
         self.world_size = world_size
-
-    def _get_vocab_range_idx(self, num_embeddings: int, rank: int, world_size: int) -> Tuple[int, int]:
-        num_embeddings_per_partition = num_embeddings // world_size
-        start_idx = rank * num_embeddings_per_partition
-        end_idx = start_idx + num_embeddings_per_partition
-        return start_idx, end_idx
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         if self.world_size > 1:
