@@ -2,6 +2,8 @@
 
 ![pipeline](3d-parallelism.png)
 
+[Discord Server](https://discord.gg/s9ZS9VXZ3p)
+
 Honk honk honk! This project is actively under development. Check out my learning progress [here](https://twitter.com/xariusrke/status/1667999818554413057).
 
 
