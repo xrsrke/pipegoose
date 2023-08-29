@@ -21,6 +21,7 @@ class ParameterSharding:
             param_lists = [[] for _ in range(world_size)]
 
             for param in param_group["params"]:
+                # TODO: fix if the numel of more than one ranks are equal
                 next_rank = sizes.index(min(sizes))
                 param_lists[next_rank].append(param)
                 sizes[next_rank] += param.numel()
