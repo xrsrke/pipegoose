@@ -83,9 +83,9 @@ def gather_to_tensor_group(input: torch.Tensor, dim: int, parallel_context: Para
     return _Gather.apply(input, dim, parallel_context)
 
 
-def scatter_to_tensor_group(input, dim, parallel_context):
+def scatter_to_tensor_group(input: torch.Tensor, dim: int, parallel_context: ParallelContext):
     return _Scatter.apply(input, dim, parallel_context)
 
 
-def reduce_to_tensor_group(input, parallel_context):
+def reduce_to_tensor_group(input: torch.Tensor, parallel_context: ParallelContext):
     return _Reduce.apply(input, parallel_context)
