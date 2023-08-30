@@ -10,22 +10,18 @@ class Worker(Thread):
     def __init__(self, selected_jobs: Queue, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._selected_jobs = selected_jobs
-        # self._running = False
+        self._running = False
 
     @property
     def running(self) -> bool:
-        # return self._running
-        return self.is_alive()
+        return self._running
 
     def run(self):
         while True:
-            # TODO: separate alive and running
             job = self._selected_jobs.get()
-            # self._running = True
-
+            self._running = True
             job.compute()
-
-            # self._running = False
+            self._running = False
 
 
 class WorkerPoolWatcher(Thread):
@@ -40,9 +36,10 @@ class WorkerPoolWatcher(Thread):
         while True:
             num_working = self._num_working_workers()
 
-            # TODO: should we spawn more than initial workers?
-            # TODO: fix race condition in some idle threads
-            if num_working < self.max_workers:
+            # NOTE: only spawn new workers if
+            # all the current workers are working (num_working == num_all_workers)
+            # and the number of workers is less than the max_workers
+            if num_working == len(self.worker_pool) and num_working < self.max_workers:
                 self.spawn_worker()
 
     def _num_working_workers(self) -> int:
