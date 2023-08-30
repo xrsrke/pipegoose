@@ -23,3 +23,6 @@ def test_worker_manager():
     for worker in worker_manager.worker_pool:
         assert worker.running is False
         assert worker.is_alive() is True
+
+    # TODO: add this
+    # worker_manager.destroy()

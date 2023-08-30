@@ -1,20 +1,27 @@
+import threading
 from queue import Queue
-from threading import Thread
 from typing import Callable, List
 
 from pipegoose.constants import PIPELINE_MAX_WORKERS, PIPELINE_MIN_WORKERS
 from pipegoose.nn.pipeline_parallel2._utils import sleep
 
 
-class Worker(Thread):
+class Worker(threading.Thread):
     def __init__(self, selected_jobs: Queue, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._selected_jobs = selected_jobs
         self._running = False
+        # self._stop_event = threading.Event()
 
     @property
     def running(self) -> bool:
         return self._running
+
+    # def stop(self):
+    #     self._stop_event.set()
+
+    # def stopped(self):
+    #     return self._stop_event.is_set()
 
     def run(self):
         while True:
@@ -24,7 +31,7 @@ class Worker(Thread):
             self._running = False
 
 
-class WorkerPoolWatcher(Thread):
+class WorkerPoolWatcher(threading.Thread):
     def __init__(self, worker_pool: List[Worker], min_workers: int, max_workers: int, spawn_worker: Callable, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.worker_pool = worker_pool
@@ -49,7 +56,7 @@ class WorkerPoolWatcher(Thread):
         return num_working
 
 
-class JobSelector(Thread):
+class JobSelector(threading.Thread):
     def __init__(self, pending_jobs: Queue, selected_jobs: Queue, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._pending_job = pending_jobs
@@ -69,7 +76,7 @@ class JobSelector(Thread):
             return job
 
 
-class WorkerManager(Thread):
+class WorkerManager(threading.Thread):
     def __init__(
         self,
         num_workers: int = PIPELINE_MIN_WORKERS,
@@ -132,9 +139,13 @@ class WorkerManager(Thread):
         self._spawn_pool_watcher()
 
     def destroy(self):
-        # TODO: why can't we join() here?
-        for worker in self.worker_pool:
-            # TODO: wait for workers finish their jobs
-            # before joining
+        # Create a copy of the worker pool to iterate over
+        worker_pool_copy = self.worker_pool.copy()
+
+        for worker in worker_pool_copy:
+            # Terminate the worker thread
+            worker.stop()
             worker.join()
-        # self.worker_pool.remove(worker)
+
+            # Remove the worker from the original worker pool
+            # self.worker_pool.remove(worker)
