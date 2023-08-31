@@ -61,10 +61,7 @@ class RowParallelLinear(nn.Module):
         super().__init__()
         in_per_partition = self._get_input_per_partition(in_features, parallel_context)
 
-        self.in_features = in_features
-        self.out_features = out_features
         self.parallel_context = parallel_context
-
         self.weight = nn.Parameter(torch.randn(out_features, in_per_partition))
 
         if bias is True:
