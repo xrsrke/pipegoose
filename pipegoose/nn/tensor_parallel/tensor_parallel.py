@@ -1,56 +1,13 @@
-# from abc import ABC, abstractclassmethod
-
-
 import torch
 from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
-from pipegoose.nn.tensor_parallel.layers import (
+from pipegoose.nn.tensor_parallel.parallelize import (
     ParallelizeAttention,
     ParallelizeEmbedding,
     ParallelizeLayerNorm,
     ParallelizeLinear,
 )
-
-# from pipegoose.distributed.parallel_mode import ParallelMode
-
-
-# class ParallelizeModule(ABC):
-#     def __init__(self, module: nn.Module, parallel_context: ParallelContext):
-#         self.module = module
-#         self.parallel_context = parallel_context
-
-#     @abstractclassmethod
-#     def parallelize(self):
-#         raise NotImplementedError
-
-#     @abstractclassmethod
-#     def deparallelize(self):
-#         raise NotImplementedError
-
-
-# class ParallelizeLinear(ParallelizeModule):
-#     def parallelize(self):
-#         # tensor_parallel_size = self.parallel_context.get_config(
-#         #     mode=ParallelMode.TENSOR
-#         # )
-#         pass
-
-#     def deparallelize(self):
-#         pass
-
-
-# class ParallelizeEmbedding(ParallelizeModule):
-#     def parallelize(self):
-#         vocab_size, embedding_size = self.module.weight.size()
-
-
-# class ParallelizeLayerNorm(ParallelizeModule):
-#     pass
-
-
-# class ParallelizeAttention(ParallelizeModule):
-#     pass
 
 
 class TensorParallel:
