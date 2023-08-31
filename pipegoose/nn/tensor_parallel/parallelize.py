@@ -39,6 +39,7 @@ class ParallelizeLinear(ParallelizeModule):
 class ParallelizeEmbedding(ParallelizeModule):
     # TODO: refactor to staticmethod
     def parallelize(self) -> nn.Module:
+        """Parallelize nn.Embedding module."""
         assert isinstance(self.module, nn.Embedding), "only parallelize nn.Embedding"
         self._resize_vocab_size()
         self._split_weight()
@@ -48,6 +49,7 @@ class ParallelizeEmbedding(ParallelizeModule):
         pass
 
     def _split_weight(self):
+        """Split weight into chunks and assign to each process."""
         world_size = self.parallel_context.get_world_size(ParallelMode.TENSOR)
         rank = self.parallel_context.get_local_rank(ParallelMode.TENSOR)
 
