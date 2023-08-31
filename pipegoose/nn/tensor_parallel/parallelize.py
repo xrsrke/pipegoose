@@ -7,11 +7,18 @@ from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel._utils import VocabUtility, is_splitable
 from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
+from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear
 
 
 def _update_model_arguments(module: nn.Module, **kwargs):
     for key, value in kwargs.items():
         setattr(module, key, value)
+
+
+def get_partition(data: torch.Tensor, parallel_context: ParallelContext, dim: int):
+    rank = parallel_context.get_local_rank(ParallelMode.TENSOR)
+    chunks = torch.chunk(data, parallel_context.get_world_size(ParallelMode.TENSOR), dim=dim)
+    return chunks[rank].contiguous()
 
 
 class ParallelizeModule(ABC):
@@ -29,10 +36,29 @@ class ParallelizeModule(ABC):
 
 
 class ParallelizeLinear(ParallelizeModule):
-    def parallelize(self):
-        pass
+    def parallelize(self) -> nn.Module:
+        self._parallelize_column_linear()
+        return self.module
 
     def deparallelize(self):
+        pass
+
+    def _parallelize_column_linear(self):
+        self.module.weight.data = get_partition(self.module.weight, self.parallel_context, dim=0)
+
+        if self.module.bias is not None:
+            self.module.bias.data = get_partition(self.module.bias, self.parallel_context, dim=0)
+
+        self.module.__class__ = ColumnParallelLinear
+        _update_model_arguments(
+            module=self.module,
+            # NOTE: make this based on parallel mapping
+            # column parallel don't gather the output
+            gather_output=True,
+            parallel_context=self.parallel_context,
+        )
+
+    def _parallelize_row_linear(self):
         pass
 
 
@@ -69,7 +95,7 @@ class ParallelizeEmbedding(ParallelizeModule):
         )
 
     def _resize_vocab_size(self):
-        """Make vocab size divisible by world size."""
+        """Pad embedding size to make it splittable across GPUs"""
         padding_size = 0
 
         vocab_size, embedding_dim = self.module.weight.size()

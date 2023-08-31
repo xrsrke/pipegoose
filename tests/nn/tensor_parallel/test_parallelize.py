@@ -5,8 +5,18 @@ from transformers import AutoModel
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel._utils import VocabUtility, is_splitable
-from pipegoose.nn.tensor_parallel.parallelize import ParallelizeEmbedding
+from pipegoose.nn.tensor_parallel.parallelize import (
+    ParallelizeEmbedding,
+    ParallelizeLinear,
+)
 from pipegoose.testing.utils import spawn
+
+MODEL_NAME = "bigscience/bloom-560m"
+
+
+@pytest.fixture
+def model():
+    return AutoModel.from_pretrained(MODEL_NAME)
 
 
 def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
@@ -58,8 +68,7 @@ def run_parallelize_embedding(
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
-def test_parallelize_embedding(tensor_parallel_size):
-    model = AutoModel.from_pretrained("gpt2")
+def test_parallelize_embedding(model, tensor_parallel_size):
     input = torch.arange(0, 10)
     embedding = model.get_input_embeddings()
     output = embedding(input)
@@ -71,6 +80,39 @@ def test_parallelize_embedding(tensor_parallel_size):
         pipeline_parallel_size=1,
         data_parallel_size=1,
         embedding=embedding,
+        input=input.detach(),
+        output=output.detach(),
+    )
+
+
+def run_parallelize_linear(
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, linear, input, output
+):
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
+    parallelized_linear = ParallelizeLinear(linear, parallel_context).parallelize()
+    parallel_output = parallelized_linear(input)
+
+    torch.allclose(parallel_output, output, rtol=1e-4)
+
+
+@pytest.mark.parametrize("tensor_parallel_size", [1, 2])
+def test_parallelize_linear(model, tensor_parallel_size):
+    # NOTE: this is column parallel linear
+    linear = model.h[0].mlp.dense_h_to_4h
+    input_size = linear.weight.shape[1]
+
+    input = torch.randn(10, input_size)
+    output = linear(input)
+
+    spawn(
+        run_parallelize_linear,
+        world_size=tensor_parallel_size,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=1,
+        data_parallel_size=1,
+        linear=linear,
         input=input.detach(),
         output=output.detach(),
     )
