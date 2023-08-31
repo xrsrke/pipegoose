@@ -54,11 +54,17 @@ class ParallelizeEmbedding(ParallelizeModule):
         vocab_size = self.module.weight.shape[0]
         vocab_start_idx, vocab_end_idx = VocabUtility.get_vocab_range_from_global_vocab_size(world_size, rank, vocab_size)
         weight_chunks = torch.chunk(self.module.weight, world_size, dim=0)
-        self.module.weight.data = weight_chunks[rank]
 
+        self.module.weight.data = weight_chunks[rank]
         self.module.__class__ = ParallelEmbedding
 
-        _update_model_arguments(module=self.module, vocab_start_idx=vocab_start_idx, vocab_end_idx=vocab_end_idx)
+        _update_model_arguments(
+            module=self.module,
+            parallel_context=self.parallel_context,
+            vocab_start_idx=vocab_start_idx,
+            vocab_end_idx=vocab_end_idx,
+            world_size=world_size,
+        )
 
     def _resize_vocab_size(self):
         """Make vocab size divisible by world size."""
@@ -73,9 +79,6 @@ class ParallelizeEmbedding(ParallelizeModule):
             new_embeddings = torch.cat([self.module.weight, padding], dim=0)
 
             self.module.weight.data = new_embeddings
-
-    # def _is_text_embedding(self, module: nn.Module) -> bool:
-    #     return True if module is self.module.get_input_embeddings() else False
 
 
 class ParallelizeLayerNorm(ParallelizeModule):

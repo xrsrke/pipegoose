@@ -1,4 +1,5 @@
 import pytest
+import torch
 from transformers import AutoModel
 
 from pipegoose.distributed.parallel_context import ParallelContext
@@ -27,7 +28,7 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
 
 
 def run_parallelize_embedding(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, embedding
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, embedding, input, output
 ):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
@@ -48,16 +49,20 @@ def run_parallelize_embedding(
     vocab_start_idx, vocab_end_idx = VocabUtility.get_vocab_range_from_global_vocab_size(world_size, rank, new_vocab_size)
 
     parallelized_embedding = ParallelizeEmbedding(embedding, parallel_context).parallelize()
+    parallel_output = parallelized_embedding(input)
 
     assert parallelized_embedding.vocab_start_idx == vocab_start_idx
     assert parallelized_embedding.vocab_end_idx == vocab_end_idx
     assert parallelized_embedding.weight.shape == (new_partition_size, embedding_dim)
+    assert torch.allclose(parallel_output, output)
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 def test_parallelize_embedding(tensor_parallel_size):
     model = AutoModel.from_pretrained("gpt2")
+    input = torch.arange(0, 10)
     embedding = model.get_input_embeddings()
+    output = embedding(input)
 
     spawn(
         run_parallelize_embedding,
@@ -66,4 +71,6 @@ def test_parallelize_embedding(tensor_parallel_size):
         pipeline_parallel_size=1,
         data_parallel_size=1,
         embedding=embedding,
+        input=input.detach(),
+        output=output.detach(),
     )
