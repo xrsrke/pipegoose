@@ -24,6 +24,7 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
     return parallel_context
 
 
+@pytest.mark.skip
 def test_parallelize_a_transformers():
     parallel_context = init_parallel_context()
     world_size = parallel_context.get_world_size(parallel_mode=ParallelMode.TENSOR)

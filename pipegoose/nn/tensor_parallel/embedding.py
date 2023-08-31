@@ -5,7 +5,7 @@ from torch import nn
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel._functional import reduce_to_tensor_group
-from pipegoose.nn.tensor_parallel._utils import get_vocab_range_idx
+from pipegoose.nn.tensor_parallel._utils import VocabUtility
 
 
 class ParallelEmbedding(nn.Module):
@@ -16,10 +16,9 @@ class ParallelEmbedding(nn.Module):
         assert num_embeddings % world_size == 0, "num_embeddings must be divisible by world_size"
 
         num_embeddings_per_partition = num_embeddings // world_size
-
         self.parallel_context = parallel_context
         self.weight = nn.Parameter(torch.randn(num_embeddings_per_partition, embedding_dim))
-        self.vocab_start_idx, self.vocab_end_idx = get_vocab_range_idx(
+        self.vocab_start_idx, self.vocab_end_idx = VocabUtility.get_vocab_range_idx_from_partition_size(
             num_embeddings_per_partition, rank=parallel_context.get_local_rank(ParallelMode.TENSOR)
         )
         self.world_size = world_size
