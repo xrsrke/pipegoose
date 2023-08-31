@@ -5,12 +5,13 @@ from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.tensor_parallel._utils import (
-    VocabUtility,
-    _update_model_arguments,
-    is_splitable,
-)
+from pipegoose.nn.tensor_parallel._utils import VocabUtility, is_splitable
 from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
+
+
+def _update_model_arguments(module: nn.Module, **kwargs):
+    for key, value in kwargs.items():
+        setattr(module, key, value)
 
 
 class ParallelizeModule(ABC):
