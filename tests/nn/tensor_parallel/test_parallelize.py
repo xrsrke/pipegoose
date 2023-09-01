@@ -1,6 +1,5 @@
 import pytest
 import torch
-from transformers import AutoModel
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
@@ -10,13 +9,6 @@ from pipegoose.nn.tensor_parallel.parallelize import (
     ParallelizeLinear,
 )
 from pipegoose.testing.utils import spawn
-
-MODEL_NAME = "bigscience/bloom-560m"
-
-
-@pytest.fixture
-def model():
-    return AutoModel.from_pretrained(MODEL_NAME)
 
 
 def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
@@ -89,6 +81,10 @@ def test_parallelize_embedding(model, tensor_parallel_size):
     )
 
 
+def test_parallelize_attention():
+    pass
+
+
 def run_parallelize_column_linear(
     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, linear, input, output
 ):
@@ -157,3 +153,7 @@ def test_parallelize_row_linear(model, tensor_parallel_size):
         input=input.detach(),
         output=output.detach(),
     )
+
+
+def test_parallelize_layer_norm():
+    pass

@@ -27,26 +27,38 @@ class ParallelMapping:
         ],
     }
 
-    def _search(cls, module_name: str) -> TensorParallelInformation:
+    @staticmethod
+    def _search(module_name: str) -> TensorParallelInformation:
         """
         Search for module_name in mappings.
         """
-        for _, items in cls.__MAPPING__.items():
+        module_name = ParallelMapping._extract_module_name(module_name)
+        for _, items in ParallelMapping.__MAPPING__.items():
             for item in items:
                 if module_name in item.module_name:
                     return item
         return None
 
-    @classmethod
-    def is_column_parallel(cls, module_name: str) -> bool:
-        item = cls._search(module_name)
+    @staticmethod
+    def _extract_module_name(module_name: str) -> str:
+        def _check_module_name_in_named_modules(module_name: str) -> bool:
+            return '.' in module_name
+
+        if _check_module_name_in_named_modules(module_name) is True:
+            return module_name.split('.')[-1]
+
+        return module_name
+
+    @staticmethod
+    def is_column_parallel(module_name: str) -> bool:
+        item = ParallelMapping._search(module_name)
         if item is None:
             return False
         return isinstance(item, Column)
 
-    @classmethod
-    def is_row_parallel(cls, module_name: str) -> bool:
-        item = cls._search(module_name)
+    @staticmethod
+    def is_row_parallel(module_name: str) -> bool:
+        item = ParallelMapping._search(module_name)
         if item is None:
             return False
         return isinstance(item, Row)
