@@ -45,7 +45,7 @@ class ParallelizeLinear(ParallelizeModule):
 
     def _parallelize_column_linear(self, module: nn.Module) -> nn.Module:
         module.__class__ = ColumnParallelLinear
-        module = self._assign_partition(module, dim=0)
+        module = self._slice_weight_and_bias(module, slice_bias=True, dim=0)
 
         _update_model_arguments(
             module=module,
@@ -59,7 +59,9 @@ class ParallelizeLinear(ParallelizeModule):
 
     def _parallelize_row_linear(self, module: nn.Module) -> nn.Module:
         module.__class__ = RowParallelLinear
-        module = self._assign_partition(module, dim=1)
+        # NOTE: It appears that row column doesn't not require splitting the bias,
+        # as the final output without splitting is correct
+        module = self._slice_weight_and_bias(module, slice_bias=False, dim=1)
 
         _update_model_arguments(
             module=module,
@@ -68,13 +70,10 @@ class ParallelizeLinear(ParallelizeModule):
 
         return module
 
-    def _assign_partition(self, module: nn.Module, dim: int) -> nn.Module:
+    def _slice_weight_and_bias(self, module: nn.Module, slice_bias: bool, dim: int) -> nn.Module:
         module.weight.data = get_partition(module.weight, self.parallel_context, dim=dim)
 
-        # NOTE: A linear column (dim=0) requires splitting the bias.
-        # It appears that row-columns do not require splitting the bias,
-        # as the final output without splitting is correct
-        if dim == 0:
+        if slice_bias is True:
             if module.bias is not None:
                 module.bias.data = get_partition(module.bias, self.parallel_context, dim=0)
 
