@@ -5,9 +5,9 @@ from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.tensor_parallel._utils import VocabUtility, is_splitable
 from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
-from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear
+from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
+from pipegoose.nn.tensor_parallel._utils import VocabUtility, is_splitable
 
 
 def _update_model_arguments(module: nn.Module, **kwargs):
@@ -37,29 +37,48 @@ class ParallelizeModule(ABC):
 
 class ParallelizeLinear(ParallelizeModule):
     def parallelize(self) -> nn.Module:
-        self._parallelize_column_linear()
-        return self.module
+        module = self._parallelize_column_linear(self.module)
+        return module
 
     def deparallelize(self):
         pass
 
-    def _parallelize_column_linear(self):
-        self.module.weight.data = get_partition(self.module.weight, self.parallel_context, dim=0)
+    def _parallelize_column_linear(self, module: nn.Module) -> nn.Module:
+        module.__class__ = ColumnParallelLinear
+        module = self._assign_partition(module, dim=0)
 
-        if self.module.bias is not None:
-            self.module.bias.data = get_partition(self.module.bias, self.parallel_context, dim=0)
-
-        self.module.__class__ = ColumnParallelLinear
         _update_model_arguments(
-            module=self.module,
-            # NOTE: make this based on parallel mapping
+            module=module,
+            # TODO: make this based on parallel mapping
             # column parallel don't gather the output
             gather_output=True,
             parallel_context=self.parallel_context,
         )
 
-    def _parallelize_row_linear(self):
-        pass
+        return module
+
+    def _parallelize_row_linear(self, module: nn.Module) -> nn.Module:
+        module.__class__ = RowParallelLinear
+        module = self._assign_partition(module, dim=1)
+
+        _update_model_arguments(
+            module=module,
+            parallel_context=self.parallel_context,
+        )
+
+        return module
+
+    def _assign_partition(self, module: nn.Module, dim: int) -> nn.Module:
+        module.weight.data = get_partition(module.weight, self.parallel_context, dim=dim)
+
+        # NOTE: A linear column (dim=0) requires splitting the bias.
+        # It appears that row-columns do not require splitting the bias,
+        # as the final output without splitting is correct
+        if dim == 0:
+            if module.bias is not None:
+                module.bias.data = get_partition(module.bias, self.parallel_context, dim=0)
+
+        return module
 
 
 class ParallelizeEmbedding(ParallelizeModule):
