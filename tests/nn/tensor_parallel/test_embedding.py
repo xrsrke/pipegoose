@@ -53,6 +53,9 @@ def run_parallel_embedding(
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 def test_parallel_embedding(tensor_parallel_size):
+    PIPELINE_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+
     NUM_EMBEDDING = 100
     EMBEDDING_DIM = 10
 
@@ -67,8 +70,8 @@ def test_parallel_embedding(tensor_parallel_size):
         run_parallel_embedding,
         world_size=tensor_parallel_size,
         tensor_parallel_size=tensor_parallel_size,
-        pipeline_parallel_size=1,
-        data_parallel_size=1,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
         input=input.detach(),
         output=output.detach(),
         weight=weight.detach(),

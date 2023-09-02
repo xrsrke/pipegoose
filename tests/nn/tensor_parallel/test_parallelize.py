@@ -48,6 +48,9 @@ def run_parallelize_embedding(
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 def test_parallelize_embedding(model, tensor_parallel_size):
+    PIPELINE_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+
     input = torch.arange(0, 10)
     embedding = model.get_input_embeddings()
     output = embedding(input)
@@ -56,8 +59,8 @@ def test_parallelize_embedding(model, tensor_parallel_size):
         run_parallelize_embedding,
         world_size=tensor_parallel_size,
         tensor_parallel_size=tensor_parallel_size,
-        pipeline_parallel_size=1,
-        data_parallel_size=1,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
         embedding=embedding,
         input=input.detach(),
         output=output.detach(),
@@ -76,9 +79,9 @@ def run_parallelize_linear(
 
     torch.allclose(parallel_output, output, rtol=1e-4)
 
-    # NOTE: since we already test the backward pass
-    # of ColumnParallelLinear in another test, we don't
-    # need to test it here
+    # NOTE: since we already test the backward pass of
+    # ColumnParallelLinear, and RowParallelLinear in another test,
+    # we don't need to test it here.
 
 
 @pytest.mark.parametrize("tensor_parallel_size, MODULE_NAME, get_module", [
@@ -88,6 +91,9 @@ def run_parallelize_linear(
     (2, "transformer.h.0.mlp.dense_4h_to_h", lambda model: model.h[0].mlp.dense_4h_to_h),
 ])
 def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module):
+    PIPELINE_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+
     module = get_module(model)
     input_size = module.weight.shape[1]
 
@@ -98,8 +104,8 @@ def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module
         run_parallelize_linear,
         world_size=tensor_parallel_size,
         tensor_parallel_size=tensor_parallel_size,
-        pipeline_parallel_size=1,
-        data_parallel_size=1,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
         module_name=MODULE_NAME,
         module=module,
         input=input_tensor.detach(),

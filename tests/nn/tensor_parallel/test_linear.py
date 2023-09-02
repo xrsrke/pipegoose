@@ -128,6 +128,10 @@ def run_parallel_row_linear(
 
 @pytest.mark.parametrize("run_linear", [run_parallel_column_linear, run_parallel_row_linear])
 def test_parallel_linear(run_linear):
+    TENSOR_PARALLEL_SIZE = 2
+    PIPELINE_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+
     batch_size = 5
     in_features = 10
     out_features = 20
@@ -150,10 +154,10 @@ def test_parallel_linear(run_linear):
 
     spawn(
         run_linear,
-        world_size=2,
-        tensor_parallel_size=2,
-        pipeline_parallel_size=1,
-        data_parallel_size=1,
+        world_size=TENSOR_PARALLEL_SIZE,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
         batch_size=batch_size,
         in_features=in_features,
         out_features=out_features,

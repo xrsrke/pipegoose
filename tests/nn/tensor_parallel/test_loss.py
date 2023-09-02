@@ -55,11 +55,15 @@ def run_parallel_cross_entropy(
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 def test_parallel_cross_entropy(tensor_parallel_size):
-    torch.manual_seed(69)
+    PIPELINE_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
 
     BATCH_SIZE = 1
     SEQ_LEN = 2
     VOCAB_SIZE = 4
+
+    torch.manual_seed(69)
+
     logits = torch.randn(BATCH_SIZE, SEQ_LEN, VOCAB_SIZE)
     targets = torch.randint(0, VOCAB_SIZE, (BATCH_SIZE, SEQ_LEN))
 
@@ -72,8 +76,8 @@ def test_parallel_cross_entropy(tensor_parallel_size):
         run_parallel_cross_entropy,
         world_size=tensor_parallel_size,
         tensor_parallel_size=tensor_parallel_size,
-        pipeline_parallel_size=1,
-        data_parallel_size=1,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
         logits=logits,
         targets=targets,
         loss=loss,
