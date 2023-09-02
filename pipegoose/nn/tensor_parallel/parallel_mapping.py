@@ -22,8 +22,8 @@ class ParallelMapping:
     __MAPPING__ = {
         "albert-base-v2": [Column(("query", "key", "value")), Row("attention.dense")],
         "bloom-560m": [
-            Column(("dense_h_to_4h", "query_key_value")),
-            Row(("dense_4h_to_h", "dense")),
+            Column(("mlp.dense_h_to_4h", "self_attention.query_key_value")),
+            Row(("mlp.dense_4h_to_h", "self_attention.dense")),
         ],
     }
 
@@ -33,9 +33,9 @@ class ParallelMapping:
         Search for module_name in mappings.
         """
         module_name = ParallelMapping._extract_module_name(module_name)
-        for _, items in ParallelMapping.__MAPPING__.items():
+        for items in ParallelMapping.__MAPPING__.values():
             for item in items:
-                if module_name in item.module_name:
+                if any(module_name in mapping_name for mapping_name in item.module_name):
                     return item
         return None
 

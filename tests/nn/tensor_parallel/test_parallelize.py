@@ -84,13 +84,26 @@ def run_parallelize_linear(
     # we don't need to test it here.
 
 
-@pytest.mark.parametrize("tensor_parallel_size, MODULE_NAME, get_module", [
-    (1, "transformer.h.0.mlp.dense_h_to_4h", lambda model: model.transformer.h[0].mlp.dense_h_to_4h),
-    (2, "transformer.h.0.mlp.dense_h_to_4h", lambda model: model.transformer.h[0].mlp.dense_h_to_4h),
-    (1, "transformer.h.0.mlp.dense_4h_to_h", lambda model: model.transformer.h[0].mlp.dense_4h_to_h),
-    (2, "transformer.h.0.mlp.dense_4h_to_h", lambda model: model.transformer.h[0].mlp.dense_4h_to_h),
-])
+MODULE_NAMES = [
+    "transformer.h.0.mlp.dense_h_to_4h",
+    "transformer.h.0.mlp.dense_4h_to_h",
+    "transformer.h.0.self_attention.query_key_value",
+    "transformer.h.0.self_attention.dense"
+]
+
+GET_MODULE_FUNCTIONS = [
+    lambda model: model.transformer.h[0].mlp.dense_h_to_4h,
+    lambda model: model.transformer.h[0].mlp.dense_4h_to_h,
+    lambda model: model.transformer.h[0].self_attention.query_key_value,
+    lambda model: model.transformer.h[0].self_attention.dense,
+]
+
+
+@pytest.mark.parametrize("tensor_parallel_size", [1, 2])
+@pytest.mark.parametrize("MODULE_NAME, get_module", list(zip(MODULE_NAMES, GET_MODULE_FUNCTIONS)))
 def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module):
+    # NOTE: This is parallelizing two dense layers in an MLP
+    # and all query, key, value, and head projections in self-attention
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 
