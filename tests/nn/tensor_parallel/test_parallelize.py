@@ -85,10 +85,10 @@ def run_parallelize_linear(
 
 
 @pytest.mark.parametrize("tensor_parallel_size, MODULE_NAME, get_module", [
-    (1, "transformer.h.0.mlp.dense_h_to_4h", lambda model: model.h[0].mlp.dense_h_to_4h),
-    (2, "transformer.h.0.mlp.dense_h_to_4h", lambda model: model.h[0].mlp.dense_h_to_4h),
-    (1, "transformer.h.0.mlp.dense_4h_to_h", lambda model: model.h[0].mlp.dense_4h_to_h),
-    (2, "transformer.h.0.mlp.dense_4h_to_h", lambda model: model.h[0].mlp.dense_4h_to_h),
+    (1, "transformer.h.0.mlp.dense_h_to_4h", lambda model: model.transformer.h[0].mlp.dense_h_to_4h),
+    (2, "transformer.h.0.mlp.dense_h_to_4h", lambda model: model.transformer.h[0].mlp.dense_h_to_4h),
+    (1, "transformer.h.0.mlp.dense_4h_to_h", lambda model: model.transformer.h[0].mlp.dense_4h_to_h),
+    (2, "transformer.h.0.mlp.dense_4h_to_h", lambda model: model.transformer.h[0].mlp.dense_4h_to_h),
 ])
 def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module):
     PIPELINE_PARALLEL_SIZE = 1
