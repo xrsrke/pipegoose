@@ -7,6 +7,7 @@ from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
 from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
+from pipegoose.nn.tensor_parallel.parallel_mapping import ParallelMapping
 from pipegoose.nn.tensor_parallel._utils import VocabUtility, is_splitable
 
 
@@ -36,8 +37,16 @@ class ParallelizeModule(ABC):
 
 
 class ParallelizeLinear(ParallelizeModule):
-    def parallelize(self) -> nn.Module:
-        module = self._parallelize_column_linear(self.module)
+    def parallelize(self, module_name: str) -> nn.Module:
+        assert isinstance(self.module, nn.Linear), "only parallelize nn.Linear"
+
+        if ParallelMapping.is_column_parallel(module_name):
+            module = self._parallelize_column_linear(self.module)
+        elif ParallelMapping.is_row_parallel(module_name):
+            module = self._parallelize_row_linear(self.module)
+        else:
+            raise ValueError(f"module {module_name} is not supported")
+
         return module
 
     def deparallelize(self):

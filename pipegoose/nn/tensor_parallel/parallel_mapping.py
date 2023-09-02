@@ -62,3 +62,7 @@ class ParallelMapping:
         if item is None:
             return False
         return isinstance(item, Row)
+
+    @staticmethod
+    def is_linear(module_name: str) -> bool:
+        pass

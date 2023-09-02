@@ -81,18 +81,14 @@ def test_parallelize_embedding(model, tensor_parallel_size):
     )
 
 
-def test_parallelize_attention():
-    pass
-
-
 def run_parallelize_column_linear(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, linear, input, output
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module_name, module, input, output
 ):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    parallelized_linear = ParallelizeLinear(linear, parallel_context).parallelize()
-    parallel_output = parallelized_linear(input)
+    parallelized_module = ParallelizeLinear(module, parallel_context).parallelize(module_name)
+    parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output, rtol=1e-4)
 
@@ -103,12 +99,15 @@ def run_parallelize_column_linear(
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 def test_parallelize_column_linear(model, tensor_parallel_size):
+    # TODO: add test module the named_children() version
+    MODULE_NAME = "transformer.h.0.mlp.dense_h_to_4h"
+
     # NOTE: this is column parallel linear
-    linear = model.h[0].mlp.dense_h_to_4h
-    input_size = linear.weight.shape[1]
+    module = model.h[0].mlp.dense_h_to_4h
+    input_size = module.weight.shape[1]
 
     input = torch.randn(10, input_size)
-    output = linear(input)
+    output = module(input)
 
     spawn(
         run_parallelize_column_linear,
@@ -116,32 +115,34 @@ def test_parallelize_column_linear(model, tensor_parallel_size):
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=1,
         data_parallel_size=1,
-        linear=linear,
+        module_name=MODULE_NAME,
+        module=module,
         input=input.detach(),
         output=output.detach(),
     )
 
 
 def run_parallelize_row_linear(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, linear, input, output
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module_name, module, input, output
 ):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
     # TODO: make this based on parallel mapping
-    parallelized_linear = ParallelizeLinear(linear, parallel_context)._parallelize_row_linear(linear)
-    parallel_output = parallelized_linear(input)
+    parallelized_module = ParallelizeLinear(module, parallel_context).parallelize(module_name)
+    parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output, rtol=1e-4)
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 def test_parallelize_row_linear(model, tensor_parallel_size):
-    linear = model.h[0].mlp.dense_4h_to_h
-    input_size = linear.weight.shape[1]
+    MODULE_NAME = "transformer.h.0.mlp.dense_4h_to_h"
+    module = model.h[0].mlp.dense_4h_to_h
+    input_size = module.weight.shape[1]
 
     input = torch.randn(10, input_size)
-    output = linear(input)
+    output = module(input)
 
     spawn(
         run_parallelize_row_linear,
@@ -149,10 +150,15 @@ def test_parallelize_row_linear(model, tensor_parallel_size):
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=1,
         data_parallel_size=1,
-        linear=linear,
+        module_name=MODULE_NAME,
+        module=module,
         input=input.detach(),
         output=output.detach(),
     )
+
+
+def test_parallelize_attention():
+    pass
 
 
 def test_parallelize_layer_norm():
