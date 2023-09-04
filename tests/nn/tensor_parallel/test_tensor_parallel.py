@@ -1,9 +1,11 @@
 import pytest
-from transformers import AutoModel, AutoTokenizer
 
 from pipegoose.distributed.parallel_context import ParallelContext
-from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel.tensor_parallel import TensorParallel
+from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
+from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
+from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
+from pipegoose.testing.utils import spawn
 
 
 def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
@@ -24,16 +26,62 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
     return parallel_context
 
 
-@pytest.mark.skip
-def test_parallelize_a_transformers():
-    parallel_context = init_parallel_context()
-    # world_size = parallel_context.get_world_size(parallel_mode=ParallelMode.TENSOR)
+def run_parallelize_a_transformers(
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, model, input, output
+):
+    # NOTE: we don't parallelize the dropout layers
+    # and the activation functions
+    SKIP_MODULES = {
+        type(model.transformer.h[0].mlp.gelu_impl),
+        type(model.transformer.h[0].self_attention.attention_dropout)
+    }
 
-    model = AutoModel.from_pretrained("gpt2")
-    tokenizer = AutoTokenizer.from_pretrained("gpt2")
-    input = tokenizer.tokenize("Persistence is all you need.", return_tensors="pt")
+    def get_leaf_modules(model):
+        leaf_modules = []
+        for name, module in model.named_modules():
+            if list(module.children()):
+                continue
+            if type(module) in SKIP_MODULES:
+                continue
+            leaf_modules.append((name, module))
 
-    parallelized_model = TensorParallel(model, parallel_context)
-    parallelized_model.parallelize()
+        return leaf_modules
 
-    generated_ids = parallelized_model(**input)
+    def is_parallelized(module):
+        return isinstance(module, (ParallelEmbedding, ColumnParallelLinear, RowParallelLinear, LayerNorm))
+
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
+    parallelized_model = TensorParallel(model, parallel_context).parallelize()
+
+    # NOTE: because pytorch also returns nested modules
+    # and we only want to check the leaf modules,
+    # so we filter out the nested modules
+    leaf_modules = get_leaf_modules(parallelized_model)
+    for module_name, module in leaf_modules:
+        assert is_parallelized(module) is True, f"module {module_name} is not parallelized"
+
+    # p_output = parallelized_model(**input)
+    # assert p_output == output
+
+
+@pytest.mark.parametrize("tensor_parallel_size", [1, 2])
+def test_parallelize_a_transformer(model, tokenizer, tensor_parallel_size):
+    PIPELINE_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+
+    text = "Persistence is all you need."
+    input = tokenizer(text, return_tensors="pt")
+    output = model.generate(**input)
+
+    spawn(
+        run_parallelize_a_transformers,
+        world_size=tensor_parallel_size,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
+        model=model,
+        input=input,
+        output=output.detach(),
+    )
