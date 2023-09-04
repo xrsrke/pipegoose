@@ -6,6 +6,7 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel.parallelize import (
     ParallelizeEmbedding,
     ParallelizeLinear,
+    ParallelizeLayerNorm
 )
 from pipegoose.testing.utils import spawn
 
@@ -131,6 +132,49 @@ def test_parallelize_attention():
     pass
 
 
-@pytest.mark.skip
-def test_parallelize_layer_norm():
+def run_parallelize_layernorm(
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module_name, module, input, output
+):
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
+    # TODO: make this based on parallel mapping
+    parallelized_module = ParallelizeLayerNorm(module, parallel_context).parallelize()
+    parallel_output = parallelized_module(input)
+
+    torch.allclose(parallel_output, output)
+
+    # NOTE: since we already test the backward pass of
+    # ColumnParallelLinear, and RowParallelLinear in another test,
+    # we don't need to test it here.
+
+
+@pytest.mark.parametrize("tensor_parallel_size", [1, 2])
+def test_parallelize_layer_norm(model, tensor_parallel_size):
+    DATA_PARALLEL_SIZE = 1
+    PIPELINE_PARALLEL_SIZE = 1
+
+    MODULE_NAME = "transformer.word_embeddings_layernorm"
+    module = model.transformer.word_embeddings_layernorm
+
+    BATCH_SIZE = 10
+    SEQ_LEN = 5
+    HIDDEN_SIZE = module.normalized_shape[0]
+    input = torch.randn(BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE)
+    output = module(input)
+
+    spawn(
+        run_parallelize_layernorm,
+        world_size=tensor_parallel_size,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
+        module_name=MODULE_NAME,
+        module=module,
+        input=input.detach(),
+        output=output.detach(),
+    )
+
+
+def test_parallelize_positional_embedding():
     pass

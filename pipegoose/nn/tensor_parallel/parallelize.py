@@ -58,8 +58,6 @@ class ParallelizeLinear(ParallelizeModule):
 
         _update_model_arguments(
             module=module,
-            # TODO: make this based on parallel mapping
-            # column parallel don't gather the output
             gather_output=True,
             parallel_context=self.parallel_context,
         )
@@ -68,8 +66,6 @@ class ParallelizeLinear(ParallelizeModule):
 
     def _parallelize_row_linear(self, module: nn.Module) -> nn.Module:
         module.__class__ = RowParallelLinear
-        # NOTE: It appears that row column doesn't not require splitting the bias,
-        # as the final output without splitting is correct
         module = self._slice_weight_and_bias(module, slice_bias=False, dim=1)
 
         _update_model_arguments(
@@ -137,7 +133,20 @@ class ParallelizeEmbedding(ParallelizeModule):
 
 
 class ParallelizeLayerNorm(ParallelizeModule):
-    pass
+    def parallelize(self) -> nn.Module:
+        assert isinstance(self.module, nn.LayerNorm), "only parallelize nn.LayerNorm"
+
+        _update_model_arguments(
+            module=self.module,
+            normalized_shape=self.module.normalized_shape,
+            eps=self.module.eps,
+            paralell_context=self.parallel_context
+        )
+
+        return self.module
+
+    def deparallelize(self):
+        pass
 
 
 class ParallelizeAttention(ParallelizeModule):
