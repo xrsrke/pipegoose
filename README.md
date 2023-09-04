@@ -43,6 +43,10 @@ pipeline.fit(dataloader)
     - Elastic training
     - Fault-tolerance
 
+**Notes**
+⚠️ The APIs is still a work in progress and could change at any time. None of the public APIs are set in stone until we hit version 0.1.0.
+
+
 **Appreciation**
 
 Big thanks to 🤗 [Hugging Face](https://huggingface.co/) for sponsoring this project with 8x A100 GPUs for testing! And [Zach Schrier](https://twitter.com/zach_schrier) for monthly twitch donations
