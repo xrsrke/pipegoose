@@ -7,6 +7,7 @@ from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
 from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
+from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
 from pipegoose.nn.tensor_parallel.parallel_mapping import ParallelMapping
 from pipegoose.nn.tensor_parallel._utils import VocabUtility, is_splitable
 
@@ -136,6 +137,7 @@ class ParallelizeEmbedding(ParallelizeModule):
 class ParallelizeLayerNorm(ParallelizeModule):
     def parallelize(self) -> nn.Module:
         assert isinstance(self.module, nn.LayerNorm), "only parallelize nn.LayerNorm"
+        self.module.__class__ = LayerNorm
 
         _update_model_arguments(
             module=self.module,

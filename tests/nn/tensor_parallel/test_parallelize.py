@@ -1,5 +1,5 @@
 # NOTE: since we already test the backward pass
-# of these modules in another tensor_parallel tests, we don't
+# of these parallel modules in tensor_parallel tests, we don't
 # need to test it here
 
 import pytest
@@ -13,6 +13,9 @@ from pipegoose.nn.tensor_parallel.parallelize import (
     ParallelizeLayerNorm,
     ParallelizeLMHead
 )
+from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
+from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
+from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
 from pipegoose.testing.utils import spawn
 
 
@@ -46,6 +49,7 @@ def run_parallelize_embedding(
     parallel_output = parallelized_module(input)
 
     assert torch.allclose(parallel_output, output)
+    assert isinstance(parallelized_module, ParallelEmbedding)
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
@@ -81,6 +85,7 @@ def run_parallelize_linear(
     parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output, rtol=1e-4)
+    assert isinstance(parallelized_module, ColumnParallelLinear) or isinstance(parallelized_module, RowParallelLinear)
 
 
 MODULE_NAMES = [
@@ -141,6 +146,7 @@ def run_parallelize_layernorm(
     parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output)
+    assert isinstance(parallelized_module, LayerNorm)
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
@@ -185,6 +191,7 @@ def run_parallelize_lm_head(
     parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output)
+    assert isinstance(parallelized_module, ColumnParallelLinear)
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
