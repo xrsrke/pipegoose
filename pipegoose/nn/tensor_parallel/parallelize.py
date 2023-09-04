@@ -151,3 +151,26 @@ class ParallelizeLayerNorm(ParallelizeModule):
 
 class ParallelizeAttention(ParallelizeModule):
     pass
+
+
+class ParallelizeLMHead(ParallelizeModule):
+    """Parallelize language model head."""
+    def parallelize(self) -> nn.Module:
+        module = self.module
+        module.__class__ = ColumnParallelLinear
+        module = self._slice_weight(module, dim=0)
+
+        _update_model_arguments(
+            module=module,
+            gather_output=True,
+            parallel_context=self.parallel_context,
+        )
+
+        return module
+
+    def _slice_weight(self, module: nn.Module, dim: int) -> nn.Module:
+        module.weight.data = get_partition(module.weight, self.parallel_context, dim=dim)
+        return module
+
+    def deparallelize(self):
+        pass
