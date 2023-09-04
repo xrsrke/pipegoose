@@ -1,3 +1,7 @@
+# NOTE: since we already test the backward pass
+# of these modules in another tensor_parallel tests, we don't
+# need to test it here
+
 import pytest
 import torch
 
@@ -31,31 +35,28 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
 
 
 def run_parallelize_embedding(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, embedding, input, output
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module_name, module, input, output
 ):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
     world_size = parallel_context.get_world_size(parallel_mode=ParallelMode.TENSOR)
 
-    parallelized_embedding = ParallelizeEmbedding(embedding, parallel_context).parallelize()
-    parallel_output = parallelized_embedding(input)
+    parallelized_module = ParallelizeEmbedding(module_name, module, parallel_context).parallelize()
+    parallel_output = parallelized_module(input)
 
     assert torch.allclose(parallel_output, output)
-
-    # NOTE: since we already test the backward pass
-    # of ParallelEmbedding in another test, we don't
-    # need to test it here
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 def test_parallelize_embedding(model, tensor_parallel_size):
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
+    MODULE_NAME = "transformer.word_embeddings"
 
     input = torch.arange(0, 10)
-    embedding = model.get_input_embeddings()
-    output = embedding(input)
+    module = model.get_input_embeddings()
+    output = module(input)
 
     spawn(
         run_parallelize_embedding,
@@ -63,7 +64,8 @@ def test_parallelize_embedding(model, tensor_parallel_size):
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        embedding=embedding,
+        module_name=MODULE_NAME,
+        module=module,
         input=input.detach(),
         output=output.detach(),
     )
@@ -75,15 +77,10 @@ def run_parallelize_linear(
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    # TODO: make this based on parallel mapping
-    parallelized_module = ParallelizeLinear(module, parallel_context).parallelize(module_name)
+    parallelized_module = ParallelizeLinear(module_name, module, parallel_context).parallelize()
     parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output, rtol=1e-4)
-
-    # NOTE: since we already test the backward pass of
-    # ColumnParallelLinear, and RowParallelLinear in another test,
-    # we don't need to test it here.
 
 
 MODULE_NAMES = [
@@ -112,8 +109,8 @@ def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module
     module = get_module(model)
     input_size = module.weight.shape[1]
 
-    input_tensor = torch.randn(10, input_size)
-    output = module(input_tensor)
+    input = torch.randn(10, input_size)
+    output = module(input)
 
     spawn(
         run_parallelize_linear,
@@ -123,7 +120,7 @@ def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module
         data_parallel_size=DATA_PARALLEL_SIZE,
         module_name=MODULE_NAME,
         module=module,
-        input=input_tensor.detach(),
+        input=input.detach(),
         output=output.detach(),
     )
 
@@ -140,14 +137,10 @@ def run_parallelize_layernorm(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
     # TODO: make this based on parallel mapping
-    parallelized_module = ParallelizeLayerNorm(module, parallel_context).parallelize()
+    parallelized_module = ParallelizeLayerNorm(module_name, module, parallel_context).parallelize()
     parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output)
-
-    # NOTE: since we already test the backward pass of
-    # ColumnParallelLinear, and RowParallelLinear in another test,
-    # we don't need to test it here.
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
@@ -188,7 +181,7 @@ def run_parallelize_lm_head(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
 
-    parallelized_module = ParallelizeLMHead(module, parallel_context).parallelize()
+    parallelized_module = ParallelizeLMHead(module_name, module, parallel_context).parallelize()
     parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output)

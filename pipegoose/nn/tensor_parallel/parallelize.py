@@ -23,7 +23,8 @@ def get_partition(data: torch.Tensor, parallel_context: ParallelContext, dim: in
 
 
 class ParallelizeModule(ABC):
-    def __init__(self, module: nn.Module, parallel_context: ParallelContext):
+    def __init__(self, module_name: str, module: nn.Module, parallel_context: ParallelContext):
+        self.module_name = module_name
         self.module = module
         self.parallel_context = parallel_context
 
@@ -37,15 +38,15 @@ class ParallelizeModule(ABC):
 
 
 class ParallelizeLinear(ParallelizeModule):
-    def parallelize(self, module_name: str) -> nn.Module:
+    def parallelize(self) -> nn.Module:
         assert isinstance(self.module, nn.Linear), "only parallelize nn.Linear"
 
-        if ParallelMapping.is_column_parallel(module_name):
+        if ParallelMapping.is_column_parallel(self.module_name):
             module = self._parallelize_column_linear(self.module)
-        elif ParallelMapping.is_row_parallel(module_name):
+        elif ParallelMapping.is_row_parallel(self.module_name):
             module = self._parallelize_row_linear(self.module)
         else:
-            raise ValueError(f"module {module_name} is not supported")
+            raise ValueError(f"module {self.module_name} is not supported")
 
         return module
 

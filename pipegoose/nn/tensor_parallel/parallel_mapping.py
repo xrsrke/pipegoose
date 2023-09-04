@@ -22,7 +22,7 @@ class ParallelMapping:
     __MAPPING__ = {
         "albert-base-v2": [Column(("query", "key", "value")), Row("attention.dense")],
         "bloom-560m": [
-            Column(("mlp.dense_h_to_4h", "self_attention.query_key_value")),
+            Column(("mlp.dense_h_to_4h", "self_attention.query_key_value", "lm_head")),
             Row(("mlp.dense_4h_to_h", "self_attention.dense")),
         ],
     }
