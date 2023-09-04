@@ -266,6 +266,15 @@ class ParallelContext:
         world_size = self.get_world_size(parallel_mode)
         return (rank - 1) % world_size
 
+    def is_first_rank(self, parallel_mode: ParallelMode) -> bool:
+        local_rank = self.get_local_rank(parallel_mode)
+        return local_rank == 0
+
+    def is_last_rank(self, parallel_mode: ParallelMode) -> bool:
+        local_rank = self.get_local_rank(parallel_mode)
+        world_size = self.get_world_size(parallel_mode)
+        return local_rank == world_size - 1
+
     def destroy(self):
         assert self.is_initialized(ParallelMode.GLOBAL), "Global group must be initialized before destroying."
         for mode, group in self._groups.items():

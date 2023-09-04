@@ -103,6 +103,9 @@ def init_parallel_context(
         prev_local_rank = parallel_context.get_prev_local_rank(local_rank, parallel_mode)
         assert prev_local_rank == LOCAL_RANK_TO_PREV_RANK[world_size][parallel_mode][local_rank]
 
+        assert parallel_context.is_first_rank(parallel_mode) == (local_rank == 0)
+        assert parallel_context.is_last_rank(parallel_mode) == (local_rank == parallel_context.get_world_size(parallel_mode) - 1)
+
     parallel_context.destroy()
 
     if pipeline_parallel_size > 1:
