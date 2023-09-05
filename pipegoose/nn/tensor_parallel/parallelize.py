@@ -123,7 +123,7 @@ class ParallelizeEmbedding(ParallelizeModule):
         padding_size = 0
 
         vocab_size, embedding_dim = self.module.weight.size()
-        while not is_splitable(vocab_size + padding_size, self.parallel_context):
+        while not self._is_splitable(vocab_size + padding_size):
             padding_size += 1
 
         if padding_size > 0:
@@ -131,6 +131,10 @@ class ParallelizeEmbedding(ParallelizeModule):
             new_embeddings = torch.cat([self.module.weight, padding], dim=0)
 
             self.module.weight.data = new_embeddings
+
+    def _is_splitable(self, size: int) -> bool:
+        world_size = self.parallel_context.get_world_size(ParallelMode.TENSOR)
+        return True if size % world_size == 0 else False
 
 
 class ParallelizeLayerNorm(ParallelizeModule):

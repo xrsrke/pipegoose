@@ -1,14 +1,5 @@
 from typing import Tuple
 
-from torch import nn
-
-from pipegoose.distributed.parallel_mode import ParallelMode
-
-
-def is_splitable(size, parallel_context):
-    world_size = parallel_context.get_world_size(ParallelMode.TENSOR)
-    return True if size % world_size == 0 else False
-
 
 class VocabUtility:
     @staticmethod
