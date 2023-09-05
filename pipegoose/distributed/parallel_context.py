@@ -173,7 +173,8 @@ class ParallelContext:
             ranks = self.get_ranks_in_group(ParallelMode.GLOBAL)
             world_size = self.get_world_size(ParallelMode.GLOBAL)
 
-            if torch.cuda.is_available():
+            if torch.cuda.device_count() > 1:
+                # NOTE: we only do device mapping for multi-gpu
                 for _rank in ranks:
                     if _rank == rank:
                         continue
