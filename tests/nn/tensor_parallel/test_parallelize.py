@@ -88,22 +88,7 @@ def run_parallelize_linear(
     assert isinstance(parallelized_module, expected_type)
 
 
-MODULE_NAMES = [
-    "transformer.h.0.mlp.dense_h_to_4h",
-    "transformer.h.0.mlp.dense_4h_to_h",
-    "transformer.h.0.self_attention.query_key_value",
-    "transformer.h.0.self_attention.dense"
-]
-
-GET_MODULE_FUNCTIONS = [
-    lambda model: model.transformer.h[0].mlp.dense_h_to_4h,
-    lambda model: model.transformer.h[0].mlp.dense_4h_to_h,
-    lambda model: model.transformer.h[0].self_attention.query_key_value,
-    lambda model: model.transformer.h[0].self_attention.dense,
-]
-
-
-MODULE_INFO = [
+LINEAR_MODULE_INFO = [
     ("transformer.h.0.mlp.dense_h_to_4h", lambda m: m.transformer.h[0].mlp.dense_h_to_4h, ColumnParallelLinear),
     ("transformer.h.0.mlp.dense_4h_to_h", lambda m: m.transformer.h[0].mlp.dense_4h_to_h, RowParallelLinear),
     ("transformer.h.0.self_attention.query_key_value", lambda m: m.transformer.h[0].self_attention.query_key_value, ColumnParallelLinear),
@@ -112,8 +97,7 @@ MODULE_INFO = [
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
-# @pytest.mark.parametrize("MODULE_NAME, get_module", list(zip(MODULE_NAMES, GET_MODULE_FUNCTIONS)))
-@pytest.mark.parametrize("MODULE_NAME, get_module, expected_type", MODULE_INFO)
+@pytest.mark.parametrize("MODULE_NAME, get_module, expected_type", LINEAR_MODULE_INFO)
 def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module, expected_type):
     # NOTE: This is parallelizing two dense layers in an MLP
     # and all query, key, value, and head projections in self-attention
@@ -138,11 +122,6 @@ def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module
         output=output.detach(),
         expected_type=expected_type
     )
-
-
-@pytest.mark.skip
-def test_parallelize_attention():
-    pass
 
 
 def run_parallelize_layernorm(

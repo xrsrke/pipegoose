@@ -88,7 +88,6 @@ class ParallelizeLinear(ParallelizeModule):
 
 
 class ParallelizeEmbedding(ParallelizeModule):
-    # TODO: refactor to staticmethod
     def parallelize(self) -> nn.Module:
         """Parallelize nn.Embedding module."""
         assert isinstance(self.module, nn.Embedding), "only parallelize nn.Embedding"
@@ -150,10 +149,6 @@ class ParallelizeLayerNorm(ParallelizeModule):
 
     def deparallelize(self):
         pass
-
-
-class ParallelizeAttention(ParallelizeModule):
-    pass
 
 
 class ParallelizeLMHead(ParallelizeModule):
