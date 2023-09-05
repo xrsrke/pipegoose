@@ -1,5 +1,4 @@
-name: Test Package
-
+name: CI
 on:
   push:
     branches:
@@ -9,30 +8,32 @@ on:
       - main
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-
+  ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
+        poetry-version: ["1.0", "1.1.15"]
+        os: [ubuntu-18.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
-          python-version: 3.9
-
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python -
+          python-version: ${{ matrix.python-version }}
+      - name: Run image
+        uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: ${{ matrix.poetry-version }}
+      - name: View poetry --help
+        run: poetry --help
 
       - name: Install dependencies
         run: |
           poetry install
-
       - name: Install dev dependencies
         run: |
           poetry install --with dev
-
       - name: Run tests with pytest
         run: |
           poetry run pytest
