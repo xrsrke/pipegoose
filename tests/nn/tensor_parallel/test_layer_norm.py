@@ -50,12 +50,8 @@ def run_layer_norm(
 @pytest.mark.parametrize(
     "tensor_parallel_size", [1, 2]
 )
-@pytest.mark.parametrize(
-    "hidden_size, normalized_shape",
-    [
-        (20, (20,)),
-    ],
-)
+@pytest.mark.parametrize("hidden_size", [20])
+@pytest.mark.parametrize("normalized_shape", [20, (20,)])
 def test_layer_norm(tensor_parallel_size, hidden_size, normalized_shape):
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
@@ -66,7 +62,7 @@ def test_layer_norm(tensor_parallel_size, hidden_size, normalized_shape):
 
     input = torch.randn(BATCH_SIZE, SEQ_LEN, hidden_size, requires_grad=True)
 
-    layer_norm = nn.LayerNorm(normalized_shape=normalized_shape, eps=EPS)
+    layer_norm = nn.LayerNorm(normalized_shape, eps=EPS)
 
     # NOTE: since we assign the weight and bias to the parallel layer norm
     # we do deepcopy to make sure if the parallel layer norm do backward pass

@@ -21,5 +21,5 @@ class LayerNorm(nn.Module):
             self.register_parameter("bias", None)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        normalized_shape = self.normalized_shape if isinstance(self.normalized_shape, int) else self.normalized_shape
+        normalized_shape = (self.normalized_shape,) if isinstance(self.normalized_shape, int) else self.normalized_shape
         return F.layer_norm(input, normalized_shape, self.weight, self.bias, self.eps)
