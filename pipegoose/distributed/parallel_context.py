@@ -170,15 +170,15 @@ class ParallelContext:
             )
 
             rank = self.get_global_rank()
-            ranks = self.get_ranks_in_group(ParallelMode.GLOBAL)
             world_size = self.get_world_size(ParallelMode.GLOBAL)
 
+            # NOTE: we only do device mapping for multi-gpu
             if torch.cuda.device_count() > 1:
-                # NOTE: we only do device mapping for multi-gpu
-                for _rank in ranks:
-                    if _rank == rank:
+                ranks = self.get_ranks_in_group(ParallelMode.GLOBAL)
+                for other_rank in ranks:
+                    if other_rank == rank:
                         continue
-                    options.set_device_map(WORKER_NAME.format(_rank), {rank: _rank})
+                    options.set_device_map(WORKER_NAME.format(other_rank), {rank: other_rank})
 
             rpc.init_rpc(name=self.rpc_worker_map[rank], rank=rank, world_size=world_size, rpc_backend_options=options)
 

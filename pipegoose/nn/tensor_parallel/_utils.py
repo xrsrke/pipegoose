@@ -10,18 +10,6 @@ def is_splitable(size, parallel_context):
     return True if size % world_size == 0 else False
 
 
-def is_linear_parallelizable(module: nn.Module) -> bool:
-    pass
-
-
-def _is_column_parallel(module: nn.Module) -> bool:
-    pass
-
-
-def _is_row_parallel(module: nn.Module) -> bool:
-    pass
-
-
 class VocabUtility:
     @staticmethod
     def get_vocab_range_idx_from_partition_size(partition_size: int, rank: int) -> Tuple[int, int]:
