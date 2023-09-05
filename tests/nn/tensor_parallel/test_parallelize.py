@@ -76,7 +76,7 @@ def test_parallelize_embedding(model, tensor_parallel_size):
 
 
 def run_parallelize_linear(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module_name, module, input, output
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module_name, module, input, output, expected_type
 ):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
@@ -85,7 +85,7 @@ def run_parallelize_linear(
     parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output, rtol=1e-4)
-    assert isinstance(parallelized_module, ColumnParallelLinear) or isinstance(parallelized_module, RowParallelLinear)
+    assert isinstance(parallelized_module, expected_type)
 
 
 MODULE_NAMES = [
@@ -103,9 +103,18 @@ GET_MODULE_FUNCTIONS = [
 ]
 
 
+MODULE_INFO = [
+    ("transformer.h.0.mlp.dense_h_to_4h", lambda m: m.transformer.h[0].mlp.dense_h_to_4h, ColumnParallelLinear),
+    ("transformer.h.0.mlp.dense_4h_to_h", lambda m: m.transformer.h[0].mlp.dense_4h_to_h, RowParallelLinear),
+    ("transformer.h.0.self_attention.query_key_value", lambda m: m.transformer.h[0].self_attention.query_key_value, ColumnParallelLinear),
+    ("transformer.h.0.self_attention.dense", lambda m: m.transformer.h[0].self_attention.dense, RowParallelLinear)
+]
+
+
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
-@pytest.mark.parametrize("MODULE_NAME, get_module", list(zip(MODULE_NAMES, GET_MODULE_FUNCTIONS)))
-def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module):
+# @pytest.mark.parametrize("MODULE_NAME, get_module", list(zip(MODULE_NAMES, GET_MODULE_FUNCTIONS)))
+@pytest.mark.parametrize("MODULE_NAME, get_module, expected_type", MODULE_INFO)
+def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module, expected_type):
     # NOTE: This is parallelizing two dense layers in an MLP
     # and all query, key, value, and head projections in self-attention
     PIPELINE_PARALLEL_SIZE = 1
@@ -127,6 +136,7 @@ def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module
         module=module,
         input=input.detach(),
         output=output.detach(),
+        expected_type=expected_type
     )
 
 

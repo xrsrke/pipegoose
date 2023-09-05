@@ -24,6 +24,5 @@ def test_is_row_parallel_mapping(model):
         mappings[name] = ParallelMapping.is_row_parallel(name)
 
     for layer_idx in range(len(model.transformer.h)):
-        # TODO: add check attention layer
-        assert mappings[BLOOM_DENSE_4H_TO_H_NAME.format(layer_idx)] is True
-        assert mappings[BLOOM_ATTENTION_DENSE_NAME.format(layer_idx)] is True
+        assert mappings[BLOOM_DENSE_4H_TO_H_NAME.format(layer_idx)] is True, f"{BLOOM_DENSE_4H_TO_H_NAME.format(layer_idx)} is not row parallelized"
+        assert mappings[BLOOM_ATTENTION_DENSE_NAME.format(layer_idx)] is True, f"{BLOOM_ATTENTION_DENSE_NAME.format(layer_idx)} is not row parallelized"

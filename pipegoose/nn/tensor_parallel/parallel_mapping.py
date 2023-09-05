@@ -16,9 +16,9 @@ class Row(TensorParallelInformation):
 
 
 class ParallelMapping:
+
     # TODO: make this extendable
     # so user can define their own mapping
-
     __MAPPING__ = {
         "albert-base-v2": [Column(("query", "key", "value")), Row("attention.dense")],
         "bloom-560m": [
@@ -26,28 +26,6 @@ class ParallelMapping:
             Row(("mlp.dense_4h_to_h", "self_attention.dense")),
         ],
     }
-
-    @staticmethod
-    def _search(module_name: str) -> TensorParallelInformation:
-        """
-        Search for module_name in mappings.
-        """
-        module_name = ParallelMapping._extract_module_name(module_name)
-        for items in ParallelMapping.__MAPPING__.values():
-            for item in items:
-                if any(module_name in mapping_name for mapping_name in item.module_name):
-                    return item
-        return None
-
-    @staticmethod
-    def _extract_module_name(module_name: str) -> str:
-        def _check_module_name_in_named_modules(module_name: str) -> bool:
-            return '.' in module_name
-
-        if _check_module_name_in_named_modules(module_name) is True:
-            return module_name.split('.')[-1]
-
-        return module_name
 
     @staticmethod
     def is_column_parallel(module_name: str) -> bool:
@@ -64,5 +42,22 @@ class ParallelMapping:
         return isinstance(item, Row)
 
     @staticmethod
-    def is_linear(module_name: str) -> bool:
-        pass
+    def _search(module_name: str) -> TensorParallelInformation:
+        """
+        Search for module_name in mappings.
+        """
+        module_name = ParallelMapping._extract_module_name(module_name)
+        for items in ParallelMapping.__MAPPING__.values():
+            for item in items:
+                if any(module_name in mapping_name for mapping_name in item.module_name):
+                    return item
+        return None
+
+    @staticmethod
+    def _extract_module_name(module_name: str) -> str:
+        if "." in module_name:
+            SEPARATOR = "."
+            sections = module_name.split(SEPARATOR)
+            return SEPARATOR.join(sections[-2:])
+
+        return module_name
