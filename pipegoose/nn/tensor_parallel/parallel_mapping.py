@@ -56,6 +56,7 @@ class ParallelMapping:
     @staticmethod
     def _extract_module_name(module_name: str) -> str:
         if "." in module_name:
+            # NOTE: transformer.h.0.self_attention.dense -> self_attention.dense
             SEPARATOR = "."
             sections = module_name.split(SEPARATOR)
             return SEPARATOR.join(sections[-2:])

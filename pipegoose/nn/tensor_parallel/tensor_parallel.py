@@ -41,3 +41,6 @@ class TensorParallel:
     def deparallelize(self) -> nn.Module:
         for module_name, module in self.module.named_modules():
             self.parallelers[module].deparallelize(module_name, module, self.parallel_context)
+
+    def load_state_dict(self):
+        pass
