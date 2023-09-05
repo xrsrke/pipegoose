@@ -9,7 +9,7 @@ from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
 from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
 from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
 from pipegoose.nn.tensor_parallel.parallel_mapping import ParallelMapping
-from pipegoose.nn.tensor_parallel._utils import VocabUtility, is_splitable
+from pipegoose.nn.tensor_parallel._utils import VocabUtility
 
 
 def _update_model_arguments(module: nn.Module, **kwargs):
@@ -17,7 +17,7 @@ def _update_model_arguments(module: nn.Module, **kwargs):
         setattr(module, key, value)
 
 
-def get_partition(data: torch.Tensor, parallel_context: ParallelContext, dim: int):
+def get_partition(data: torch.Tensor, parallel_context: ParallelContext, dim: int) -> torch.Tensor:
     rank = parallel_context.get_local_rank(ParallelMode.TENSOR)
     chunks = torch.chunk(data, parallel_context.get_world_size(ParallelMode.TENSOR), dim=dim)
     return chunks[rank].contiguous()
@@ -91,8 +91,10 @@ class ParallelizeEmbedding(ParallelizeModule):
     def parallelize(self) -> nn.Module:
         """Parallelize nn.Embedding module."""
         assert isinstance(self.module, nn.Embedding), "only parallelize nn.Embedding"
+
         self._resize_vocab_size()
         self._split_weight()
+
         return self.module
 
     def deparallelize(self):

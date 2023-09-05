@@ -42,8 +42,6 @@ def run_parallelize_a_transformers(
         for name, module in model.named_modules():
             if list(module.children()):
                 continue
-            if type(module) in SKIP_MODULES:
-                continue
             leaf_modules.append((name, module))
 
         return leaf_modules
@@ -61,6 +59,9 @@ def run_parallelize_a_transformers(
     # so we filter out the nested modules
     leaf_modules = get_leaf_modules(parallelized_model)
     for module_name, module in leaf_modules:
+        if type(module) in SKIP_MODULES:
+            continue
+
         assert is_parallelized(module) is True, f"module {module_name} is not parallelized"
 
     if world_size == 1:
