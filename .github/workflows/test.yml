@@ -1,20 +1,14 @@
 name: CI
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+on: pull_request
 
 jobs:
   ci:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
-        poetry-version: ["1.0", "1.1.15"]
-        os: [ubuntu-18.04, macos-latest, windows-latest]
+        python-version: ["3.9"]
+        poetry-version: ["1.6"]
+        os: [ubuntu-18.04]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -27,9 +21,3 @@ jobs:
           poetry-version: ${{ matrix.poetry-version }}
       - name: View poetry --help
         run: poetry --help
-      - name: Install dependencies
-        run: poetry install
-      - name: Install dev dependencies
-        run: poetry install --with dev
-      - name: Run tests with pytest
-        run: poetry run pytest

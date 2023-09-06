@@ -39,10 +39,7 @@ class TensorParallel:
         for module_name, leaf_module in leaf_modules:
             parallelizer = self._find_parallelizer(module_name, leaf_module)
             if parallelizer is not None:
-                if parallelizer == ParallelizeLMHead:
-                    parallelizer(module_name, leaf_module, self.parallel_context).parallelize(self.module)
-                else:
-                    parallelizer(module_name, leaf_module, self.parallel_context).parallelize()
+                parallelizer(module_name, leaf_module, self.module, self.parallel_context).parallelize()
 
         return self.module
 

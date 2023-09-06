@@ -1,5 +1,6 @@
 from abc import ABC, abstractclassmethod
 from typing import Union
+from dataclasses import dataclass
 
 import torch
 from torch import nn
@@ -24,10 +25,16 @@ def get_partition(data: torch.Tensor, parallel_context: ParallelContext, dim: in
     return chunks[rank].contiguous()
 
 
+@dataclass
+class ParallelMetadata:
+    is_sliced: bool
+
+
 class ParallelizeModule(ABC):
-    def __init__(self, module_name: str, module: nn.Module, parallel_context: ParallelContext):
+    def __init__(self, module_name: str, module: nn.Module, model: nn.Module, parallel_context: ParallelContext):
         self.module_name = module_name
         self.module = module
+        self.model = model
         self.parallel_context = parallel_context
 
     @abstractclassmethod
@@ -159,14 +166,17 @@ class ParallelizeLayerNorm(ParallelizeModule):
 
 class ParallelizeLMHead(ParallelizeModule):
     """Parallelize language model head."""
-    def parallelize(self, model) -> ColumnParallelLinear:
+    def parallelize(self) -> ColumnParallelLinear:
         module = self.module
         module.__class__ = ColumnParallelLinear
 
         # NOTE: in some models, the lm_head uses the same weight as the token embedding.
         # Because we split the token embedding before the lm_head, we avoid splitting the weight again.
-        if model.get_output_embeddings().weight is not self.module.weight:
+        if not hasattr(module.weight, "parallel_metadata"):
             module = self._slice_weight(module, dim=0)
+        else:
+            if self.model.get_output_embeddings().weight is not self.module.weight:
+                module = self._slice_weight(module, dim=0)
 
         _update_model_arguments(
             module=module,
@@ -177,6 +187,7 @@ class ParallelizeLMHead(ParallelizeModule):
         return module
 
     def _slice_weight(self, module: nn.Module, dim: int) -> ColumnParallelLinear:
+        module.weight.parallel_metadata = ParallelMetadata(is_sliced=True)
         module.weight.data = get_partition(module.weight, self.parallel_context, dim=dim)
         return module
 
