@@ -15,6 +15,10 @@ class Row(TensorParallelInformation):
     pass
 
 
+class LMHead(TensorParallelInformation):
+    pass
+
+
 class ParallelMapping:
 
     # TODO: make this extendable
@@ -22,8 +26,9 @@ class ParallelMapping:
     __MAPPING__ = {
         "albert-base-v2": [Column(("query", "key", "value")), Row("attention.dense")],
         "bloom-560m": [
-            Column(("mlp.dense_h_to_4h", "self_attention.query_key_value", "lm_head")),
+            Column(("mlp.dense_h_to_4h", "self_attention.query_key_value")),
             Row(("mlp.dense_4h_to_h", "self_attention.dense")),
+            LMHead(("lm_head",)),
         ],
     }
 
@@ -40,6 +45,13 @@ class ParallelMapping:
         if item is None:
             return False
         return isinstance(item, Row)
+
+    @staticmethod
+    def is_lm_head(module_name: str) -> bool:
+        item = ParallelMapping._search(module_name)
+        if item is None:
+            return False
+        return isinstance(item, LMHead)
 
     @staticmethod
     def _search(module_name: str) -> TensorParallelInformation:

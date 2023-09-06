@@ -52,6 +52,7 @@ def run_parallelize_a_transformers(
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
+
     parallelized_model = TensorParallel(model, parallel_context).parallelize()
 
     # NOTE: because pytorch also returns nested modules
@@ -64,17 +65,8 @@ def run_parallelize_a_transformers(
 
         assert is_parallelized(module) is True, f"module {module_name} is not parallelized"
 
-    if world_size == 1:
-        # NOTE: If the world_size is larger than 1,
-        # we have to partition the weights and load them after
-        # parallelizing a module. This is because if process 1 splits
-        # a weight in half and reassigns it, and then process 2
-        # also splits and reassigns the weight, it will result in the weight
-        # being split into 4 parts. This isn't what we want;
-        # we want the weight to be split into 2 parts.
-        # so we are moving this to another test.
-        p_output = parallelized_model.generate(**input)
-        assert torch.allclose(p_output, output)
+    p_output = parallelized_model.generate(**input)
+    assert torch.allclose(p_output, output)
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])

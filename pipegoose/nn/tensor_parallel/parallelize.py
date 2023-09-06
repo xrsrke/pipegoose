@@ -1,4 +1,5 @@
 from abc import ABC, abstractclassmethod
+from typing import Union
 
 import torch
 from torch import nn
@@ -39,7 +40,7 @@ class ParallelizeModule(ABC):
 
 
 class ParallelizeLinear(ParallelizeModule):
-    def parallelize(self) -> nn.Module:
+    def parallelize(self) -> Union[ColumnParallelLinear, RowParallelLinear]:
         assert isinstance(self.module, nn.Linear), "only parallelize nn.Linear"
 
         if ParallelMapping.is_column_parallel(self.module_name):
@@ -54,7 +55,7 @@ class ParallelizeLinear(ParallelizeModule):
     def deparallelize(self):
         pass
 
-    def _parallelize_column_linear(self, module: nn.Module) -> nn.Module:
+    def _parallelize_column_linear(self, module: nn.Module) -> ColumnParallelLinear:
         module.__class__ = ColumnParallelLinear
         module = self._slice_weight_and_bias(module, slice_bias=True, dim=0)
 
@@ -66,7 +67,7 @@ class ParallelizeLinear(ParallelizeModule):
 
         return module
 
-    def _parallelize_row_linear(self, module: nn.Module) -> nn.Module:
+    def _parallelize_row_linear(self, module: nn.Module) -> RowParallelLinear:
         module.__class__ = RowParallelLinear
         module = self._slice_weight_and_bias(module, slice_bias=False, dim=1)
 
@@ -80,15 +81,14 @@ class ParallelizeLinear(ParallelizeModule):
     def _slice_weight_and_bias(self, module: nn.Module, slice_bias: bool, dim: int) -> nn.Module:
         module.weight.data = get_partition(module.weight, self.parallel_context, dim=dim)
 
-        if slice_bias is True:
-            if module.bias is not None:
-                module.bias.data = get_partition(module.bias, self.parallel_context, dim=0)
+        if module.bias is not None and slice_bias is True:
+            module.bias.data = get_partition(module.bias, self.parallel_context, dim=0)
 
         return module
 
 
 class ParallelizeEmbedding(ParallelizeModule):
-    def parallelize(self) -> nn.Module:
+    def parallelize(self) -> ParallelEmbedding:
         """Parallelize nn.Embedding module."""
         assert isinstance(self.module, nn.Embedding), "only parallelize nn.Embedding"
 
@@ -140,7 +140,7 @@ class ParallelizeEmbedding(ParallelizeModule):
 
 
 class ParallelizeLayerNorm(ParallelizeModule):
-    def parallelize(self) -> nn.Module:
+    def parallelize(self) -> LayerNorm:
         assert isinstance(self.module, nn.LayerNorm), "only parallelize nn.LayerNorm"
         self.module.__class__ = LayerNorm
 
@@ -159,10 +159,14 @@ class ParallelizeLayerNorm(ParallelizeModule):
 
 class ParallelizeLMHead(ParallelizeModule):
     """Parallelize language model head."""
-    def parallelize(self) -> nn.Module:
+    def parallelize(self, model) -> ColumnParallelLinear:
         module = self.module
         module.__class__ = ColumnParallelLinear
-        module = self._slice_weight(module, dim=0)
+
+        # NOTE: in some models, the lm_head uses the same weight as the token embedding.
+        # Because we split the token embedding before the lm_head, we avoid splitting the weight again.
+        if model.get_output_embeddings().weight is not self.module.weight:
+            module = self._slice_weight(module, dim=0)
 
         _update_model_arguments(
             module=module,
@@ -172,7 +176,7 @@ class ParallelizeLMHead(ParallelizeModule):
 
         return module
 
-    def _slice_weight(self, module: nn.Module, dim: int) -> nn.Module:
+    def _slice_weight(self, module: nn.Module, dim: int) -> ColumnParallelLinear:
         module.weight.data = get_partition(module.weight, self.parallel_context, dim=dim)
         return module
 

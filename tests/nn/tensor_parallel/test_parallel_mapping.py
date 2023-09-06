@@ -26,3 +26,14 @@ def test_is_row_parallel_mapping(model):
     for layer_idx in range(len(model.transformer.h)):
         assert mappings[BLOOM_DENSE_4H_TO_H_NAME.format(layer_idx)] is True, f"{BLOOM_DENSE_4H_TO_H_NAME.format(layer_idx)} is not row parallelized"
         assert mappings[BLOOM_ATTENTION_DENSE_NAME.format(layer_idx)] is True, f"{BLOOM_ATTENTION_DENSE_NAME.format(layer_idx)} is not row parallelized"
+
+
+def test_is_lm_head_mapping(model):
+    BLOOM_LM_HEAD_NAME = "lm_head"
+
+    mappings = {}
+
+    for name, _ in model.named_modules():
+        mappings[name] = ParallelMapping.is_lm_head(name)
+
+    assert mappings[BLOOM_LM_HEAD_NAME] is True, f"{BLOOM_LM_HEAD_NAME} is not lm head"

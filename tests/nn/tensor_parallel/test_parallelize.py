@@ -59,7 +59,7 @@ def test_parallelize_embedding(model, tensor_parallel_size):
     MODULE_NAME = "transformer.word_embeddings"
 
     input = torch.arange(0, 10)
-    module = model.get_input_embeddings()
+    module = model.transformer.word_embeddings
     output = module(input)
 
     spawn(
