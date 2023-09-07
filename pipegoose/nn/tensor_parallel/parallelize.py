@@ -30,7 +30,7 @@ class ParallelMetadata:
     is_sliced: bool
 
 
-class ParallelizeModule(ABC):
+class ModuleParallelizer(ABC):
     def __init__(self, module_name: str, module: nn.Module, model: nn.Module, parallel_context: ParallelContext):
         """Parallelize a module.
 
@@ -58,13 +58,13 @@ class ParallelizeModule(ABC):
         raise NotImplementedError
 
 
-class ParallelizeLinear(ParallelizeModule):
+class LinearParallelizer(ModuleParallelizer):
     @staticmethod
     def is_parallelizable(module_name: str, module: nn.Module) -> bool:
         return isinstance(module, nn.Linear) and ParallelMapping.is_lm_head(module_name) is False
 
     def parallelize(self) -> Union[ColumnParallelLinear, RowParallelLinear]:
-        assert isinstance(self.module, nn.Linear), "only parallelize nn.Linear"
+        assert self.is_parallelizable(self.module_name, self.module), f"{self.module_name} can't be parallelized"
 
         if ParallelMapping.is_column_parallel(self.module_name):
             module = self._parallelize_column_linear(self.module)
@@ -111,14 +111,14 @@ class ParallelizeLinear(ParallelizeModule):
         return module
 
 
-class ParallelizeEmbedding(ParallelizeModule):
+class EmbeddingParallelizer(ModuleParallelizer):
     @staticmethod
     def is_parallelizable(module_name: str, module: nn.Module) -> bool:
         return isinstance(module, nn.Embedding)
 
     def parallelize(self) -> ParallelEmbedding:
         """Parallelize nn.Embedding module."""
-        assert isinstance(self.module, nn.Embedding), "only parallelize nn.Embedding"
+        assert self.is_parallelizable(self.module_name, self.module), f"{self.module_name} can't be parallelized"
 
         module = self.module
         self._resize_vocab_size(module)
@@ -169,13 +169,13 @@ class ParallelizeEmbedding(ParallelizeModule):
         return True if size % world_size == 0 else False
 
 
-class ParallelizeLayerNorm(ParallelizeModule):
+class LayerNormParallelizer(ModuleParallelizer):
     @staticmethod
     def is_parallelizable(module_name: str, module: nn.Module) -> bool:
         return isinstance(module, nn.LayerNorm)
 
     def parallelize(self) -> LayerNorm:
-        assert isinstance(self.module, nn.LayerNorm), "only parallelize nn.LayerNorm"
+        assert self.is_parallelizable(self.module_name, self.module), f"{self.module_name} can't be parallelized"
         self.module.__class__ = LayerNorm
 
         _update_model_arguments(
@@ -191,13 +191,14 @@ class ParallelizeLayerNorm(ParallelizeModule):
         pass
 
 
-class ParallelizeLMHead(ParallelizeModule):
+class LMHeadParallelizer(ModuleParallelizer):
     @staticmethod
     def is_parallelizable(module_name: str, module: nn.Module) -> bool:
         return isinstance(module, nn.Linear) and ParallelMapping.is_lm_head(module_name) is True
 
     """Parallelize language model head."""
     def parallelize(self) -> ColumnParallelLinear:
+        assert self.is_parallelizable(self.module_name, self.module), f"{self.module_name} can't be parallelized"
         module = self.module
         module.__class__ = ColumnParallelLinear
 

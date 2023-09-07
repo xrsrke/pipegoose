@@ -5,22 +5,22 @@ from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.tensor_parallel.parallelize import (
-    ParallelizeModule,
-    ParallelizeEmbedding,
-    ParallelizeLayerNorm,
-    ParallelizeLinear,
-    ParallelizeLMHead
+    ModuleParallelizer,
+    EmbeddingParallelizer,
+    LayerNormParallelizer,
+    LinearParallelizer,
+    LMHeadParallelizer
 )
 
 
 class TensorParallel:
     """Turn a 🤗 transformers model into a tensor parallel model."""
 
-    PARALLEL_MAPPING = [
-        ParallelizeEmbedding,
-        ParallelizeLinear,
-        ParallelizeLMHead,
-        ParallelizeLayerNorm
+    PARALLELIZERS = [
+        EmbeddingParallelizer,
+        LayerNormParallelizer,
+        LinearParallelizer,
+        LMHeadParallelizer
     ]
 
     def __init__(self, module: nn.Module, parallel_context: ParallelContext):
@@ -49,8 +49,8 @@ class TensorParallel:
 
         return leaf_modules
 
-    def _find_parallelizer(self, module_name: str, module: nn.Module) -> Optional[ParallelizeModule]:
-        for parallelizer in self.PARALLEL_MAPPING:
+    def _find_parallelizer(self, module_name: str, module: nn.Module) -> Optional[ModuleParallelizer]:
+        for parallelizer in self.PARALLELIZERS:
             if parallelizer.is_parallelizable(module_name, module):
                 return parallelizer
         return None

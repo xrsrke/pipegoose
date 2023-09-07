@@ -37,6 +37,9 @@ def run_parallelize_a_transformers(
         type(model.transformer.h[0].self_attention.attention_dropout)
     }
 
+    def is_parallelized(module):
+        return isinstance(module, (ParallelEmbedding, ColumnParallelLinear, RowParallelLinear, LayerNorm))
+
     def get_leaf_modules(model):
         leaf_modules = []
         for name, module in model.named_modules():
@@ -45,9 +48,6 @@ def run_parallelize_a_transformers(
             leaf_modules.append((name, module))
 
         return leaf_modules
-
-    def is_parallelized(module):
-        return isinstance(module, (ParallelEmbedding, ColumnParallelLinear, RowParallelLinear, LayerNorm))
 
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size

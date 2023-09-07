@@ -8,10 +8,10 @@ import torch
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel.parallelize import (
-    ParallelizeEmbedding,
-    ParallelizeLinear,
-    ParallelizeLayerNorm,
-    ParallelizeLMHead
+    EmbeddingParallelizer,
+    LinearParallelizer,
+    LayerNormParallelizer,
+    LMHeadParallelizer
 )
 from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
 from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
@@ -45,7 +45,7 @@ def run_parallelize_embedding(
     )
     world_size = parallel_context.get_world_size(parallel_mode=ParallelMode.TENSOR)
 
-    parallelized_module = ParallelizeEmbedding(module_name, module, model, parallel_context).parallelize()
+    parallelized_module = EmbeddingParallelizer(module_name, module, model, parallel_context).parallelize()
     parallel_output = parallelized_module(input)
 
     assert torch.allclose(parallel_output, output)
@@ -82,7 +82,7 @@ def run_parallelize_linear(
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    parallelized_module = ParallelizeLinear(module_name, module, model, parallel_context).parallelize()
+    parallelized_module = LinearParallelizer(module_name, module, model, parallel_context).parallelize()
     parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output, rtol=1e-4)
@@ -133,7 +133,7 @@ def run_parallelize_layernorm(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
     # TODO: make this based on parallel mapping
-    parallelized_module = ParallelizeLayerNorm(module_name, module, model, parallel_context).parallelize()
+    parallelized_module = LayerNormParallelizer(module_name, module, model, parallel_context).parallelize()
     parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output)
@@ -179,7 +179,7 @@ def run_parallelize_lm_head(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
 
-    parallelized_module = ParallelizeLMHead(module_name, module, model, parallel_context).parallelize()
+    parallelized_module = LMHeadParallelizer(module_name, module, model, parallel_context).parallelize()
     parallel_output = parallelized_module(input)
 
     torch.allclose(parallel_output, output)
