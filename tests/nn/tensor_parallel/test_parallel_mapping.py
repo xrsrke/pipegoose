@@ -36,4 +36,4 @@ def test_is_lm_head_mapping(model):
     for name, _ in model.named_modules():
         mappings[name] = ParallelMapping.is_lm_head(name)
 
-    assert mappings[BLOOM_LM_HEAD_NAME] is True, f"{BLOOM_LM_HEAD_NAME} is not lm head"
+    assert mappings[BLOOM_LM_HEAD_NAME] is True, f"{BLOOM_LM_HEAD_NAME} is not language model head"

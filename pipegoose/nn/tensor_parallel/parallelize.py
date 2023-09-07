@@ -32,6 +32,14 @@ class ParallelMetadata:
 
 class ParallelizeModule(ABC):
     def __init__(self, module_name: str, module: nn.Module, model: nn.Module, parallel_context: ParallelContext):
+        """Parallelize a module.
+
+        Args:
+            module_name (str): the name of the module
+            module (nn.Module): the module to be parallelized. example: nn.Linear, nn.Embedding, nn.LayerNorm
+            model (nn.Module): the transformer model that contains the module
+            parallel_context (ParallelContext): parallel context
+        """
         self.module_name = module_name
         self.module = module
         self.model = model
@@ -117,6 +125,7 @@ class ParallelizeEmbedding(ParallelizeModule):
         weight_chunks = torch.chunk(self.module.weight, world_size, dim=0)
 
         self.module.weight.data = weight_chunks[rank]
+        self.module.weight.parallel_metadata = ParallelMetadata(is_sliced=True)
         self.module.__class__ = ParallelEmbedding
 
         _update_model_arguments(
@@ -171,12 +180,13 @@ class ParallelizeLMHead(ParallelizeModule):
         module.__class__ = ColumnParallelLinear
 
         # NOTE: in some models, the lm_head uses the same weight as the token embedding.
-        # Because we split the token embedding before the lm_head, we avoid splitting the weight again.
-        if not hasattr(module.weight, "parallel_metadata"):
-            module = self._slice_weight(module, dim=0)
+        # Because we split the token embedding before the lm_head, so if we already splitted
+        # the token embedding, then we want to avoid splitting the weight again
+        if self.module.weight is self.model.get_input_embeddings().weight:
+            if not hasattr(module.weight, "parallel_metadata"):
+                self._slice_weight(module, dim=0)
         else:
-            if self.model.get_output_embeddings().weight is not self.module.weight:
-                module = self._slice_weight(module, dim=0)
+            self._slice_weight(module, dim=0)
 
         _update_model_arguments(
             module=module,
