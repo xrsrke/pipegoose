@@ -46,6 +46,10 @@ class ParallelizeModule(ABC):
         self.parallel_context = parallel_context
 
     @abstractclassmethod
+    def is_parallelizable(self):
+        raise NotImplementedError
+
+    @abstractclassmethod
     def parallelize(self):
         raise NotImplementedError
 
@@ -55,6 +59,10 @@ class ParallelizeModule(ABC):
 
 
 class ParallelizeLinear(ParallelizeModule):
+    @staticmethod
+    def is_parallelizable(module_name: str, module: nn.Module) -> bool:
+        return isinstance(module, nn.Linear) and ParallelMapping.is_lm_head(module_name) is False
+
     def parallelize(self) -> Union[ColumnParallelLinear, RowParallelLinear]:
         assert isinstance(self.module, nn.Linear), "only parallelize nn.Linear"
 
@@ -104,6 +112,10 @@ class ParallelizeLinear(ParallelizeModule):
 
 
 class ParallelizeEmbedding(ParallelizeModule):
+    @staticmethod
+    def is_parallelizable(module_name: str, module: nn.Module) -> bool:
+        return isinstance(module, nn.Embedding)
+
     def parallelize(self) -> ParallelEmbedding:
         """Parallelize nn.Embedding module."""
         assert isinstance(self.module, nn.Embedding), "only parallelize nn.Embedding"
@@ -158,6 +170,10 @@ class ParallelizeEmbedding(ParallelizeModule):
 
 
 class ParallelizeLayerNorm(ParallelizeModule):
+    @staticmethod
+    def is_parallelizable(module_name: str, module: nn.Module) -> bool:
+        return isinstance(module, nn.LayerNorm)
+
     def parallelize(self) -> LayerNorm:
         assert isinstance(self.module, nn.LayerNorm), "only parallelize nn.LayerNorm"
         self.module.__class__ = LayerNorm
@@ -176,6 +192,10 @@ class ParallelizeLayerNorm(ParallelizeModule):
 
 
 class ParallelizeLMHead(ParallelizeModule):
+    @staticmethod
+    def is_parallelizable(module_name: str, module: nn.Module) -> bool:
+        return isinstance(module, nn.Linear) and ParallelMapping.is_lm_head(module_name) is True
+
     """Parallelize language model head."""
     def parallelize(self) -> ColumnParallelLinear:
         module = self.module

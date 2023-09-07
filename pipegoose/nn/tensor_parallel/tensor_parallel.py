@@ -4,7 +4,6 @@ import torch
 from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
-from pipegoose.nn.tensor_parallel.parallel_mapping import ParallelMapping
 from pipegoose.nn.tensor_parallel.parallelize import (
     ParallelizeModule,
     ParallelizeEmbedding,
@@ -18,12 +17,10 @@ class TensorParallel:
     """Turn a 🤗 transformers model into a tensor parallel model."""
 
     PARALLEL_MAPPING = [
-        (lambda name, module: isinstance(module, nn.Embedding), ParallelizeEmbedding),
-        (lambda name, module: isinstance(module, nn.Linear) and \
-            ParallelMapping.is_lm_head(name) is False, ParallelizeLinear),
-        (lambda name, module: isinstance(module, nn.Linear) and \
-            ParallelMapping.is_lm_head(name) is True, ParallelizeLMHead),
-        (lambda name, module: isinstance(module, nn.LayerNorm), ParallelizeLayerNorm),
+        ParallelizeEmbedding,
+        ParallelizeLinear,
+        ParallelizeLMHead,
+        ParallelizeLayerNorm
     ]
 
     def __init__(self, module: nn.Module, parallel_context: ParallelContext):
@@ -45,17 +42,18 @@ class TensorParallel:
 
     def _get_leaf_modules(self, model: nn.Module) -> List[Tuple[str, nn.Module]]:
         leaf_modules = []
-        for name, module in model.named_modules():
+        for module_name, module in model.named_modules():
             if list(module.children()):
                 continue
-            leaf_modules.append((name, module))
+            leaf_modules.append((module_name, module))
 
         return leaf_modules
 
     def _find_parallelizer(self, module_name: str, module: nn.Module) -> Optional[ParallelizeModule]:
-        for condition, parallelizer in self.PARALLEL_MAPPING:
-            if condition(module_name, module):
+        for parallelizer in self.PARALLEL_MAPPING:
+            if parallelizer.is_parallelizable(module_name, module):
                 return parallelizer
+        return None
 
     @torch.no_grad()
     def deparallelize(self) -> nn.Module:

@@ -28,7 +28,7 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
 
 
 def run_parallelize_a_transformers(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, model, input, generated_tokens, logits
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, model, generation_configs, input, generated_tokens, logits
 ):
     # NOTE: we don't parallelize dropout layers
     # and activation functions
@@ -65,12 +65,11 @@ def run_parallelize_a_transformers(
 
         assert is_parallelized(module) is True, f"module {module_name} is not parallelized"
 
-    p_generated_tokens = parallelized_model.generate(**input)
+    p_generated_tokens = parallelized_model.generate(**input, **generation_configs)
     assert torch.allclose(p_generated_tokens, generated_tokens)
 
-    # TODO: fix this
-    # p_logits = parallelized_model(**input).logits
-    # assert torch.allclose(p_logits, logits, rtol=1e-3)
+    p_logits = parallelized_model(**input).logits
+    assert torch.allclose(p_logits, logits, rtol=1e-1)
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2, 4])
@@ -78,9 +77,13 @@ def test_parallelize_a_transformer(model, tokenizer, tensor_parallel_size):
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 
+    GENERATION_CONFIGS = {
+        "max_new_tokens": 1
+    }
+
     text = "Persistence is all you need."
     input = tokenizer(text, return_tensors="pt")
-    generated_tokens = model.generate(**input)
+    generated_tokens = model.generate(**input, **GENERATION_CONFIGS)
     logits = model(**input).logits
 
     spawn(
@@ -90,6 +93,7 @@ def test_parallelize_a_transformer(model, tokenizer, tensor_parallel_size):
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
         model=model,
+        generation_configs=GENERATION_CONFIGS,
         input=input,
         generated_tokens=generated_tokens.detach(),
         logits=logits.detach(),
