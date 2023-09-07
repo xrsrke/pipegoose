@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 
 
 class TensorParallelInformation:
@@ -54,7 +54,7 @@ class ParallelMapping:
         return isinstance(item, LMHead)
 
     @staticmethod
-    def _search(module_name: str) -> TensorParallelInformation:
+    def _search(module_name: str) -> Optional[TensorParallelInformation]:
         """
         Search for module_name in mappings.
         """
