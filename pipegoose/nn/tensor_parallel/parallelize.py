@@ -95,6 +95,7 @@ class ParallelizeLinear(ParallelizeModule):
 
     def _slice_weight_and_bias(self, module: nn.Module, slice_bias: bool, dim: int) -> nn.Module:
         module.weight.data = get_partition(module.weight, self.parallel_context, dim=dim)
+        module.weight.parallel_metadata = ParallelMetadata(is_sliced=True)
 
         if module.bias is not None and slice_bias is True:
             module.bias.data = get_partition(module.bias, self.parallel_context, dim=0)
@@ -107,48 +108,49 @@ class ParallelizeEmbedding(ParallelizeModule):
         """Parallelize nn.Embedding module."""
         assert isinstance(self.module, nn.Embedding), "only parallelize nn.Embedding"
 
-        self._resize_vocab_size()
-        self._split_weight()
+        module = self.module
+        self._resize_vocab_size(module)
+        self._split_weight(module)
 
-        return self.module
+        return module
 
     def deparallelize(self):
         pass
 
-    def _split_weight(self):
+    def _split_weight(self, module: nn.Module):
         """Split weight into chunks and assign to each process."""
         world_size = self.parallel_context.get_world_size(ParallelMode.TENSOR)
         rank = self.parallel_context.get_local_rank(ParallelMode.TENSOR)
 
-        vocab_size = self.module.weight.shape[0]
+        vocab_size = module.weight.shape[0]
         vocab_start_idx, vocab_end_idx = VocabUtility.get_vocab_range_from_global_vocab_size(world_size, rank, vocab_size)
-        weight_chunks = torch.chunk(self.module.weight, world_size, dim=0)
+        weight_chunks = torch.chunk(module.weight, world_size, dim=0)
 
-        self.module.weight.data = weight_chunks[rank]
-        self.module.weight.parallel_metadata = ParallelMetadata(is_sliced=True)
-        self.module.__class__ = ParallelEmbedding
+        module.weight.data = weight_chunks[rank]
+        module.weight.parallel_metadata = ParallelMetadata(is_sliced=True)
+        module.__class__ = ParallelEmbedding
 
         _update_model_arguments(
-            module=self.module,
+            module=module,
             parallel_context=self.parallel_context,
             vocab_start_idx=vocab_start_idx,
             vocab_end_idx=vocab_end_idx,
             world_size=world_size,
         )
 
-    def _resize_vocab_size(self):
+    def _resize_vocab_size(self, module: nn.Module):
         """Pad embedding size to make it splittable across GPUs"""
         padding_size = 0
 
-        vocab_size, embedding_dim = self.module.weight.size()
+        vocab_size, embedding_dim = module.weight.size()
         while not self._is_splitable(vocab_size + padding_size):
             padding_size += 1
 
         if padding_size > 0:
             padding = torch.zeros((padding_size, embedding_dim))
-            new_embeddings = torch.cat([self.module.weight, padding], dim=0)
+            new_embeddings = torch.cat([module.weight, padding], dim=0)
 
-            self.module.weight.data = new_embeddings
+            module.weight.data = new_embeddings
 
     def _is_splitable(self, size: int) -> bool:
         world_size = self.parallel_context.get_world_size(ParallelMode.TENSOR)
@@ -182,7 +184,7 @@ class ParallelizeLMHead(ParallelizeModule):
         # NOTE: in some models, the lm_head uses the same weight as the token embedding.
         # Because we split the token embedding before the lm_head, so if we already splitted
         # the token embedding, then we want to avoid splitting the weight again
-        if self.module.weight is self.model.get_input_embeddings().weight:
+        if module.weight is self.model.get_input_embeddings().weight:
             if not hasattr(module.weight, "parallel_metadata"):
                 self._slice_weight(module, dim=0)
         else:
@@ -197,8 +199,8 @@ class ParallelizeLMHead(ParallelizeModule):
         return module
 
     def _slice_weight(self, module: nn.Module, dim: int) -> ColumnParallelLinear:
-        module.weight.parallel_metadata = ParallelMetadata(is_sliced=True)
         module.weight.data = get_partition(module.weight, self.parallel_context, dim=dim)
+        module.weight.parallel_metadata = ParallelMetadata(is_sliced=True)
         return module
 
     def deparallelize(self):
