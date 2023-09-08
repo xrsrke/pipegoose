@@ -31,15 +31,24 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
 
 
 def run_parallelize_a_transformers(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, model, generation_configs, input, labels, generated_tokens, logits, loss, updated_embedding_weights
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, kwargs
 ):
+    model = kwargs["model"]
+    generation_configs = kwargs["generation_configs"]
+    lr = kwargs["lr"]
+    input = kwargs["input"]
+    labels = kwargs["labels"]
+    generated_tokens = kwargs["generated_tokens"]
+    logits = kwargs["logits"]
+    loss = kwargs["loss"]
+    embedding_weight = kwargs["embedding_weight"]
+
     # NOTE: we don't parallelize dropout layers
     # and activation functions
     SKIP_MODULES = {
         type(model.transformer.h[0].mlp.gelu_impl),
         type(model.transformer.h[0].self_attention.attention_dropout)
     }
-    LR = 1e-3
 
     def is_parallelized(module):
         return isinstance(module, (ParallelEmbedding, ColumnParallelLinear, RowParallelLinear, LayerNorm))
@@ -80,16 +89,19 @@ def run_parallelize_a_transformers(
 
     p_output = parallelized_model(**input, labels=labels)
     p_loss = p_output.loss
-
     assert torch.allclose(p_output.logits, logits, rtol=1e-1)
     assert torch.allclose(p_loss, loss, rtol=1e-1)
 
-    optim = SGD(parallelized_model.parameters(), lr=LR)
+    optim = SGD(parallelized_model.parameters(), lr=lr)
     optim.zero_grad()
     p_loss.backward()
     optim.step()
 
-    assert torch.allclose(parallelized_model.transformer.word_embeddings.weight.data, get_partition(updated_embedding_weights, dim=0, parallel_context=parallel_context), rtol=1e-1)
+    # NOTE: our parallelized model only contains a partition of
+    # the full weight, so we split the full weight and compare them
+    p_embedding_weight = parallelized_model.transformer.word_embeddings.weight.data
+    partitioned_updated_weight = get_partition(embedding_weight, dim=0, parallel_context=parallel_context)
+    assert torch.allclose(p_embedding_weight, partitioned_updated_weight, rtol=1e-3)
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2, 4])
@@ -109,7 +121,10 @@ def test_parallelize_a_transformer(model, tokenizer, tensor_parallel_size):
 
     generated_tokens = model.generate(**input, **GENERATION_CONFIGS)
     outputs = model(**input, labels=labels)
-    BACKUP_MODEL = deepcopy(model)
+
+    # NOTE: we make a copy of the model before updating its weights
+    # so the output of the model is not affected by the updated weights
+    orig_model = deepcopy(model)
     loss = outputs.loss
     logits = outputs.logits
 
@@ -117,7 +132,18 @@ def test_parallelize_a_transformer(model, tokenizer, tensor_parallel_size):
     loss.backward()
     optim.step()
 
-    updated_embedding_weights = model.transformer.word_embeddings.weight.data
+    kwargs = {
+        "model": orig_model,
+        "generation_configs": GENERATION_CONFIGS,
+        "lr": LR,
+        "input": input,
+        "labels": labels,
+        "generated_tokens": generated_tokens.detach(),
+        "logits": logits.detach(),
+        "loss": loss.detach(),
+        # NOTE: this is the updated weight of the model
+        "embedding_weight": model.transformer.word_embeddings.weight.data
+    }
 
     spawn(
         run_parallelize_a_transformers,
@@ -125,12 +151,5 @@ def test_parallelize_a_transformer(model, tokenizer, tensor_parallel_size):
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        model=BACKUP_MODEL,
-        generation_configs=GENERATION_CONFIGS,
-        input=input,
-        labels=labels,
-        generated_tokens=generated_tokens.detach(),
-        logits=logits.detach(),
-        loss=loss.detach(),
-        updated_embedding_weights=updated_embedding_weights.detach()
+        kwargs=kwargs
     )
