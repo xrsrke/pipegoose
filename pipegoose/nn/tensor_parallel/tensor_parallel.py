@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
-from pipegoose.nn.tensor_parallel.parallelize import (
+from pipegoose.nn.tensor_parallel.parallelizer import (
     ModuleParallelizer,
     EmbeddingParallelizer,
     LayerNormParallelizer,
