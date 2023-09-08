@@ -1,7 +1,10 @@
 import pytest
 import torch
+from torch.optim import SGD
+from copy import deepcopy
 
 from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel.tensor_parallel import TensorParallel
 from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
 from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
@@ -28,7 +31,7 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
 
 
 def run_parallelize_a_transformers(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, model, generation_configs, input, generated_tokens, logits
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, model, generation_configs, input, labels, generated_tokens, logits, loss, updated_embedding_weights
 ):
     # NOTE: we don't parallelize dropout layers
     # and activation functions
@@ -36,9 +39,16 @@ def run_parallelize_a_transformers(
         type(model.transformer.h[0].mlp.gelu_impl),
         type(model.transformer.h[0].self_attention.attention_dropout)
     }
+    LR = 1e-3
 
     def is_parallelized(module):
         return isinstance(module, (ParallelEmbedding, ColumnParallelLinear, RowParallelLinear, LayerNorm))
+
+    def get_partition(data, dim, parallel_context):
+        local_world_size = parallel_context.get_world_size(ParallelMode.TENSOR)
+        local_rank = parallel_context.get_local_rank(ParallelMode.TENSOR)
+        chunks = torch.chunk(data, chunks=local_world_size, dim=dim)
+        return chunks[local_rank]
 
     def get_leaf_modules(model):
         leaf_modules = []
@@ -68,8 +78,18 @@ def run_parallelize_a_transformers(
     p_generated_tokens = parallelized_model.generate(**input, **generation_configs)
     assert torch.allclose(p_generated_tokens, generated_tokens)
 
-    p_logits = parallelized_model(**input).logits
-    assert torch.allclose(p_logits, logits, rtol=1e-1)
+    p_output = parallelized_model(**input, labels=labels)
+    p_loss = p_output.loss
+
+    assert torch.allclose(p_output.logits, logits, rtol=1e-1)
+    assert torch.allclose(p_loss, loss, rtol=1e-1)
+
+    optim = SGD(parallelized_model.parameters(), lr=LR)
+    optim.zero_grad()
+    p_loss.backward()
+    optim.step()
+
+    assert torch.allclose(parallelized_model.transformer.word_embeddings.weight.data, get_partition(updated_embedding_weights, dim=0, parallel_context=parallel_context), rtol=1e-1)
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2, 4])
@@ -80,11 +100,24 @@ def test_parallelize_a_transformer(model, tokenizer, tensor_parallel_size):
     GENERATION_CONFIGS = {
         "max_new_tokens": 1
     }
+    LR = 1e-3
 
     text = "Persistence is all you need."
     input = tokenizer(text, return_tensors="pt")
+    labels = input["input_ids"]
+    optim = SGD(model.parameters(), lr=LR)
+
     generated_tokens = model.generate(**input, **GENERATION_CONFIGS)
-    logits = model(**input).logits
+    outputs = model(**input, labels=labels)
+    BACKUP_MODEL = deepcopy(model)
+    loss = outputs.loss
+    logits = outputs.logits
+
+    optim.zero_grad()
+    loss.backward()
+    optim.step()
+
+    updated_embedding_weights = model.transformer.word_embeddings.weight.data
 
     spawn(
         run_parallelize_a_transformers,
@@ -92,9 +125,12 @@ def test_parallelize_a_transformer(model, tokenizer, tensor_parallel_size):
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        model=model,
+        model=BACKUP_MODEL,
         generation_configs=GENERATION_CONFIGS,
         input=input,
+        labels=labels,
         generated_tokens=generated_tokens.detach(),
         logits=logits.detach(),
+        loss=loss.detach(),
+        updated_embedding_weights=updated_embedding_weights.detach()
     )
