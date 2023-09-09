@@ -3,5 +3,5 @@
 PIPELINE_MIN_WORKERS = 16
 PIPELINE_MAX_WORKERS = 32
 
-
+# RPC global worker name
 WORKER_NAME = "WORKER_{}"

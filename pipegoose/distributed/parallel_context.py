@@ -276,7 +276,6 @@ class ParallelContext:
 
     def get_worker_name(self, rank: int) -> str:
         """Return the worker name of a given rank in distributed RPC."""
-        rank = self.get_global_rank()
         worker_name = self.rpc_worker_map[rank]
         return worker_name
 
