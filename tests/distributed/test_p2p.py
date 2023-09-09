@@ -7,6 +7,9 @@ from pipegoose.testing.utils import spawn
 
 
 def init_parallel_context(rank, world_size, port, pipeline_parallel_size):
+    TENSOR_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+
     parallel_context = ParallelContext(
         rank=rank,
         local_rank=rank,
@@ -16,9 +19,9 @@ def init_parallel_context(rank, world_size, port, pipeline_parallel_size):
         port=port,
         seed=69,
         backend="gloo",
-        tensor_parallel_size=1,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=pipeline_parallel_size,
-        data_parallel_size=1,
+        data_parallel_size=DATA_PARALLEL_SIZE,
     )
 
     return parallel_context
