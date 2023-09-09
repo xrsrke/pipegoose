@@ -16,11 +16,9 @@ from pipegoose.distributed._initializers.initialize_tensor import (
     TensorParallelGroupInitializer,
 )
 from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.constants import WORKER_NAME
 
 DistributedBackend = Literal["gloo", "mpi", "nccl"]
-
-
-WORKER_NAME = "WORKER_{}"
 
 
 class ParallelContext:
@@ -275,6 +273,12 @@ class ParallelContext:
         local_rank = self.get_local_rank(parallel_mode)
         world_size = self.get_world_size(parallel_mode)
         return local_rank == world_size - 1
+
+    def get_worker_name(self, rank: int) -> str:
+        """Return the worker name of a given rank in distributed RPC."""
+        rank = self.get_global_rank()
+        worker_name = self.rpc_worker_map[rank]
+        return worker_name
 
     def destroy(self):
         assert self.is_initialized(ParallelMode.GLOBAL), "Global group must be initialized before destroying."
