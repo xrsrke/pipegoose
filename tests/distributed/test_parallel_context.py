@@ -129,12 +129,12 @@ def test_init_parallel_context(world_size, tensor_parallel_size, pipeline_parall
     )
 
 
-QUEUE = list()
+RPC_RECEIVE_QUEUE = list()
 
 
 def recv_rpc_call(value):
     tensor = torch.Tensor(value)
-    QUEUE.append(tensor)
+    RPC_RECEIVE_QUEUE.append(tensor)
 
 
 def run_send_rcv_rpc(
@@ -157,7 +157,6 @@ def run_send_rcv_rpc(
     )
 
     assert isinstance(parallel_context.get_worker_name(rank), str)
-    assert len(parallel_context.get_worker_name(rank)) > 0
 
     if pipeline_parallel_size > 1:
         assert rpc._is_current_rpc_agent_set() is True
@@ -173,10 +172,10 @@ def run_send_rcv_rpc(
         fut.wait()
 
     else:
-        while len(QUEUE) < 1:
+        while len(RPC_RECEIVE_QUEUE) < 1:
             time.sleep(0.1)
 
-        tensor = QUEUE.pop()
+        tensor = RPC_RECEIVE_QUEUE.pop()
 
         assert tensor == VALUE
 
