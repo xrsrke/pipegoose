@@ -31,7 +31,7 @@ class DataParallel:
         data_parallel_size = self.parallel_context.data_parallel_size
         process_group = self.parallel_context.get_group(ParallelMode.DATA)
 
-        # NOTE: (grad1 + grad2 + ... + gradn) / n = grad1 / n + grad2 / n + ... + gradn / n
+        # NOTE: (grad1 + grad2 + ... + gradn) / n = grad1/n + grad2/n + ... + gradn/n
         new_grad = grad / data_parallel_size
         dist.all_reduce(new_grad, op=dist.ReduceOp.SUM, group=process_group)
 
