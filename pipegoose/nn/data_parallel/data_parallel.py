@@ -1,5 +1,3 @@
-# from functools import partial
-
 import torch
 from torch import nn
 import torch.distributed as dist

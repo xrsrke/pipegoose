@@ -112,6 +112,7 @@ def run_backward_a_parallelized_transformers(
         return input_ids, attention_mask, labels
 
     model = kwargs["model"]
+    loss = kwargs["loss"]
     lr = kwargs["lr"]
 
     parallel_context = init_parallel_context(
@@ -126,11 +127,19 @@ def run_backward_a_parallelized_transformers(
     p_output = parallelized_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
     p_loss = p_output.loss
 
+    # NOTE: since each replica only computes on a subset of data,
+    # the replica's loss and the loss of the original model that trains
+    # on the whole set of data should not be equal.
+    assert not torch.allclose(p_loss, loss)
+
     optim = SGD(parallelized_model.parameters(), lr=lr)
     optim.zero_grad()
     p_loss.backward()
     optim.step()
 
+    # NOTE: after averaging the gradient, we expect the gradient of a replica
+    # that trains on a subset of data to be equal to the gradient of
+    # the original model that trains on the whole set of data
     for parallel_p, p in zip(parallelized_model.parameters(), model.parameters()):
         assert torch.allclose(parallel_p.grad, p.grad, rtol=1e-3)
 
@@ -153,7 +162,7 @@ def test_backward_pass_a_parallelized_transformers(model, tokenizer, data_parall
     GRADS = []
 
     def save_orig_grad(grad):
-        GRADS.append(grad.clone())
+        GRADS.append(grad.clone().detach())
 
     for p in model.parameters():
         if p.requires_grad is True:
@@ -175,7 +184,8 @@ def test_backward_pass_a_parallelized_transformers(model, tokenizer, data_parall
         "lr": LR,
         "inputs": inputs,
         "labels": labels,
-        "grads": GRADS
+        "grads": GRADS,
+        "loss": loss.detach()
     }
 
     spawn(
