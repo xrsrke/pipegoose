@@ -4,18 +4,18 @@ from collections import OrderedDict
 import pytest
 from torch import nn
 
-from pipegoose.nn.pipeline_parallel2._job.creator import JobCreator
-from pipegoose.nn.pipeline_parallel2._job.register import JobRegister
+from pipegoose.nn.pipeline_parallel2._job.creator import create_job
+from pipegoose.nn.pipeline_parallel2._job.register import add_job_to_queue
 
 
 @pytest.fixture
 def backward_job(backward_package, parallel_context):
-    return JobCreator(parallel_context).create(backward_package)
+    return create_job(backward_package, parallel_context)
 
 
 @pytest.fixture
 def forward_job(forward_package, parallel_context):
-    return JobCreator(parallel_context).create(forward_package)
+    return create_job(forward_package, parallel_context)
 
 
 @pytest.fixture
@@ -41,8 +41,7 @@ def model():
 def test_register_job(request, job, parallel_context):
     JOB_QUEUE = Queue()
     job = request.getfixturevalue(job)
-    job_register = JobRegister(JOB_QUEUE, parallel_context)
 
-    job_register.registry(job)
+    add_job_to_queue(job, JOB_QUEUE, parallel_context)
 
     assert JOB_QUEUE.qsize() == 1

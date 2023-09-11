@@ -14,7 +14,7 @@ class JobCreator(ABC):
         raise NotImplementedError("not implemented")
 
 
-class ForwardJobCreator(JobCreator):
+class _ForwardJobCreator(JobCreator):
     """Put a forward job into job queue for a worker to execute."""
 
     @staticmethod
@@ -23,28 +23,20 @@ class ForwardJobCreator(JobCreator):
         return ForwardJob(package)
 
 
-class BackwardJobCreator(JobCreator):
+class _BackwardJobCreator(JobCreator):
     @staticmethod
     def create(package: Package, parallel_context: ParallelContext) -> BackwardJob:
         assert isinstance(package, Package), f"package must be an instance of Package, got {type(package)}"
         return BackwardJob(package)
 
 
-class JobCreator:
-    """Create a job from a package that received from another pipeline stage."""
-
-    JOB_FACTORY = {
-        JobType.FORWARD: ForwardJobCreator,
-        JobType.BACKWARD: BackwardJobCreator,
+def create_job(package: Package, parallel_context: ParallelContext) -> Job:
+    JOB_TYPE_TO_CREATOR = {
+        JobType.FORWARD: _ForwardJobCreator,
+        JobType.BACKWARD: _BackwardJobCreator,
     }
 
-    def __init__(self, parallel_context: ParallelContext):
-        self.parallel_context = parallel_context
+    job_type = package.metadata.job_type
+    job = JOB_TYPE_TO_CREATOR[job_type].create(package, parallel_context)
 
-    def create(self, package: Package) -> Job:
-        assert isinstance(package, Package), f"package must be an instance of Package, got {type(package)}"
-
-        job_type = package.metadata.job_type
-        job = self.JOB_FACTORY[job_type].create(package, self.parallel_context)
-
-        return job
+    return job
