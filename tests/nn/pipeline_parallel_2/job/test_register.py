@@ -4,18 +4,7 @@ from collections import OrderedDict
 import pytest
 from torch import nn
 
-from pipegoose.nn.pipeline_parallel2._job.creator import create_job
 from pipegoose.nn.pipeline_parallel2._job.register import add_job_to_queue
-
-
-@pytest.fixture
-def backward_job(backward_package, parallel_context):
-    return create_job(backward_package, parallel_context)
-
-
-@pytest.fixture
-def forward_job(forward_package, parallel_context):
-    return create_job(forward_package, parallel_context)
 
 
 @pytest.fixture

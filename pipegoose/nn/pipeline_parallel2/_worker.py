@@ -1,12 +1,16 @@
+from abc import ABC, abstractclassmethod
 import threading
 from queue import Queue
 from typing import Callable, List
 
-from pipegoose.constants import PIPELINE_MAX_WORKERS, PIPELINE_MIN_WORKERS
 from pipegoose.nn.pipeline_parallel2._utils import sleep
+from pipegoose.nn.pipeline_parallel2._job.job import Job
+from pipegoose.constants import PIPELINE_MAX_WORKERS, PIPELINE_MIN_WORKERS
 
 
 class Worker(threading.Thread):
+    """A worker that execute job."""
+
     def __init__(self, selected_jobs: Queue, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._selected_jobs = selected_jobs
@@ -14,7 +18,7 @@ class Worker(threading.Thread):
         # self._stop_event = threading.Event()
 
     @property
-    def running(self) -> bool:
+    def is_running(self) -> bool:
         return self._running
 
     # def stop(self):
@@ -51,8 +55,10 @@ class WorkerPoolWatcher(threading.Thread):
 
     def _num_working_workers(self) -> int:
         num_working = 0
+
         for worker in self.worker_pool:
-            num_working += 1 if worker.running is True else 0
+            num_working += 1 if worker.is_running is True else 0
+
         return num_working
 
 
@@ -67,16 +73,25 @@ class JobSelector(threading.Thread):
             job = self._select_job()
             self._selected_jobs.put(job)
 
-    def _select_job(self):
-        while len(self._pending_job) < 1:
+    def _select_job(self) -> Job:
+        while self._pending_job.empty():
             sleep()
 
-            job = list(sorted(self._pending_job))[0]
-            self._pending_job.remove(job)
-            return job
+        job = self._pending_job.get()
+        return job
 
 
-class WorkerManager(threading.Thread):
+class BaseWorkerManager(ABC):
+    @abstractclassmethod
+    def spawn(self):
+        raise NotImplementedError
+
+    @abstractclassmethod
+    def destroy(self):
+        raise NotImplementedError
+
+
+class WorkerManager(BaseWorkerManager, threading.Thread):
     def __init__(
         self,
         num_workers: int = PIPELINE_MIN_WORKERS,
@@ -106,6 +121,11 @@ class WorkerManager(threading.Thread):
     def worker_pool(self) -> List[Worker]:
         return self._worker_pool
 
+    def spawn(self):
+        self._spawn_job_selector()
+        self._spawn_initial_workers()
+        self._spawn_pool_watcher()
+
     def _spawn_job_selector(self):
         job_selector = JobSelector(self._pending_jobs, self._selected_jobs)
         job_selector.setDaemon(True)
@@ -132,11 +152,6 @@ class WorkerManager(threading.Thread):
     def _spawn_initial_workers(self):
         for _ in range(self.num_workers):
             self._spawn_a_worker()
-
-    def spawn(self):
-        self._spawn_job_selector()
-        self._spawn_initial_workers()
-        self._spawn_pool_watcher()
 
     def destroy(self):
         # Create a copy of the worker pool to iterate over

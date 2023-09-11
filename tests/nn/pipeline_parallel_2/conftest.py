@@ -4,6 +4,7 @@ import torch
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.pipeline_parallel2._package import Package, Metadata, TrainingMetadata
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
+from pipegoose.nn.pipeline_parallel2._job.creator import create_job
 
 
 @pytest.fixture(scope="session")
@@ -32,6 +33,7 @@ def parallel_context():
     )
 
     return parallel_context
+
 
 @pytest.fixture
 def base_package():
@@ -72,3 +74,13 @@ def backward_package(base_package):
     # NOTE: package for backward job
     base_package.metadata.job_type = JobType.BACKWARD
     return base_package
+
+
+@pytest.fixture
+def backward_job(backward_package, parallel_context):
+    return create_job(backward_package, parallel_context)
+
+
+@pytest.fixture
+def forward_job(forward_package, parallel_context):
+    return create_job(forward_package, parallel_context)
