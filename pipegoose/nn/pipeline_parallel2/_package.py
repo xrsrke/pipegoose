@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from enum import Enum, auto
 
-from pipegoose.nn.pipeline_parallel2.job_type import JobType
+from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 
 
 import torch
