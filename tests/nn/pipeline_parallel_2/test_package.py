@@ -1,12 +1,15 @@
+import pytest
+
 import torch
 
-from pipegoose.nn.pipeline_parallel2._package import Package, Metadata
+from pipegoose.nn.pipeline_parallel2._package import Package, Metadata, TrainingMetadata
+from pipegoose.nn.pipeline_parallel2.job_type import JobType
 
 
-def test_package():
+@pytest.mark.parametrize("job_type", [JobType.FORWARD, JobType.BACKWARD])
+def test_package(job_type):
     MICROBATCH_IDX = 1
     PARTITION_IDX = 2
-    IS_FORWARD = True
     IS_TRAINING = True
     IS_GRAD_ENABLED = False
 
@@ -17,9 +20,11 @@ def test_package():
     metadata = Metadata(
         microbatch_idx=MICROBATCH_IDX,
         partition_idx=PARTITION_IDX,
-        is_forward=IS_FORWARD,
-        is_training=IS_TRAINING,
-        is_grad_enabled=IS_GRAD_ENABLED,
+        job_type=job_type,
+        training=TrainingMetadata(
+            is_training=IS_TRAINING,
+            is_grad_enabled=IS_GRAD_ENABLED,
+        ),
         src=SRC,
         dst=DST,
     )
@@ -29,9 +34,9 @@ def test_package():
     assert package.metadata.microbatch_idx == MICROBATCH_IDX
     assert package.metadata.partition_idx == PARTITION_IDX
 
-    assert package.metadata.is_forward == IS_FORWARD
-    assert package.metadata.is_training == IS_TRAINING
-    assert package.metadata.is_grad_enabled == IS_GRAD_ENABLED
+    assert package.metadata.job_type == job_type
+    assert package.metadata.training.is_training == IS_TRAINING
+    assert package.metadata.training.is_grad_enabled == IS_GRAD_ENABLED
 
     assert package.metadata.src == SRC
     assert package.metadata.dst == DST

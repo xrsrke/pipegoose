@@ -1,7 +1,16 @@
 from dataclasses import dataclass
+from enum import Enum, auto
+
+from pipegoose.nn.pipeline_parallel2.job_type import JobType
 
 
 import torch
+
+
+@dataclass
+class TrainingMetadata:
+    is_training: bool
+    is_grad_enabled: bool
 
 
 @dataclass
@@ -10,10 +19,9 @@ class Metadata:
     microbatch_idx: int
     partition_idx: int
 
-    # job
-    is_forward: bool
-    is_training: bool
-    is_grad_enabled: bool
+    job_type: JobType
+
+    training: TrainingMetadata
 
     # global rank
     src: int
