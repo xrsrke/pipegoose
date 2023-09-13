@@ -159,8 +159,8 @@ class WorkerManager(BaseWorkerManager, threading.Thread):
 
         for worker in worker_pool_copy:
             # Terminate the worker thread
-            worker.stop()
+            # worker.stop()
             worker.join()
 
             # Remove the worker from the original worker pool
-            # self.worker_pool.remove(worker)
+            self.worker_pool.remove(worker)

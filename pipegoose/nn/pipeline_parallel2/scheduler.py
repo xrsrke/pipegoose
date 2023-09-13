@@ -1,4 +1,3 @@
-from copy import deepcopy
 from abc import ABC, abstractclassmethod
 from typing import List
 from dataclasses import dataclass
@@ -86,6 +85,8 @@ class GPipeScheduler(BaseScheduler):
             return schedules
 
         def generate_backward_schedule(forward_schedule):
+            from copy import deepcopy
+
             n_clock_cycles = len(forward_schedule)
             backward_schedule = deepcopy(forward_schedule)
             backward_schedule.reverse()

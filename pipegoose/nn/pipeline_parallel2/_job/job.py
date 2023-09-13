@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
+from typing import Optional
 
 import torch
 
@@ -16,9 +17,12 @@ class JobStatus(Enum):
 
 
 class Job(ABC):
-    def __init__(self, package: Package) -> None:
+    """A job that will be executed by a worker."""
+
+    def __init__(self, package: Package):
         self.package = package
         self._status = JobStatus.PENDING
+        self._output = None
 
         def generate_random_string(length=15):
             import random
@@ -36,14 +40,31 @@ class Job(ABC):
     def key(self) -> str:
         return self._key
 
-    def compute(self) -> torch.Tensor:
+    @property
+    def output(self) -> Optional[Package]:
+        return self._output
+
+    def compute(self) -> Package:
         output = self.run_compute()
+
         self._status = JobStatus.EXECUTED
-        return output
+        package = self.construct_package(output)
+        self._output = package
+
+        return package
 
     @abstractmethod
     def run_compute(self):
         """The actual computation of this job."""
+        raise NotImplementedError("not implemented")
+
+    @abstractmethod
+    def construct_package(self):
+        """
+        Construct a new package based on the output of a job,
+        then send this package to another pipeline stage. The other pipeline stage
+        will construct a job based on the metadata of the package.
+        """
         raise NotImplementedError("not implemented")
 
     @abstractmethod
@@ -54,7 +75,13 @@ class Job(ABC):
 
 class ForwardJob(Job):
     def run_compute(self) -> torch.Tensor:
-        return self.package.data
+        data = self.package.data
+        return data
+
+    def construct_package(self, data: torch.Tensor) -> Package:
+        package = Package(data, self.package.metadata)
+        package.metadata.partition_idx += 1
+        return package
 
     def finalize(self):
         pass
@@ -63,6 +90,11 @@ class ForwardJob(Job):
 class BackwardJob(Job):
     def run_compute(self) -> torch.Tensor:
         return self.package.data
+
+    def construct_package(self, data: torch.Tensor) -> Package:
+        package = Package(data, self.package.metadata)
+        package.metadata.partition_idx -= 1
+        return package
 
     def finalize(self):
         pass

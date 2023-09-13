@@ -29,16 +29,16 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
 def run_send_recv_package(
     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package
 ):
-    SRC_RANK = 0
-    DST_RANK = 1
+    PACKAGE_SRC_RANK = package.metadata.src
+    PACKAGE_DST_RANK = package.metadata.dst
 
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
 
-    if rank == SRC_RANK:
-        send_package(package, src=rank, dst=DST_RANK, parallel_context=parallel_context)
-    elif rank == DST_RANK:
+    if rank == PACKAGE_SRC_RANK:
+        send_package(package, parallel_context=parallel_context)
+    elif rank == PACKAGE_DST_RANK:
         time.sleep(1)
         received_package = RECV_QUEUE.get()
 

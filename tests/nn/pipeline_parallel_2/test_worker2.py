@@ -30,8 +30,9 @@ def test_worker_manager():
         assert worker.is_running is False
         assert worker.is_alive() is True
 
-    # TODO: add this
-    # worker_manager.destroy()
+
+def test_destroy_worker_manager():
+    pass
 
 
 def test_execute_a_job_from_job_queue(forward_job):
@@ -55,5 +56,5 @@ def test_execute_a_job_from_job_queue(forward_job):
     assert SELECTED_JOBS.qsize() == 0
 
 
-def test_execute_a_job_from_job_queue_and_send_the_output_to_another_pipeline_stage():
+def test_execute_a_job_from_job_queue_and_send_the_output():
     pass

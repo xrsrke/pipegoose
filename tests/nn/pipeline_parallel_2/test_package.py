@@ -41,4 +41,4 @@ def test_package(job_type):
     assert package.metadata.src == SRC
     assert package.metadata.dst == DST
 
-    assert torch.allclose(package.data, data)
+    assert torch.equal(package.data, data)
