@@ -1,38 +1,41 @@
 import pytest
 import torch
 
-from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.pipeline_parallel2._package import Package, Metadata, TrainingMetadata
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._job.creator import create_job
+from pipegoose.testing.utils import init_pipeline_context
 
 
 @pytest.fixture(scope="session")
-def parallel_context():
-    TENSOR_PARALLEL_SIZE = 1
+def pipeline_context():
+    ENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
-    SEED = 69
     RANK = 0
     WORLD_SIZE = 1
-    HOST = "localhost"
     PORT = 12355
 
-    parallel_context = ParallelContext(
+    MODEL_NAME = "bigscience/bloom-560m"
+    N_PARTITIONS = 3
+    N_MICROBATCHES = 5
+
+    from transformers import AutoModelForCausalLM
+    module = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+
+    pipeline_context = init_pipeline_context(
         rank=RANK,
-        local_rank=RANK,
         world_size=WORLD_SIZE,
-        local_world_size=WORLD_SIZE,
-        host=HOST,
         port=PORT,
-        backend="gloo",
-        seed=SEED,
-        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        tensor_parallel_size=ENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
+        module=module,
+        n_partitions=N_PARTITIONS,
+        n_microbatches=N_MICROBATCHES,
     )
 
-    return parallel_context
+    return pipeline_context
 
 
 @pytest.fixture
@@ -77,10 +80,10 @@ def backward_package(base_package):
 
 
 @pytest.fixture
-def backward_job(backward_package, parallel_context):
-    return create_job(backward_package, parallel_context)
+def backward_job(backward_package, pipeline_context):
+    return create_job(backward_package, pipeline_context)
 
 
 @pytest.fixture(scope="function")
-def forward_job(forward_package, parallel_context):
-    return create_job(forward_package, parallel_context)
+def forward_job(forward_package, pipeline_context):
+    return create_job(forward_package, pipeline_context)

@@ -1,6 +1,5 @@
 from queue import Queue
 
-from pipegoose.nn.pipeline_parallel2._job.job import JobStatus
 from pipegoose.nn.pipeline_parallel2._worker import WorkerManager
 from pipegoose.nn.pipeline_parallel2._utils import sleep
 
@@ -39,23 +38,29 @@ def test_select_job_based_on_scheduler():
     pass
 
 
-def test_execute_a_job_from_selected_job_queue(forward_job):
+def test_execute_a_job_from_selected_job_queue():
     PENDING_JOBS = Queue()
     SELECTED_JOBS = Queue()
+    QUEUE = []
+
+    class FakeJob:
+        def compute(self):
+            QUEUE.append(1)
 
     worker_manager = WorkerManager(
         pending_jobs=PENDING_JOBS,
         selected_jobs=SELECTED_JOBS
     )
+    job = FakeJob()
     worker_manager.spawn()
 
-    PENDING_JOBS.put(forward_job)
+    PENDING_JOBS.put(job)
     assert PENDING_JOBS.qsize() == 1
 
     # NOTE: wait for job selector picks up the job
     sleep(2)
 
-    assert forward_job.status == JobStatus.EXECUTED
+    assert QUEUE == [1]
     assert PENDING_JOBS.qsize() == 0
     assert SELECTED_JOBS.qsize() == 0
 
