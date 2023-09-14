@@ -26,14 +26,13 @@ class NaivePartitioner(BasePartitioner):
         transformer_blocks = module.transformer.h
         lm_head = module.lm_head
 
-        # Calculate the number of transformer blocks per partition
+        # NOTE: Calculate the number of transformer blocks per partition
         blocks_per_partition = len(transformer_blocks) // n_partitions
         partitions = []
 
-        # for i in range(n_partitions - 2):
         for i in range(n_partitions):
             start = i * blocks_per_partition
-            # if it's the last partition, get all remaining blocks
+            # NOTE: if it's the last partition, get all remaining blocks
             end = start + blocks_per_partition if i < n_partitions - 1 else None
             partitions.append(nn.Sequential(*transformer_blocks[start:end]))
 
