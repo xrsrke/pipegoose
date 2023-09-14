@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import Optional
+from typing import Optional, List
 
 import torch
 
 from pipegoose.nn.pipeline_parallel2._package import Package
+from pipegoose.nn.pipeline_parallel2._job.callback import Callback, CallbackEvent
 
 
 class JobStatus(Enum):
@@ -19,8 +20,9 @@ class JobStatus(Enum):
 class Job(ABC):
     """A job that will be executed by a worker."""
 
-    def __init__(self, package: Package):
-        self.package = package
+    def __init__(self, input: Package, cbs: List[Callback] = []):
+        self.input = input
+        self.cbs = cbs
         self._status = JobStatus.PENDING
         self._output = None
 
@@ -44,57 +46,77 @@ class Job(ABC):
     def output(self) -> Optional[Package]:
         return self._output
 
-    def compute(self) -> Package:
-        output = self.run_compute()
+    @output.setter
+    def output(self, value: Optional[Package]):
+        self._output = value
 
-        self._status = JobStatus.EXECUTED
-        package = self.construct_package(output)
-        self._output = package
+    def compute(self) -> Optional[Package]:
+        try:
+            self._run_callback(CallbackEvent.BEFORE_COMPUTE)
 
-        return package
+            # TODO: refactor make other callbacks to be able to access the output of a job
+            self.raw_output = self.run_compute()
+
+            # TODO: turn the update of job status into a callback
+            self._status = JobStatus.EXECUTED
+
+            self._run_callback(CallbackEvent.AFTER_COMPUTE)
+
+            return self.output
+        except Exception as e:
+            raise e
+
+    def add_cbs(self, cbs: List[Callback]):
+        """Add a list of callbacks to this job."""
+        for cb in cbs:
+            self.add_cb(cb)
+
+    def remove_cbs(self, cbs: List[Callback]):
+        for cb in cbs:
+            self.remove_cb(cb)
+
+    def add_cb(self, cb: Callback):
+        """Add a callback to this job."""
+        if isinstance(cb, type):
+            cb = cb()
+
+        assert isinstance(cb, Callback), f"cb must be an instance of Callback, got {type(cb)}"
+
+        # NOTE: lets the callback access the job attributes
+        cb.job = self
+        self.cbs.append(cb)
+
+    def remove_cb(self, cb: Callback):
+        """Remove a callback from this job."""
+        # NOTE: if cb is a class
+        if isinstance(cb, type):
+            cbs = [x for x in self.cbs if isinstance(x, cb)]
+            self.remove_cbs(cbs)
+        else:
+            if cb in self.cbs:
+                self.cbs.remove(cb)
+
+    def _run_callback(self, event_name: str):
+        sorted_cbs = sorted(self.cbs, key=lambda x: x.order)
+        # NOTE: get the value of an enum member
+        event_name = event_name.value
+
+        for cb in sorted_cbs:
+            event_method = getattr(cb, event_name, None)
+            if event_method is not None:
+                event_method()
 
     @abstractmethod
     def run_compute(self):
         """The actual computation of this job."""
         raise NotImplementedError("not implemented")
 
-    @abstractmethod
-    def construct_package(self):
-        """
-        Construct a new package based on the output of a job,
-        then send this package to another pipeline stage. The other pipeline stage
-        will construct a job based on the metadata of the package.
-        """
-        raise NotImplementedError("not implemented")
-
-    @abstractmethod
-    def finalize(self):
-        """Execute this method after `compute`."""
-        raise NotImplementedError("not implemented")
-
 
 class ForwardJob(Job):
     def run_compute(self) -> torch.Tensor:
-        data = self.package.data
-        return data
-
-    def construct_package(self, data: torch.Tensor) -> Package:
-        package = Package(data, self.package.metadata)
-        package.metadata.partition_idx += 1
-        return package
-
-    def finalize(self):
-        pass
+        return self.input.data
 
 
 class BackwardJob(Job):
     def run_compute(self) -> torch.Tensor:
-        return self.package.data
-
-    def construct_package(self, data: torch.Tensor) -> Package:
-        package = Package(data, self.package.metadata)
-        package.metadata.partition_idx -= 1
-        return package
-
-    def finalize(self):
-        pass
+        return self.input.data

@@ -1,10 +1,11 @@
 from abc import ABC, abstractclassmethod
 import threading
-from queue import Queue
 from typing import Callable, List
+from queue import Queue
 
 from pipegoose.nn.pipeline_parallel2._utils import sleep
 from pipegoose.nn.pipeline_parallel2._job.job import Job
+from pipegoose.nn.pipeline_parallel2.queue import JobQueue
 from pipegoose.constants import PIPELINE_MAX_WORKERS, PIPELINE_MIN_WORKERS
 
 
@@ -97,8 +98,8 @@ class WorkerManager(BaseWorkerManager, threading.Thread):
         num_workers: int = PIPELINE_MIN_WORKERS,
         min_workers: int = PIPELINE_MIN_WORKERS,
         max_workers: int = PIPELINE_MAX_WORKERS,
-        pending_jobs: Queue = Queue(),
-        selected_jobs: Queue = Queue(),
+        pending_jobs: Queue = JobQueue.PENDING_JOBS,
+        selected_jobs: Queue = JobQueue.SELECTED_JOBS,
     ):
         # job just created but not yet selected
         self._pending_jobs = pending_jobs

@@ -35,7 +35,11 @@ def test_destroy_worker_manager():
     pass
 
 
-def test_execute_a_job_from_job_queue(forward_job):
+def test_select_job_based_on_scheduler():
+    pass
+
+
+def test_execute_a_job_from_selected_job_queue(forward_job):
     PENDING_JOBS = Queue()
     SELECTED_JOBS = Queue()
 

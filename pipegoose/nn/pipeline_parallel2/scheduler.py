@@ -2,7 +2,6 @@ from abc import ABC, abstractclassmethod
 from typing import List
 from dataclasses import dataclass
 
-from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 
 
@@ -15,8 +14,8 @@ class Task:
 
 class BaseScheduler(ABC):
     @abstractclassmethod
-    def get_schedule(self):
-        """Return the schedule for a given clock cycle."""
+    def get_schedules(self):
+        """Return the schedule for the whole training run."""
         raise NotImplementedError
 
     @abstractclassmethod
@@ -41,7 +40,7 @@ class GPipeScheduler(BaseScheduler):
     Section 3.2.1: Forward Dependency: Deterministic Clock-cycle
     """
 
-    def __init__(self, n_microbatches: int, n_partitions: int, parallel_context: ParallelContext):
+    def __init__(self, n_microbatches: int, n_partitions: int):
         assert (
             n_microbatches > 0
         ), "The number of microbatches must be \
@@ -53,7 +52,6 @@ class GPipeScheduler(BaseScheduler):
 
         self.n_microbatches = n_microbatches
         self.n_partitions = n_partitions
-        self.parallel_context = parallel_context
 
         self._clock_idx = None
         self._schedules = None
@@ -66,8 +64,7 @@ class GPipeScheduler(BaseScheduler):
     def is_running(self):
         pass
 
-    @staticmethod
-    def get_schedule(n_microbatches: int, n_partitions: int) -> List[List[Task]]:
+    def get_schedules(self) -> List[List[Task]]:
         def generate_forward_schedule(n_microbatches, n_partitions):
             schedules = []
             n_clock_cycles = n_partitions + n_microbatches - 1
@@ -97,7 +94,7 @@ class GPipeScheduler(BaseScheduler):
 
             return backward_schedule
 
-        forward_schedule = generate_forward_schedule(n_microbatches, n_partitions)
+        forward_schedule = generate_forward_schedule(self.n_microbatches, self.n_partitions)
         backward_schedule = generate_backward_schedule(forward_schedule)
 
         # NOTE: combine forward and backward schedule into a full schedule
@@ -106,7 +103,7 @@ class GPipeScheduler(BaseScheduler):
         return forward_schedule
 
     def start(self):
-        self._schedules = self.get_schedule(self.n_microbatches, self.n_partitions)
+        self._schedules = self.get_schedules()
 
 
 class JobTracker:

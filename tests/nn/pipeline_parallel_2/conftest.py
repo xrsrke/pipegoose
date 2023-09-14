@@ -81,6 +81,6 @@ def backward_job(backward_package, parallel_context):
     return create_job(backward_package, parallel_context)
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def forward_job(forward_package, parallel_context):
     return create_job(forward_package, parallel_context)
