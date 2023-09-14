@@ -46,7 +46,7 @@ def run_send_recv_package(
 
 
 @pytest.mark.parametrize("pipeline_parallel_size", [2])
-def test_backward_pass_a_parallelized_transformers(forward_package, pipeline_parallel_size):
+def test_run_send_recv_package(forward_package, pipeline_parallel_size):
     TENSOR_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 

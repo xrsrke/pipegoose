@@ -4,6 +4,7 @@ from typing import Optional, List
 
 import torch
 
+from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback, CallbackEvent
 
@@ -20,9 +21,13 @@ class JobStatus(Enum):
 class Job(ABC):
     """A job that will be executed by a worker."""
 
-    def __init__(self, input: Package, cbs: List[Callback] = []):
+    def __init__(self, input: Package, cbs: List[Callback] = [], pipeline_context: PipelineContext = None):
+        assert isinstance(pipeline_context, PipelineContext), f"input must be an instance of PipelineContext, got {type(input)}"
+
         self.input = input
-        self.cbs = cbs
+        self.cbs = []
+        self.pipeline_context = pipeline_context
+
         self._status = JobStatus.PENDING
         self._output = None
 
@@ -33,6 +38,9 @@ class Job(ABC):
             return ''.join(random.choice(characters) for i in range(length))
 
         self._key = generate_random_string()
+
+        self.add_cbs(cbs)
+        self._run_callback(CallbackEvent.AFTER_CREATE)
 
     @property
     def status(self) -> JobStatus:

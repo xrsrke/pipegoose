@@ -27,15 +27,21 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
     return parallel_context
 
 
-def test_generate_schedule_using_gpipe_scheduler():
+def test_generate_schedules_using_gpipe_scheduler():
     N_MICROBATCHES = 4
     N_PARTITIONS = 3
     JOB_TYPES = [JobType.FORWARD, JobType.BACKWARD]
 
-    schedules = GPipeScheduler.get_schedule(N_MICROBATCHES, N_PARTITIONS)
+    TOTAL_CLOCK_CYCLES_IN_FORWARD = N_MICROBATCHES + N_PARTITIONS - 1
+    TOTAL_CLOCK_CYCLES = TOTAL_CLOCK_CYCLES_IN_FORWARD * 2
+
+    schedules = GPipeScheduler(N_MICROBATCHES, N_PARTITIONS).get_schedules()
+
+    assert len(schedules) == TOTAL_CLOCK_CYCLES
 
     for tasks in schedules:
         assert isinstance(tasks, list)
+
         for task in tasks:
             assert task.job_type in JOB_TYPES
             assert isinstance(task.partition_idx, int)

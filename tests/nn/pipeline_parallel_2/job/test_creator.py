@@ -1,34 +1,67 @@
 import pytest
 import torch
+from transformers import AutoModelForCausalLM
 
-from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.nn.pipeline_parallel2._package import Package
+from pipegoose.nn.pipeline_parallel2._job.creator import create_job
+from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._job.job import (
     ForwardJob,
     BackwardJob,
     JobStatus
 )
-from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
-from pipegoose.nn.pipeline_parallel2._package import Package
-from pipegoose.nn.pipeline_parallel2._job.creator import create_job
 from pipegoose.nn.pipeline_parallel2.queue import JobQueue
 from pipegoose.nn.pipeline_parallel2._utils import sleep
+from pipegoose.testing.utils import spawn, init_pipeline_context
 
 
-def test_the_job_status_after_executing_a_job(forward_job):
-    # NOTE: this is directly execute the job instead of
-    # waiting for a worker to pick up this job and execute it
-    forward_job.compute()
-
-    assert forward_job.status == JobStatus.EXECUTED
+@pytest.fixture(scope="session")
+def module():
+    MODEL_NAME = "bigscience/bloom-560m"
+    return AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
 
-def test_execute_a_forward_job(forward_job, parallel_context):
-    PARALLEL_MODE = ParallelMode.PIPELINE
+def run_check_the_job_status_after_executing_a_job(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, module):
+    pipeline_context = init_pipeline_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size,
+        module, n_partitions=3, n_microbatches=5
+    )
+    job = create_job(package, pipeline_context)
+
+    job.compute()
+
+    assert job.status == JobStatus.EXECUTED
+
+
+@pytest.mark.parametrize("pipeline_parallel_size", [1, 2])
+@pytest.mark.parametrize("package", ["forward_package", "backward_package"])
+def test_the_job_status_after_executing_a_job(request, pipeline_parallel_size, package, module):
+    TENSOR_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+
+    package = request.getfixturevalue(package)
+
+    spawn(
+        run_check_the_job_status_after_executing_a_job,
+        world_size=pipeline_parallel_size,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=DATA_PARALLEL_SIZE,
+        package=package,
+        module=module
+    )
+
+
+def run_execute_a_forward_job(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, module):
+    pipeline_context = init_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module)
+    forward_job = create_job(package, pipeline_context)
+
     ORIG_MICROBATCH_IDX = forward_job.input.metadata.microbatch_idx
     ORIG_PARTITION_IDX = forward_job.input.metadata.partition_idx
-    SRC = parallel_context.get_global_rank()
-    LOCAL_RANK = parallel_context.get_local_rank(PARALLEL_MODE)
-    DST = parallel_context.get_next_local_rank(LOCAL_RANK, PARALLEL_MODE)
+    # PARALLEL_MODE = ParallelMode.PIPELINE
+    # SRC = parallel_context.get_global_rank()
+    # LOCAL_RANK = parallel_context.get_local_rank(PARALLEL_MODE)
+    # DST = parallel_context.get_next_local_rank(LOCAL_RANK, PARALLEL_MODE)
 
     output = forward_job.compute()
 
@@ -53,22 +86,57 @@ def test_execute_a_forward_job(forward_job, parallel_context):
     # assert output.metadata.dst == DST
 
 
-@pytest.mark.parametrize("package, job_cls", [("forward_package", ForwardJob), ("backward_package", BackwardJob)])
-def test_create_a_job_from_package(request, package, job_cls, parallel_context):
-    LOGS = []
-
-    def compute():
-        LOGS.append(1)
+@pytest.mark.parametrize("pipeline_parallel_size", [1, 2])
+@pytest.mark.parametrize("package", ["forward_package"])
+def test_execute_a_forward_job(request, pipeline_parallel_size, package, module):
+    TENSOR_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
 
     package = request.getfixturevalue(package)
-    job = create_job(package, parallel_context)
+
+    spawn(
+        run_check_the_job_status_after_executing_a_job,
+        world_size=pipeline_parallel_size,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=DATA_PARALLEL_SIZE,
+        package=package,
+        module=module
+    )
+
+
+def run_create_a_job_from_package(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, job_cls, module):
+    pipeline_context = init_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module)
+
+    job = create_job(package, pipeline_context)
 
     assert isinstance(job, job_cls)
     assert isinstance(job.key, str)
-    # assert isinstance(job.function, nn.Module)
+    assert callable(job.function) is True
     assert job.status == JobStatus.PENDING
 
 
+@pytest.mark.parametrize("pipeline_parallel_size", [1, 2])
+@pytest.mark.parametrize("package, job_cls", [("forward_package", ForwardJob), ("backward_package", BackwardJob)])
+def test_create_a_job_from_package(request, pipeline_parallel_size, package, job_cls, module):
+    TENSOR_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+
+    package = request.getfixturevalue(package)
+
+    spawn(
+        run_create_a_job_from_package,
+        world_size=pipeline_parallel_size,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=DATA_PARALLEL_SIZE,
+        package=package,
+        job_cls=job_cls,
+        module=module
+    )
+
+
+@pytest.mark.skip
 def test_execute_a_forward_job_and_send_the_output(forward_job, parallel_context):
     pass
 
@@ -99,5 +167,6 @@ def test_create_forward_job_that_schedule_a_backward_job(rank, forward_package):
         assert isinstance(backward_job, BackwardJob)
 
 
+@pytest.mark.skip
 def test_execute_a_backward_job_and_send_the_output():
     pass
