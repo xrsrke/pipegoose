@@ -14,22 +14,6 @@ from pipegoose.nn.pipeline_parallel2.queue import JobQueue
 from pipegoose.nn.pipeline_parallel2._utils import sleep
 
 
-@pytest.mark.parametrize("package, job_cls", [("forward_package", ForwardJob), ("backward_package", BackwardJob)])
-def test_create_a_job_from_package(request, package, job_cls, parallel_context):
-    LOGS = []
-
-    def compute():
-        LOGS.append(1)
-
-    package = request.getfixturevalue(package)
-    job = create_job(package, parallel_context)
-
-    assert isinstance(job, job_cls)
-    assert isinstance(job.key, str)
-    # assert isinstance(job.function, nn.Module)
-    assert job.status == JobStatus.PENDING
-
-
 def test_the_job_status_after_executing_a_job(forward_job):
     # NOTE: this is directly execute the job instead of
     # waiting for a worker to pick up this job and execute it
@@ -67,6 +51,22 @@ def test_execute_a_forward_job(forward_job, parallel_context):
     # TODO: update source rank and destination rank based on pipeline context
     # assert output.metadata.src == SRC
     # assert output.metadata.dst == DST
+
+
+@pytest.mark.parametrize("package, job_cls", [("forward_package", ForwardJob), ("backward_package", BackwardJob)])
+def test_create_a_job_from_package(request, package, job_cls, parallel_context):
+    LOGS = []
+
+    def compute():
+        LOGS.append(1)
+
+    package = request.getfixturevalue(package)
+    job = create_job(package, parallel_context)
+
+    assert isinstance(job, job_cls)
+    assert isinstance(job.key, str)
+    # assert isinstance(job.function, nn.Module)
+    assert job.status == JobStatus.PENDING
 
 
 def test_execute_a_forward_job_and_send_the_output(forward_job, parallel_context):

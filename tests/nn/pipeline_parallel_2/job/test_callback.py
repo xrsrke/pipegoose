@@ -25,39 +25,6 @@ def cb():
     return ToyCallback()
 
 
-def test_create_and_run_a_callback(forward_job):
-    QUEUE = []
-
-    class AddToQueueCallback(Callback):
-        def after_compute(self):
-            QUEUE.append(69)
-
-    forward_job.add_cb(AddToQueueCallback)
-    forward_job.compute()
-
-    assert QUEUE == [69]
-
-
-def test_add_and_remove_a_callback(forward_job, cb):
-    N_ORIG_CBS = len(forward_job.cbs)
-
-    forward_job.add_cb(cb)
-    assert len(forward_job.cbs) == 1 + N_ORIG_CBS
-
-    forward_job.remove_cb(cb)
-    assert len(forward_job.cbs) == N_ORIG_CBS
-
-
-def test_add_and_remove_a_list_of_callback(forward_job, cbs):
-    N_ORIG_CBS = len(forward_job.cbs)
-
-    forward_job.add_cbs(cbs)
-    assert len(forward_job.cbs) == 3 + N_ORIG_CBS
-
-    forward_job.remove_cbs(cbs)
-    assert len(forward_job.cbs) == N_ORIG_CBS
-
-
 def test_a_callback_access_job_attributes(forward_job):
     QUEUE = []
 
@@ -97,3 +64,40 @@ def test_run_callbacks_by_order(forward_job):
     forward_job.compute()
 
     assert QUEUE == [1, 2, 3]
+
+
+def test_create_and_run_a_callback(forward_job):
+    QUEUE = []
+
+    class AddToQueueCallback(Callback):
+        def after_compute(self):
+            QUEUE.append(69)
+
+    cb = AddToQueueCallback()
+
+    assert isinstance(cb.order, int)
+
+    forward_job.add_cb(cb)
+    forward_job.compute()
+
+    assert QUEUE == [69]
+
+
+def test_add_and_remove_a_callback(forward_job, cb):
+    N_ORIG_CBS = len(forward_job.cbs)
+
+    forward_job.add_cb(cb)
+    assert len(forward_job.cbs) == 1 + N_ORIG_CBS
+
+    forward_job.remove_cb(cb)
+    assert len(forward_job.cbs) == N_ORIG_CBS
+
+
+def test_add_and_remove_a_list_of_callback(forward_job, cbs):
+    N_ORIG_CBS = len(forward_job.cbs)
+
+    forward_job.add_cbs(cbs)
+    assert len(forward_job.cbs) == 3 + N_ORIG_CBS
+
+    forward_job.remove_cbs(cbs)
+    assert len(forward_job.cbs) == N_ORIG_CBS
