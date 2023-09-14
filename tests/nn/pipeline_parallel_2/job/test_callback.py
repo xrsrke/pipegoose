@@ -17,14 +17,6 @@ def cbs():
     return [Callback1(), Callback2, Callback3]
 
 
-@pytest.fixture(scope="function")
-def cb():
-    class ToyCallback(Callback):
-        pass
-
-    return ToyCallback()
-
-
 def test_a_callback_access_job_attributes(forward_job):
     QUEUE = []
 
@@ -83,8 +75,12 @@ def test_create_and_run_a_callback(forward_job):
     assert QUEUE == [69]
 
 
-def test_add_and_remove_a_callback(forward_job, cb):
+def test_add_and_remove_a_callback(forward_job):
+    class ToyCallback(Callback):
+        pass
+
     N_ORIG_CBS = len(forward_job.cbs)
+    cb = ToyCallback()
 
     forward_job.add_cb(cb)
     assert len(forward_job.cbs) == 1 + N_ORIG_CBS
