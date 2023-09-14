@@ -1,6 +1,6 @@
 import torch
-from torch import nn
 import torch.distributed as dist
+from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode

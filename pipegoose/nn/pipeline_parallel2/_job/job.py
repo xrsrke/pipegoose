@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import Optional, List
+from typing import List, Optional
 
 import torch
 
-from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback, CallbackEvent
+from pipegoose.nn.pipeline_parallel2._package import Package
+from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 
 
 class JobStatus(Enum):
@@ -22,7 +22,9 @@ class Job(ABC):
     """A job that will be executed by a worker."""
 
     def __init__(self, input: Package, cbs: List[Callback] = [], pipeline_context: PipelineContext = None):
-        assert isinstance(pipeline_context, PipelineContext), f"input must be an instance of PipelineContext, got {type(input)}"
+        assert isinstance(
+            pipeline_context, PipelineContext
+        ), f"input must be an instance of PipelineContext, got {type(input)}"
 
         self.input = input
         self.cbs = []
@@ -34,8 +36,9 @@ class Job(ABC):
         def generate_random_string(length=15):
             import random
             import string
+
             characters = string.ascii_letters + string.digits
-            return ''.join(random.choice(characters) for i in range(length))
+            return "".join(random.choice(characters) for i in range(length))
 
         self._key = generate_random_string()
 

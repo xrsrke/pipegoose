@@ -28,7 +28,19 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
 
 
 def run_layer_norm(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, normalized_shape, input, output, weight, bias, weight_grad, bias_grad
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    normalized_shape,
+    input,
+    output,
+    weight,
+    bias,
+    weight_grad,
+    bias_grad,
 ):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
@@ -47,9 +59,7 @@ def run_layer_norm(
     assert torch.allclose(p_layer_norm.bias.grad, bias_grad)
 
 
-@pytest.mark.parametrize(
-    "tensor_parallel_size", [1, 2]
-)
+@pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 @pytest.mark.parametrize("hidden_size", [20])
 @pytest.mark.parametrize("normalized_shape", [20, (20,)])
 def test_layer_norm(tensor_parallel_size, hidden_size, normalized_shape):
@@ -87,5 +97,5 @@ def test_layer_norm(tensor_parallel_size, hidden_size, normalized_shape):
         weight=weight.detach(),
         bias=bias.detach(),
         weight_grad=weight_grad.detach(),
-        bias_grad=bias_grad.detach()
+        bias_grad=bias_grad.detach(),
     )

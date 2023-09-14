@@ -1,17 +1,17 @@
 from abc import ABC, abstractclassmethod
-from typing import Union
 from dataclasses import dataclass
+from typing import Union
 
 import torch
 from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
-from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
-from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
-from pipegoose.nn.tensor_parallel.parallel_mapping import ParallelMapping
 from pipegoose.nn.tensor_parallel._utils import VocabUtility
+from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
+from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
+from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
+from pipegoose.nn.tensor_parallel.parallel_mapping import ParallelMapping
 
 
 def _update_model_arguments(module: nn.Module, **kwargs):
@@ -182,7 +182,7 @@ class LayerNormParallelizer(ModuleParallelizer):
             module=self.module,
             normalized_shape=self.module.normalized_shape,
             eps=self.module.eps,
-            paralell_context=self.parallel_context
+            paralell_context=self.parallel_context,
         )
 
         return self.module
@@ -197,13 +197,14 @@ class LMHeadParallelizer(ModuleParallelizer):
         return isinstance(module, nn.Linear) and ParallelMapping.is_lm_head(module_name) is True
 
     """Parallelize language model head."""
+
     def parallelize(self) -> ColumnParallelLinear:
         assert self.is_parallelizable(self.module_name, self.module), f"{self.module_name} can't be parallelized"
         module = self.module
         module.__class__ = ColumnParallelLinear
 
         # NOTE: in some models, the lm_head uses the same weight as the token embedding.
-        # Because we split the token embedding before the lm_head, so if we already splitted
+        # Because we split the token embedding before the lm_head, so if we already split
         # the token embedding, then we want to avoid splitting the weight again
         if module.weight is self.model.get_input_embeddings().weight:
             if not hasattr(module.weight, "parallel_metadata"):

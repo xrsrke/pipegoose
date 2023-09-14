@@ -1,19 +1,18 @@
 import os
 
 import pytest
-
 from torch import nn
 
+from pipegoose.constants import CHECKPOINT_WEIGHTS_NAME
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.utils import from_pretrained, save_pretrained
-from pipegoose.constants import CHECKPOINT_WEIGHTS_NAME
 from pipegoose.testing.utils import spawn
 
 
 class SimpleModel(nn.Module):
     def __init__(self):
-        super(SimpleModel, self).__init__()
+        super().__init__()
         self.fc = nn.Linear(10, 2)
 
     def forward(self, x):
@@ -47,9 +46,9 @@ def run_save_and_load_pretrained(rank, world_size, port, tensor_parallel_size, p
     def zero_weights(m):
         """Sets all model weights to zero."""
         if isinstance(m, nn.Module):
-            if hasattr(m, 'weight'):
+            if hasattr(m, "weight"):
                 nn.init.constant_(m.weight, 0)
-            if hasattr(m, 'bias'):
+            if hasattr(m, "bias"):
                 nn.init.constant_(m.bias, 0)
 
             for layer in m.children():
@@ -75,10 +74,7 @@ def run_save_and_load_pretrained(rank, world_size, port, tensor_parallel_size, p
     assert model.fc.weight.sum() != 0
 
 
-@pytest.mark.parametrize(
-    "tensor_parallel_size, pipeline_parallel_size, data_parallel_size",
-    [(1, 1, 1), (2, 2, 2)]
-)
+@pytest.mark.parametrize("tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 1, 1), (2, 2, 2)])
 def test_save_and_load_pretrained(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     world_size = tensor_parallel_size * pipeline_parallel_size * data_parallel_size
     spawn(

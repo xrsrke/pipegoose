@@ -1,6 +1,6 @@
 from abc import ABC, abstractclassmethod
-from typing import List
 from dataclasses import dataclass
+from typing import List
 
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 

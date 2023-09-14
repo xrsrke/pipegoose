@@ -4,8 +4,8 @@ from time import sleep
 import pytest
 
 from pipegoose.distributed.parallel_context import ParallelContext
-from pipegoose.nn.pipeline_parallel2.scheduler import GPipeScheduler
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
+from pipegoose.nn.pipeline_parallel2.scheduler import GPipeScheduler
 from pipegoose.testing.utils import spawn
 
 
@@ -48,9 +48,7 @@ def test_generate_schedules_using_gpipe_scheduler():
             assert isinstance(task.microbatch_idx, int)
 
 
-def run_syncronous_gpipe_scheduler(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
-):
+def run_syncronous_gpipe_scheduler(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )

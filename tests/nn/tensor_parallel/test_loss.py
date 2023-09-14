@@ -14,8 +14,14 @@ def check_equal(A, B):
 
 
 def run_parallel_cross_entropy(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, logits, targets, loss
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, logits, targets, loss, grads
 ):
+    def get_partition(logits):
+        local_world_size = parallel_context.get_world_size(parallel_mode=ParallelMode.TENSOR)
+        per_partition = N_LABELS // local_world_size
+        chunks = torch.split(logits, per_partition, dim=-1)
+        return chunks[local_rank]
+
     parallel_context = ParallelContext(
         rank=rank,
         local_rank=rank,
@@ -35,22 +41,17 @@ def run_parallel_cross_entropy(
 
     if local_rank in ranks_in_group:
         N_LABELS = logits.shape[-1]
-
-        def get_partition(logits):
-            local_world_size = parallel_context.get_world_size(parallel_mode=ParallelMode.TENSOR)
-            per_partition = N_LABELS // local_world_size
-            chunks = torch.split(logits, per_partition, dim=-1)
-            return chunks[local_rank]
-
         parallel_logits = get_partition(logits)
+        parallel_logits.requires_grad = True
+
         parallel_cross_entropy = VocabParallelCrossEntropy(parallel_context=parallel_context)
         parallel_loss = parallel_cross_entropy(parallel_logits, targets)
 
         assert torch.allclose(parallel_loss, loss)
 
-        # parallel_output.sum().backward()
+        parallel_loss.backward()
 
-        # assert torch.allclose(parallel_embedding.weight.grad.data, get_partition(grads))
+        assert torch.allclose(parallel_logits.grad.data, get_partition(grads))
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
@@ -64,7 +65,7 @@ def test_parallel_cross_entropy(tensor_parallel_size):
 
     torch.manual_seed(69)
 
-    logits = torch.randn(BATCH_SIZE, SEQ_LEN, VOCAB_SIZE)
+    logits = torch.randn(BATCH_SIZE, SEQ_LEN, VOCAB_SIZE, requires_grad=True)
     targets = torch.randint(0, VOCAB_SIZE, (BATCH_SIZE, SEQ_LEN))
 
     loss = F.cross_entropy(
@@ -72,13 +73,17 @@ def test_parallel_cross_entropy(tensor_parallel_size):
         rearrange(targets, "batch_size seq_len -> (batch_size seq_len)"),
     )
 
+    loss.backward()
+    grads = logits.grad.data
+
     spawn(
         run_parallel_cross_entropy,
         world_size=tensor_parallel_size,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        logits=logits,
+        logits=logits.detach(),
         targets=targets,
-        loss=loss,
+        loss=loss.detach(),
+        grads=grads.detach(),
     )

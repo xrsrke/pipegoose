@@ -1,9 +1,9 @@
 import pytest
 import torch
 
-from pipegoose.nn.pipeline_parallel2._package import Package, Metadata, TrainingMetadata
-from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._job.creator import create_job
+from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
+from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
 from pipegoose.testing.utils import init_pipeline_context
 
 
@@ -21,6 +21,7 @@ def pipeline_context():
     N_MICROBATCHES = 5
 
     from transformers import AutoModelForCausalLM
+
     module = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
     pipeline_context = init_pipeline_context(
@@ -59,7 +60,7 @@ def base_package():
             is_grad_enabled=IS_GRAD_ENABLED,
         ),
         src=SRC,
-        dst=DST
+        dst=DST,
     )
 
     return Package(data, metadata)

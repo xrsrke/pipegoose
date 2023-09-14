@@ -6,6 +6,7 @@ import torch
 import torch.distributed as dist
 import torch.distributed.rpc as rpc
 
+from pipegoose.constants import WORKER_NAME
 from pipegoose.distributed._initializers.initialize_data import (
     DataParallelGroupInitializer,
 )
@@ -16,7 +17,6 @@ from pipegoose.distributed._initializers.initialize_tensor import (
     TensorParallelGroupInitializer,
 )
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.constants import WORKER_NAME
 
 DistributedBackend = Literal["gloo", "mpi", "nccl"]
 

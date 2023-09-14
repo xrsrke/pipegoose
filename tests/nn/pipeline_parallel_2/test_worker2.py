@@ -1,7 +1,7 @@
 from queue import Queue
 
-from pipegoose.nn.pipeline_parallel2._worker import WorkerManager
 from pipegoose.nn.pipeline_parallel2._utils import sleep
+from pipegoose.nn.pipeline_parallel2._worker import WorkerManager
 
 
 def test_worker_manager():
@@ -47,10 +47,7 @@ def test_execute_a_job_from_selected_job_queue():
         def compute(self):
             QUEUE.append(1)
 
-    worker_manager = WorkerManager(
-        pending_jobs=PENDING_JOBS,
-        selected_jobs=SELECTED_JOBS
-    )
+    worker_manager = WorkerManager(pending_jobs=PENDING_JOBS, selected_jobs=SELECTED_JOBS)
     job = FakeJob()
     worker_manager.spawn()
 

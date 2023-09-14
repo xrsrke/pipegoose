@@ -7,15 +7,15 @@ import torch
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
+from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
+from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
 from pipegoose.nn.tensor_parallel.parallelizer import (
     EmbeddingParallelizer,
-    LinearParallelizer,
     LayerNormParallelizer,
-    LMHeadParallelizer
+    LinearParallelizer,
+    LMHeadParallelizer,
 )
-from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
-from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
-from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
 from pipegoose.testing.utils import spawn
 
 
@@ -38,7 +38,17 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
 
 
 def run_parallelize_embedding(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module_name, module, model, input, output
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    module_name,
+    module,
+    model,
+    input,
+    output,
 ):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
@@ -77,7 +87,18 @@ def test_parallelize_embedding(model, tensor_parallel_size):
 
 
 def run_parallelize_linear(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module_name, module, model, input, output, expected_type
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    module_name,
+    module,
+    model,
+    input,
+    output,
+    expected_type,
 ):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
@@ -92,8 +113,12 @@ def run_parallelize_linear(
 LINEAR_MODULE_INFO = [
     ("transformer.h.0.mlp.dense_h_to_4h", lambda m: m.transformer.h[0].mlp.dense_h_to_4h, ColumnParallelLinear),
     ("transformer.h.0.mlp.dense_4h_to_h", lambda m: m.transformer.h[0].mlp.dense_4h_to_h, RowParallelLinear),
-    ("transformer.h.0.self_attention.query_key_value", lambda m: m.transformer.h[0].self_attention.query_key_value, ColumnParallelLinear),
-    ("transformer.h.0.self_attention.dense", lambda m: m.transformer.h[0].self_attention.dense, RowParallelLinear)
+    (
+        "transformer.h.0.self_attention.query_key_value",
+        lambda m: m.transformer.h[0].self_attention.query_key_value,
+        ColumnParallelLinear,
+    ),
+    ("transformer.h.0.self_attention.dense", lambda m: m.transformer.h[0].self_attention.dense, RowParallelLinear),
 ]
 
 
@@ -122,12 +147,22 @@ def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module
         model=model,
         input=input.detach(),
         output=output.detach(),
-        expected_type=expected_type
+        expected_type=expected_type,
     )
 
 
 def run_parallelize_layernorm(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module_name, module, model, input, output
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    module_name,
+    module,
+    model,
+    input,
+    output,
 ):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
@@ -173,7 +208,17 @@ def test_parallelize_positional_embedding():
 
 
 def run_parallelize_lm_head(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module_name, module, model, input, output
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    module_name,
+    module,
+    model,
+    input,
+    output,
 ):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size

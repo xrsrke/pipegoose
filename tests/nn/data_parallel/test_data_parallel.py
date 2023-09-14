@@ -5,12 +5,10 @@ import torch
 from torch.optim import SGD
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.data_parallel.data_parallel import DataParallel
 from pipegoose.testing.utils import spawn
-
 
 MODEL_NAME = "bigscience/bloom-560m"
 
@@ -65,9 +63,7 @@ def test_parallelize_a_transformer_and_inference(model, tokenizer, data_parallel
     TENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 1
 
-    GENERATION_CONFIGS = {
-        "max_new_tokens": 1
-    }
+    GENERATION_CONFIGS = {"max_new_tokens": 1}
 
     text = "Persistence is all you need."
     input = tokenizer(text, return_tensors="pt")
@@ -98,7 +94,7 @@ def test_parallelize_a_transformer_and_inference(model, tokenizer, data_parallel
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=data_parallel_size,
-        kwargs=kwargs
+        kwargs=kwargs,
     )
 
 
@@ -151,10 +147,7 @@ def test_backward_pass_a_parallelized_transformers(model, tokenizer, data_parall
 
     LR = 1e-3
 
-    text = [
-        "Persistence is all you need.",
-        "3D parallelism is all you need."
-    ]
+    text = ["Persistence is all you need.", "3D parallelism is all you need."]
     inputs = tokenizer(text, return_tensors="pt", padding="longest")
     labels = inputs["input_ids"]
     optim = SGD(model.parameters(), lr=LR)
@@ -179,14 +172,7 @@ def test_backward_pass_a_parallelized_transformers(model, tokenizer, data_parall
     loss.backward()
     optim.step()
 
-    kwargs = {
-        "model": orig_model,
-        "lr": LR,
-        "inputs": inputs,
-        "labels": labels,
-        "grads": GRADS,
-        "loss": loss.detach()
-    }
+    kwargs = {"model": orig_model, "lr": LR, "inputs": inputs, "labels": labels, "grads": GRADS, "loss": loss.detach()}
 
     spawn(
         run_backward_a_parallelized_transformers,
@@ -194,5 +180,5 @@ def test_backward_pass_a_parallelized_transformers(model, tokenizer, data_parall
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=data_parallel_size,
-        kwargs=kwargs
+        kwargs=kwargs,
     )

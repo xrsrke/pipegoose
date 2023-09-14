@@ -2,17 +2,13 @@ import pytest
 import torch
 from transformers import AutoModelForCausalLM
 
-from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2._job.creator import create_job
+from pipegoose.nn.pipeline_parallel2._job.job import BackwardJob, ForwardJob, JobStatus
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
-from pipegoose.nn.pipeline_parallel2._job.job import (
-    ForwardJob,
-    BackwardJob,
-    JobStatus
-)
-from pipegoose.nn.pipeline_parallel2.queue import JobQueue
+from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2._utils import sleep
-from pipegoose.testing.utils import spawn, init_pipeline_context
+from pipegoose.nn.pipeline_parallel2.queue import JobQueue
+from pipegoose.testing.utils import init_pipeline_context, spawn
 
 
 @pytest.fixture(scope="session")
@@ -21,10 +17,19 @@ def module():
     return AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
 
-def run_check_the_job_status_after_executing_a_job(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, module):
+def run_check_the_job_status_after_executing_a_job(
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, module
+):
     pipeline_context = init_pipeline_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size,
-        module, n_partitions=3, n_microbatches=5
+        rank,
+        world_size,
+        port,
+        tensor_parallel_size,
+        pipeline_parallel_size,
+        data_parallel_size,
+        module,
+        n_partitions=3,
+        n_microbatches=5,
     )
     job = create_job(package, pipeline_context)
 
@@ -48,12 +53,16 @@ def test_the_job_status_after_executing_a_job(request, pipeline_parallel_size, p
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=DATA_PARALLEL_SIZE,
         package=package,
-        module=module
+        module=module,
     )
 
 
-def run_execute_a_forward_job(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, module):
-    pipeline_context = init_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module)
+def run_execute_a_forward_job(
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, module
+):
+    pipeline_context = init_pipeline_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module
+    )
     forward_job = create_job(package, pipeline_context)
 
     ORIG_MICROBATCH_IDX = forward_job.input.metadata.microbatch_idx
@@ -101,12 +110,16 @@ def test_execute_a_forward_job(request, pipeline_parallel_size, package, module)
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=DATA_PARALLEL_SIZE,
         package=package,
-        module=module
+        module=module,
     )
 
 
-def run_create_a_job_from_package(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, job_cls, module):
-    pipeline_context = init_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module)
+def run_create_a_job_from_package(
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, job_cls, module
+):
+    pipeline_context = init_pipeline_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module
+    )
 
     job = create_job(package, pipeline_context)
 
@@ -132,7 +145,7 @@ def test_create_a_job_from_package(request, pipeline_parallel_size, package, job
         data_parallel_size=DATA_PARALLEL_SIZE,
         package=package,
         job_cls=job_cls,
-        module=module
+        module=module,
     )
 
 

@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 
-from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
-
-
 import torch
+
+from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 
 
 @dataclass

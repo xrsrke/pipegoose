@@ -1,5 +1,5 @@
-from enum import Enum
 from abc import ABC
+from enum import Enum
 
 
 class CallbackEvent(Enum):

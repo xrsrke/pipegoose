@@ -1,27 +1,22 @@
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 import torch
 from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.tensor_parallel.parallelizer import (
-    ModuleParallelizer,
     EmbeddingParallelizer,
     LayerNormParallelizer,
     LinearParallelizer,
-    LMHeadParallelizer
+    LMHeadParallelizer,
+    ModuleParallelizer,
 )
 
 
 class TensorParallel:
     """Turn a 🤗 transformers model into a tensor parallel model."""
 
-    PARALLELIZERS = [
-        EmbeddingParallelizer,
-        LayerNormParallelizer,
-        LinearParallelizer,
-        LMHeadParallelizer
-    ]
+    PARALLELIZERS = [EmbeddingParallelizer, LayerNormParallelizer, LinearParallelizer, LMHeadParallelizer]
 
     def __init__(self, module: nn.Module, parallel_context: ParallelContext):
         self.module = module

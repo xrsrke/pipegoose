@@ -1,12 +1,12 @@
-from abc import ABC, abstractclassmethod
 import threading
-from typing import Callable, List
+from abc import ABC, abstractclassmethod
 from queue import Queue
+from typing import Callable, List
 
-from pipegoose.nn.pipeline_parallel2._utils import sleep
-from pipegoose.nn.pipeline_parallel2._job.job import Job
-from pipegoose.nn.pipeline_parallel2.queue import JobQueue
 from pipegoose.constants import PIPELINE_MAX_WORKERS, PIPELINE_MIN_WORKERS
+from pipegoose.nn.pipeline_parallel2._job.job import Job
+from pipegoose.nn.pipeline_parallel2._utils import sleep
+from pipegoose.nn.pipeline_parallel2.queue import JobQueue
 
 
 class Worker(threading.Thread):

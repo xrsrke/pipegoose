@@ -1,9 +1,8 @@
 import pytest
-
 import torch
 
-from pipegoose.nn.pipeline_parallel2._package import Package, Metadata, TrainingMetadata
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
+from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
 
 
 @pytest.mark.parametrize("job_type", [JobType.FORWARD, JobType.BACKWARD])

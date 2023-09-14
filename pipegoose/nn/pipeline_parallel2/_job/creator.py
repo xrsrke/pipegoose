@@ -1,11 +1,11 @@
-from typing import Union
 from abc import ABC, abstractmethod
+from typing import Union
 
-from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-from pipegoose.nn.pipeline_parallel2._package import Package
-from pipegoose.nn.pipeline_parallel2._job.job import Job, ForwardJob, BackwardJob
-from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
+from pipegoose.nn.pipeline_parallel2._job.job import BackwardJob, ForwardJob, Job
+from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
+from pipegoose.nn.pipeline_parallel2._package import Package
+from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 
 
 class SetForwardFunctionCallback(Callback):
@@ -34,6 +34,7 @@ class SetBackwardFunctionCallback(Callback):
         # TODO: change to autograd
         def wrapper(*args, **kwargs):
             import torch
+
             return torch.randn(1)
 
         self.job.function = wrapper
@@ -97,7 +98,9 @@ class _BackwardJobCreator(JobCreator):
 
 def create_job(package: Package, pipeline_context: PipelineContext) -> Union[ForwardJob, BackwardJob]:
     assert isinstance(package, Package), f"package must be an instance of Package, got {type(package)}"
-    assert isinstance(pipeline_context, PipelineContext), f"pipeline_context must be an instance of PipelineContext, got {type(pipeline_context)}"
+    assert isinstance(
+        pipeline_context, PipelineContext
+    ), f"pipeline_context must be an instance of PipelineContext, got {type(pipeline_context)}"
 
     JOB_TYPE_TO_CREATOR = {
         JobType.FORWARD: _ForwardJobCreator,

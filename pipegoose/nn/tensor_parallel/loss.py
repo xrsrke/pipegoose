@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Tuple
 
 import torch
 from einops import rearrange
@@ -31,6 +31,7 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
             return normalized_parallel_logits
 
         def get_predicted_logits(parallel_logits, targets):
+            # TODO: split get masked targets into another function
             rank = parallel_context.get_local_rank(ParallelMode.TENSOR)
             partition_size = parallel_logits.shape[-1]
             vocab_start_idx, vocab_end_idx = VocabUtility.get_vocab_range_idx_from_partition_size(partition_size, rank)
@@ -48,23 +49,41 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
             predicted_logits = all_reduce(
                 predicted_logits, parallel_context=parallel_context, parallel_mode=ParallelMode.TENSOR
             )
-            return predicted_logits
+            return predicted_logits, target_mask, masked_targets_1d
 
         # NOTE: parallel cross entropy still works without normalizing logits
         parallel_logits = normalize_logits(parallel_logits)
-        predicted_logits = get_predicted_logits(parallel_logits, targets)
+        predicted_logits, target_mask, masked_targets_1d = get_predicted_logits(parallel_logits, targets)
 
         exp_logits = torch.exp(parallel_logits)
         sum_exp_logits = exp_logits.sum(dim=-1)
         sum_exp_logits = all_reduce(sum_exp_logits, parallel_context=parallel_context, parallel_mode=ParallelMode.TENSOR)
 
         loss = torch.log(sum_exp_logits) - predicted_logits
+        ctx.save_for_backward(exp_logits, target_mask, masked_targets_1d)
 
         return loss
 
     @staticmethod
-    def backward(ctx):
-        pass
+    def backward(ctx, grad_output: torch.Tensor) -> Tuple[torch.Tensor, None, None]:
+        # Retrieve tensors from the forward path.
+        softmax, target_mask, masked_target_1d = ctx.saved_tensors
+
+        # All the inputs have softmax as their gradient.
+        grad_input = softmax
+
+        # For simplicity, work with the 2D gradient.
+        partition_vocab_size = softmax.size(-1)
+        grad_2d = grad_input.view(-1, partition_vocab_size)
+
+        # Add the gradient from matching classes.
+        arange_1d = torch.arange(start=0, end=grad_2d.size(0))
+        grad_2d[arange_1d, masked_target_1d] -= 1.0 - target_mask.view(-1).float()
+
+        # Finally elementwise multiplication with the output gradients.
+        grad_input.mul_(grad_output.unsqueeze(dim=-1))
+
+        return grad_input, None, None
 
 
 class VocabParallelCrossEntropy(nn.Module):

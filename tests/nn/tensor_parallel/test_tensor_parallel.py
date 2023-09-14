@@ -6,10 +6,10 @@ from torch.optim import SGD
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.tensor_parallel.tensor_parallel import TensorParallel
 from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
-from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
 from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
+from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
+from pipegoose.nn.tensor_parallel.tensor_parallel import TensorParallel
 from pipegoose.testing.utils import spawn
 
 
@@ -44,10 +44,7 @@ def run_parallelize_a_transformers_and_inference(
 
     # NOTE: we don't parallelize dropout layers
     # and activation functions
-    SKIP_MODULES = {
-        type(model.transformer.h[0].mlp.gelu_impl),
-        type(model.transformer.h[0].self_attention.attention_dropout)
-    }
+    SKIP_MODULES = {type(model.transformer.h[0].mlp.gelu_impl), type(model.transformer.h[0].self_attention.attention_dropout)}
 
     def is_parallelized(module):
         return isinstance(module, (ParallelEmbedding, ColumnParallelLinear, RowParallelLinear, LayerNorm))
@@ -90,9 +87,7 @@ def test_parallelize_a_transformer_and_inference(model, tokenizer, tensor_parall
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 
-    GENERATION_CONFIGS = {
-        "max_new_tokens": 1
-    }
+    GENERATION_CONFIGS = {"max_new_tokens": 1}
 
     text = "Persistence is all you need."
     input = tokenizer(text, return_tensors="pt")
@@ -123,7 +118,7 @@ def test_parallelize_a_transformer_and_inference(model, tokenizer, tensor_parall
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        kwargs=kwargs
+        kwargs=kwargs,
     )
 
 
@@ -192,7 +187,7 @@ def test_backward_pass_a_parallelized_transformers(model, tokenizer, tensor_para
         "input": input,
         "labels": labels,
         # NOTE: this is the updated weight of the model
-        "embedding_weight": model.transformer.word_embeddings.weight.data
+        "embedding_weight": model.transformer.word_embeddings.weight.data,
     }
 
     spawn(
@@ -201,7 +196,7 @@ def test_backward_pass_a_parallelized_transformers(model, tokenizer, tensor_para
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        kwargs=kwargs
+        kwargs=kwargs,
     )
 
 

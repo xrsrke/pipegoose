@@ -1,11 +1,9 @@
 import pytest
-
 from transformers import AutoModelForCausalLM
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.pipeline_parallel2.partitioner import NaivePartitioner
 from pipegoose.testing.utils import spawn
-
 
 MODEL_NAME = "bigscience/bloom-560m"
 
@@ -55,5 +53,5 @@ def test_naive_partitioning(model, pipeline_parallel_size):
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        module=model
+        module=model,
     )

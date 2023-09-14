@@ -1,12 +1,11 @@
 import pytest
-
 from torch import nn
 from transformers import AutoModelForCausalLM
 
 from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.nn.pipeline_parallel2.partitioner import NaivePartitioner
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 from pipegoose.nn.pipeline_parallel2.scheduler import GPipeScheduler
-from pipegoose.nn.pipeline_parallel2.partitioner import NaivePartitioner
 from pipegoose.testing.utils import spawn
 
 MODEL_NAME = "bigscience/bloom-560m"
@@ -45,7 +44,9 @@ def scheduler():
     return scheduler
 
 
-def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module, scheduler):
+def run_pipeline_context(
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module, scheduler
+):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )

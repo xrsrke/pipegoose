@@ -3,9 +3,9 @@ import os
 import torch
 from torch import nn
 
+from pipegoose.constants import CHECKPOINT_PATH_NAME, CHECKPOINT_WEIGHTS_NAME
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.constants import CHECKPOINT_WEIGHTS_NAME, CHECKPOINT_PATH_NAME
 
 
 def from_pretrained(module: nn.Module, ckp_path: str, parallel_context: ParallelContext):
@@ -27,7 +27,7 @@ def save_pretrained(
     module: nn.Module,
     ckp_name: str = CHECKPOINT_WEIGHTS_NAME,
     ckp_path: str = CHECKPOINT_PATH_NAME,
-    parallel_context: ParallelContext = None
+    parallel_context: ParallelContext = None,
 ):
     """
     Save the weights of a pretrained parallelized model.
@@ -35,7 +35,9 @@ def save_pretrained(
     NOTE: Assume that the model is already parallelized and discarded
     the weights of parts that a node is not responsible for.
     """
-    assert isinstance(parallel_context, ParallelContext), f"parallel_context must be an instance of ParallelContext, got {type(parallel_context)}"
+    assert isinstance(
+        parallel_context, ParallelContext
+    ), f"parallel_context must be an instance of ParallelContext, got {type(parallel_context)}"
 
     tp_rank = parallel_context.get_local_rank(ParallelMode.TENSOR)
     pp_rank = parallel_context.get_local_rank(ParallelMode.PIPELINE)

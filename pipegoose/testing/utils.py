@@ -27,3 +27,57 @@ def spawn(func: Callable, world_size: int = 1, **kwargs):
 
     wrapped_func = partial(func, world_size=world_size, port=port, **kwargs)
     mp.spawn(wrapped_func, nprocs=world_size)
+
+
+def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    from pipegoose.distributed.parallel_context import ParallelContext
+
+    HOST = "localhost"
+    SEED = 69
+    BACKEND = "gloo"
+
+    parallel_context = ParallelContext(
+        rank=rank,
+        local_rank=rank,
+        world_size=world_size,
+        local_world_size=world_size,
+        host=HOST,
+        port=port,
+        seed=SEED,
+        backend=BACKEND,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=data_parallel_size,
+    )
+
+    return parallel_context
+
+
+N_PARTITIONS = 3
+N_MICROBATCHES = 5
+
+
+def init_pipeline_context(
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    module,
+    n_partitions=N_PARTITIONS,
+    n_microbatches=N_MICROBATCHES,
+):
+    from pipegoose.nn.pipeline_parallel2.partitioner import NaivePartitioner
+    from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
+    from pipegoose.nn.pipeline_parallel2.scheduler import GPipeScheduler
+
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
+
+    return PipelineContext(
+        partitions=NaivePartitioner(module, parallel_context).split(),
+        scheduler=GPipeScheduler(n_partitions, n_microbatches),
+        parallel_context=parallel_context,
+    )

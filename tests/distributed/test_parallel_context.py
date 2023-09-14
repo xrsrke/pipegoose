@@ -103,7 +103,9 @@ def init_parallel_context(
         assert prev_local_rank == LOCAL_RANK_TO_PREV_RANK[world_size][parallel_mode][local_rank]
 
         assert parallel_context.is_first_rank(parallel_mode) == (local_rank == 0)
-        assert parallel_context.is_last_rank(parallel_mode) == (local_rank == parallel_context.get_world_size(parallel_mode) - 1)
+        assert parallel_context.is_last_rank(parallel_mode) == (
+            local_rank == parallel_context.get_world_size(parallel_mode) - 1
+        )
 
     parallel_context.destroy()
 
@@ -137,9 +139,7 @@ def recv_rpc_call(value):
     RPC_RECEIVE_QUEUE.append(tensor)
 
 
-def run_send_rcv_rpc(
-    rank, world_size, seed, backend, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
-):
+def run_send_rcv_rpc(rank, world_size, seed, backend, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     VALUE = 69
 
     parallel_context = ParallelContext(
@@ -163,11 +163,7 @@ def run_send_rcv_rpc(
 
     if rank == 0:
         tensor = torch.tensor(VALUE)
-        fut = rpc.rpc_async(
-            to=parallel_context.get_worker_name(rank=1),
-            func=recv_rpc_call,
-            args=(tensor,)
-        )
+        fut = rpc.rpc_async(to=parallel_context.get_worker_name(rank=1), func=recv_rpc_call, args=(tensor,))
 
         fut.wait()
 
