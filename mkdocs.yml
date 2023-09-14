@@ -1,4 +1,4 @@
-site_name: PipeGoose - Pipeline Parallism for 🤗 `transformers` models
+site_name: PipeGoose - Megatron-LM 3D parallelism for 🤗 `transformers` model 
 repo_url: https://github.com/xrsrke/pipegoose
 nav:
   - Home: index.md
