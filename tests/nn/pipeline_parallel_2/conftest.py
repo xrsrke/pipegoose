@@ -6,6 +6,8 @@ from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
 from pipegoose.testing.utils import init_pipeline_context
 
+# from torch import nn
+
 
 @pytest.fixture(scope="session")
 def pipeline_context():
@@ -16,13 +18,8 @@ def pipeline_context():
     WORLD_SIZE = 1
     PORT = 12355
 
-    MODEL_NAME = "bigscience/bloom-560m"
     N_PARTITIONS = 3
     N_MICROBATCHES = 5
-
-    from transformers import AutoModelForCausalLM
-
-    module = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
     pipeline_context = init_pipeline_context(
         rank=RANK,
@@ -31,7 +28,6 @@ def pipeline_context():
         tensor_parallel_size=ENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        module=module,
         n_partitions=N_PARTITIONS,
         n_microbatches=N_MICROBATCHES,
     )

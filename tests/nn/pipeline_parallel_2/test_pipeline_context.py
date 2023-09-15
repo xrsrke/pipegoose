@@ -1,19 +1,10 @@
 import pytest
 from torch import nn
-from transformers import AutoModelForCausalLM
 
 from pipegoose.distributed.parallel_context import ParallelContext
-from pipegoose.nn.pipeline_parallel2.partitioner import NaivePartitioner
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 from pipegoose.nn.pipeline_parallel2.scheduler import GPipeScheduler
 from pipegoose.testing.utils import spawn
-
-MODEL_NAME = "bigscience/bloom-560m"
-
-
-@pytest.fixture(scope="session")
-def module():
-    return AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
 
 def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
@@ -34,24 +25,15 @@ def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline
     return parallel_context
 
 
-@pytest.fixture
-def scheduler():
+def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    N_PARTITIONS = 5
     N_MICROBATCHES = 4
-    N_PARTITIONS = 3
 
-    scheduler = GPipeScheduler(N_MICROBATCHES, N_PARTITIONS)
-
-    return scheduler
-
-
-def run_pipeline_context(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module, scheduler
-):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    partitioner = NaivePartitioner(module, parallel_context)
-    partitions = partitioner.split()
+    partitions = [nn.Linear(10, 10) for _ in range(N_PARTITIONS)]
+    scheduler = GPipeScheduler(N_MICROBATCHES, N_PARTITIONS)
 
     pipeline_context = PipelineContext(partitions, scheduler, parallel_context)
 
@@ -72,7 +54,7 @@ def run_pipeline_context(
 
 
 @pytest.mark.parametrize("pipeline_parallel_size", [1, 2])
-def test_run_pipeline_context(module, scheduler, pipeline_parallel_size):
+def test_run_pipeline_context(pipeline_parallel_size):
     TENSOR_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 
@@ -82,6 +64,4 @@ def test_run_pipeline_context(module, scheduler, pipeline_parallel_size):
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        module=module,
-        scheduler=scheduler,
     )

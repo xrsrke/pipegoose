@@ -1,6 +1,5 @@
 import pytest
 import torch
-from transformers import AutoModelForCausalLM
 
 from pipegoose.nn.pipeline_parallel2._job.creator import create_job
 from pipegoose.nn.pipeline_parallel2._job.job import BackwardJob, ForwardJob, JobStatus
@@ -11,14 +10,8 @@ from pipegoose.nn.pipeline_parallel2.queue import JobQueue
 from pipegoose.testing.utils import init_pipeline_context, spawn
 
 
-@pytest.fixture(scope="session")
-def module():
-    MODEL_NAME = "bigscience/bloom-560m"
-    return AutoModelForCausalLM.from_pretrained(MODEL_NAME)
-
-
 def run_check_the_job_status_after_executing_a_job(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, module
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package
 ):
     pipeline_context = init_pipeline_context(
         rank,
@@ -27,9 +20,6 @@ def run_check_the_job_status_after_executing_a_job(
         tensor_parallel_size,
         pipeline_parallel_size,
         data_parallel_size,
-        module,
-        n_partitions=3,
-        n_microbatches=5,
     )
     job = create_job(package, pipeline_context)
 
@@ -40,7 +30,7 @@ def run_check_the_job_status_after_executing_a_job(
 
 @pytest.mark.parametrize("pipeline_parallel_size", [1, 2])
 @pytest.mark.parametrize("package", ["forward_package", "backward_package"])
-def test_the_job_status_after_executing_a_job(request, pipeline_parallel_size, package, module):
+def test_the_job_status_after_executing_a_job(request, pipeline_parallel_size, package):
     TENSOR_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 
@@ -53,12 +43,11 @@ def test_the_job_status_after_executing_a_job(request, pipeline_parallel_size, p
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=DATA_PARALLEL_SIZE,
         package=package,
-        module=module,
     )
 
 
 def run_execute_a_forward_job(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, module
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package
 ):
     # NOTE: (microbatch_idx, partition_idx) -> (microbatch_idx, next_partition_idx)
     OUTPUT_DESTINATION = {
@@ -75,15 +64,12 @@ def run_execute_a_forward_job(
     }
 
     pipeline_context = init_pipeline_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
     forward_job = create_job(package, pipeline_context)
 
     ORIG_MICROBATCH_IDX = forward_job.input.metadata.microbatch_idx
     ORIG_PARTITION_IDX = forward_job.input.metadata.partition_idx
-    # PARALLEL_MODE = ParallelMode.PIPELINE
-    # LOCAL_RANK = parallel_context.get_local_rank(PARALLEL_MODE)
-    # DST = parallel_context.get_next_local_rank(LOCAL_RANK, PARALLEL_MODE)
 
     output = forward_job.compute()
 
@@ -91,8 +77,6 @@ def run_execute_a_forward_job(
     assert isinstance(output, Package)
 
     assert isinstance(output.data, torch.Tensor)
-    # assert output.metadata.microbatch_idx == ORIG_MICROBATCH_IDX
-    # assert output.metadata.partition_idx == ORIG_PARTITION_IDX + 1
     assert OUTPUT_DESTINATION[(ORIG_MICROBATCH_IDX, ORIG_PARTITION_IDX)] == (
         output.metadata.microbatch_idx,
         output.metadata.partition_idx,
@@ -114,7 +98,7 @@ def run_execute_a_forward_job(
 
 @pytest.mark.parametrize("pipeline_parallel_size", [1, 5])
 @pytest.mark.parametrize("package", ["forward_package"])
-def test_execute_a_forward_job(request, pipeline_parallel_size, package, module):
+def test_execute_a_forward_job(request, pipeline_parallel_size, package):
     TENSOR_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 
@@ -127,15 +111,14 @@ def test_execute_a_forward_job(request, pipeline_parallel_size, package, module)
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=DATA_PARALLEL_SIZE,
         package=package,
-        module=module,
     )
 
 
 def run_create_a_job_from_package(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, job_cls, module
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, job_cls
 ):
     pipeline_context = init_pipeline_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
 
     job = create_job(package, pipeline_context)
@@ -148,7 +131,7 @@ def run_create_a_job_from_package(
 
 @pytest.mark.parametrize("pipeline_parallel_size", [1, 2])
 @pytest.mark.parametrize("package, job_cls", [("forward_package", ForwardJob), ("backward_package", BackwardJob)])
-def test_create_a_job_from_package(request, pipeline_parallel_size, package, job_cls, module):
+def test_create_a_job_from_package(request, pipeline_parallel_size, package, job_cls):
     TENSOR_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 
@@ -162,7 +145,6 @@ def test_create_a_job_from_package(request, pipeline_parallel_size, package, job
         data_parallel_size=DATA_PARALLEL_SIZE,
         package=package,
         job_cls=job_cls,
-        module=module,
     )
 
 
