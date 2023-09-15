@@ -7,7 +7,7 @@ from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
 
 
 class PipelineContext:
-    """A context that holds information about the current pipeline execution."""
+    """A context that holds information about the pipeline execution."""
 
     def __init__(self, partitions: List[nn.Module], scheduler: BaseScheduler, parallel_context: ParallelContext):
         self.partitions = partitions
@@ -15,22 +15,48 @@ class PipelineContext:
         self.parallel_context = parallel_context
 
         self._clock_idx = 0
+        # TODO: determine the pipeline stage of the current process
+        self._partition_idx = 0
 
     @property
     def partition_idx(self) -> int:
-        return 0
+        return self._partition_idx
 
     def get_partition_forward(self) -> nn.Module:
+        """Get the forward pass function of the current process's pipeline stage."""
         return self.partitions[self.partition_idx]
 
     @property
-    def current_clock_idx(self) -> int:
+    def clock_idx(self) -> int:
+        """Get the current clock cycle in the pipeline execution."""
         return self._clock_idx
 
     @property
-    def current_schedule(self) -> List:
-        return self.scheduler.get_schedules()[self.current_clock_idx]
+    def schedule(self) -> List:
+        """Get the current schedule of this partition."""
+        return self.get_schedule_from_partition(self.clock_idx, self.partition_idx)
 
     @property
     def schedules(self) -> List:
+        """Get the schedule for entire training run."""
         return self.scheduler.get_schedules()
+
+    def get_schedule_from_partition(self, clock_idx: int, partition_idx: int):
+        """Get the schedule of a partition at a certain clock cycle."""
+        assert clock_idx >= 0, "Clock cycle index must be greater than or equal to 0."
+        assert partition_idx >= 0, "Partition index must be greater than or equal to 0."
+
+        schedules = self.schedules[clock_idx]
+        schedule_of_this_partition = [schedule for schedule in schedules if schedule.partition_idx == partition_idx]
+
+        return schedule_of_this_partition
+
+    def get_schedule_from_microbatch(self, clock_idx: int, microbatch_idx: int):
+        """Get the schedule of a microbatch at a certain clock cycle."""
+        assert clock_idx >= 0, "Clock cycle index must be greater than or equal to 0."
+        assert microbatch_idx >= 0, "Microbatch index must be greater than or equal to 0."
+
+        schedules = self.schedules[clock_idx]
+        schedule_of_this_microbatch = [schedule for schedule in schedules if schedule.microbatch_idx == microbatch_idx]
+
+        return schedule_of_this_microbatch
