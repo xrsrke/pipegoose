@@ -1,28 +1,9 @@
 import pytest
 from torch import nn
 
-from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 from pipegoose.nn.pipeline_parallel2.scheduler import GPipeScheduler
-from pipegoose.testing.utils import spawn
-
-
-def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-    parallel_context = ParallelContext(
-        rank=rank,
-        local_rank=rank,
-        world_size=world_size,
-        local_world_size=world_size,
-        host="localhost",
-        port=port,
-        seed=69,
-        backend="gloo",
-        tensor_parallel_size=tensor_parallel_size,
-        pipeline_parallel_size=pipeline_parallel_size,
-        data_parallel_size=data_parallel_size,
-    )
-
-    return parallel_context
+from pipegoose.testing.utils import init_parallel_context, spawn
 
 
 def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):

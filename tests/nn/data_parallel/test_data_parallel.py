@@ -5,10 +5,9 @@ import torch
 from torch.optim import SGD
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.data_parallel.data_parallel import DataParallel
-from pipegoose.testing.utils import spawn
+from pipegoose.testing.utils import init_parallel_context, spawn
 
 MODEL_NAME = "bigscience/bloom-560m"
 
@@ -21,24 +20,6 @@ def model():
 @pytest.fixture(scope="module")
 def tokenizer():
     return AutoTokenizer.from_pretrained(MODEL_NAME)
-
-
-def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-    parallel_context = ParallelContext(
-        rank=rank,
-        local_rank=rank,
-        world_size=world_size,
-        local_world_size=world_size,
-        host="localhost",
-        port=port,
-        seed=69,
-        backend="gloo",
-        tensor_parallel_size=tensor_parallel_size,
-        pipeline_parallel_size=pipeline_parallel_size,
-        data_parallel_size=data_parallel_size,
-    )
-
-    return parallel_context
 
 
 def run_parallelize_a_transformers_and_inference(

@@ -4,10 +4,9 @@ import pytest
 from torch import nn
 
 from pipegoose.constants import CHECKPOINT_WEIGHTS_NAME
-from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.utils import from_pretrained, save_pretrained
-from pipegoose.testing.utils import spawn
+from pipegoose.testing.utils import init_parallel_context, spawn
 
 
 class SimpleModel(nn.Module):
@@ -17,24 +16,6 @@ class SimpleModel(nn.Module):
 
     def forward(self, x):
         return self.fc(x)
-
-
-def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-    parallel_context = ParallelContext(
-        rank=rank,
-        local_rank=rank,
-        world_size=world_size,
-        local_world_size=world_size,
-        host="localhost",
-        port=port,
-        seed=69,
-        backend="gloo",
-        tensor_parallel_size=tensor_parallel_size,
-        pipeline_parallel_size=pipeline_parallel_size,
-        data_parallel_size=data_parallel_size,
-    )
-
-    return parallel_context
 
 
 def run_save_and_load_pretrained(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
