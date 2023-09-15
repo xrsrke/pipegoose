@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import Union
 
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
@@ -19,14 +20,48 @@ class SetForwardFunctionCallback(Callback):
 class CreateForwardOutputPackage(Callback):
     """Create a new package for the output of a forward job."""
 
+    order = 0
+
     def after_compute(self):
-        data = self.job.raw_output
-        orig_metadata = self.job.input.metadata
+        data = self.job.output
+        orig_metadata = deepcopy(self.job.input.metadata)
 
         package = Package(data, orig_metadata)
-        package.metadata.partition_idx += 1
+        package = self._update_next_pipeline_stage(package)
 
         self.job.output = package
+
+    def _update_next_pipeline_stage(self, package: Package) -> Package:
+        pipeline_context = self.job.pipeline_context
+        microbatch_idx = package.metadata.microbatch_idx
+
+        # NOTE: determine which pipeline stage to send the output to
+        next_schedule = pipeline_context.get_next_schedule_from_microbatch(microbatch_idx)
+
+        # NOTE: because currently each pipeline stage only has one task at a time
+        # so we hardcore and select that one
+        # TODO: take into account that a pipeline stage can has more than one task
+        # in a clock cycle, then find the correspond task to send the output to
+        next_partition = next_schedule[0].partition_idx + 1
+        package.metadata.partition_idx = next_partition
+
+        return package
+
+
+class SaveActivationIfTrainingCallback(Callback):
+    """Save the activation of a forward job for backward pass if training."""
+
+    order = 1
+
+    def __init__(self):
+        from pipegoose.nn.pipeline_parallel2.queue import ACTIVATIONS
+
+        self.saved_activations = ACTIVATIONS
+
+    def after_compute(self):
+        if self.job.input.metadata.training.is_training is True:
+            key = self.job.key
+            self.saved_activations[key] = self.output
 
 
 class SetBackwardFunctionCallback(Callback):
@@ -44,7 +79,7 @@ class CreateBackwardOutputPackage(Callback):
     """Create a new package for the output of a backward job."""
 
     def after_compute(self):
-        data = self.job.raw_output
+        data = self.job.output
         orig_metadata = self.job.input.metadata
 
         package = Package(data, orig_metadata)

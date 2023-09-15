@@ -60,6 +60,20 @@ def test_the_job_status_after_executing_a_job(request, pipeline_parallel_size, p
 def run_execute_a_forward_job(
     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package, module
 ):
+    # NOTE: (microbatch_idx, partition_idx) -> (microbatch_idx, next_partition_idx)
+    OUTPUT_DESTINATION = {
+        (0, 0): (0, 1),
+        (0, 1): (0, 2),
+        (1, 0): (1, 1),
+        (1, 1): (1, 2),
+        (2, 0): (2, 1),
+        (2, 1): (2, 2),
+        (3, 0): (3, 1),
+        (3, 1): (3, 2),
+        (4, 0): (4, 1),
+        (4, 1): (4, 2),
+    }
+
     pipeline_context = init_pipeline_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module
     )
@@ -78,10 +92,15 @@ def run_execute_a_forward_job(
     assert isinstance(output, Package)
 
     assert isinstance(output.data, torch.Tensor)
-    assert output.metadata.microbatch_idx == ORIG_MICROBATCH_IDX
-    assert output.metadata.partition_idx == ORIG_PARTITION_IDX + 1
+    # assert output.metadata.microbatch_idx == ORIG_MICROBATCH_IDX
+    # assert output.metadata.partition_idx == ORIG_PARTITION_IDX + 1
+    assert OUTPUT_DESTINATION[(ORIG_MICROBATCH_IDX, ORIG_PARTITION_IDX)] == (
+        output.metadata.microbatch_idx,
+        output.metadata.partition_idx,
+    )
 
     assert output.metadata.job_type == JobType.FORWARD
+
     for key in vars(output.metadata.training).keys():
         # TODO: add test automatically switch to create new package
         # for different mix precision training
@@ -104,7 +123,7 @@ def test_execute_a_forward_job(request, pipeline_parallel_size, package, module)
     package = request.getfixturevalue(package)
 
     spawn(
-        run_check_the_job_status_after_executing_a_job,
+        run_execute_a_forward_job,
         world_size=pipeline_parallel_size,
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=pipeline_parallel_size,

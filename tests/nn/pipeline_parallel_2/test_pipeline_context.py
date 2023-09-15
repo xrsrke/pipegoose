@@ -63,6 +63,12 @@ def run_pipeline_context(
     assert isinstance(pipeline_context.schedules, list)
     assert isinstance(pipeline_context.get_schedule_from_partition(clock_idx=3, partition_idx=2), list)
     assert isinstance(pipeline_context.get_schedule_from_microbatch(clock_idx=3, microbatch_idx=3), list)
+    assert isinstance(pipeline_context.get_next_schedule_from_microbatch(microbatch_idx=3), list)
+
+    CURRENT_CLOCK_IDX = pipeline_context.clock_idx
+    pipeline_context.increase_a_clock_cycle()
+
+    assert pipeline_context.clock_idx == CURRENT_CLOCK_IDX + 1
 
 
 @pytest.mark.parametrize("pipeline_parallel_size", [1, 2])

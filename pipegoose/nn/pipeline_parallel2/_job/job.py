@@ -66,7 +66,7 @@ class Job(ABC):
             self._run_callback(CallbackEvent.BEFORE_COMPUTE)
 
             # TODO: refactor make other callbacks to be able to access the output of a job
-            self.raw_output = self.run_compute()
+            self._output = self.run_compute()
 
             # TODO: turn the update of job status into a callback
             self._status = JobStatus.EXECUTED
