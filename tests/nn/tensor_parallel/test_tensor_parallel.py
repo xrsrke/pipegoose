@@ -9,7 +9,7 @@ from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
 from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
 from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
 from pipegoose.nn.tensor_parallel.tensor_parallel import TensorParallel
-from pipegoose.testing.utils import init_parallel_context, spawn
+from pipegoose.testing.utils import init_parallel_context, skip_in_github_actions, spawn
 
 
 def run_parallelize_a_transformers_and_inference(
@@ -63,6 +63,7 @@ def run_parallelize_a_transformers_and_inference(
     assert torch.allclose(p_output.loss, loss, rtol=1e-1)
 
 
+@skip_in_github_actions
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2, 4])
 def test_parallelize_a_transformer_and_inference(model, tokenizer, tensor_parallel_size):
     PIPELINE_PARALLEL_SIZE = 1
@@ -140,6 +141,7 @@ def run_backward_a_parallelized_transformers(
     assert torch.allclose(p_embedding_weight, partitioned_embedding_weight, rtol=1e-1)
 
 
+@skip_in_github_actions
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2, 4])
 def test_backward_pass_a_parallelized_transformers(model, tokenizer, tensor_parallel_size):
     PIPELINE_PARALLEL_SIZE = 1

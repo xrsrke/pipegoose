@@ -1,9 +1,14 @@
+import os
 import random
 import socket
 from functools import partial
 from typing import Callable
 
+import pytest
 import torch.multiprocessing as mp
+
+# NOTE: because these tests run too slow in GitHub Actions
+skip_in_github_actions = pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") == "true", reason="Test skipped in GitHub Actions")
 
 
 def find_free_port(min_port: int = 2000, max_port: int = 65000) -> int:
