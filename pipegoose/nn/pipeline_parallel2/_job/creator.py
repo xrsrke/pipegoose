@@ -3,6 +3,7 @@ from copy import deepcopy
 from typing import Union
 
 from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.nn.pipeline_parallel2._comm import send_package
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.job import BackwardJob, ForwardJob, Job
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
@@ -100,8 +101,17 @@ class CreateBackwardOutputPackage(Callback):
 
 
 class SendForwardPackage(Callback):
+    """Send the output of a forward job to the next pipeline stage."""
+
+    order = 5
+
     def after_compute(self):
-        pass
+        parallel_context = self.job.pipeline_context.parallel_context
+
+        if parallel_context.get_world_size(ParallelMode.GLOBAL) > 1 and parallel_context.pipeline_parallel_size > 1:
+            output = self.job.output
+            assert isinstance(output, Package), f"output must be an instance of Package, got {type(output)}"
+            send_package(output, parallel_context)
 
 
 class SendBackwardPackage(Callback):

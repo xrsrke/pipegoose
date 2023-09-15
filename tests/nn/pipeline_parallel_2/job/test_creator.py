@@ -95,8 +95,18 @@ def run_execute_a_forward_job(
     assert isinstance(output.metadata.src, int)
     assert isinstance(output.metadata.dst, int)
 
+    if world_size > 1:
+        from pipegoose.nn.pipeline_parallel2._comm import RECV_QUEUE
 
-@pytest.mark.parametrize("pipeline_parallel_size", [1, 5])
+        sleep(5)
+        assert RECV_QUEUE.qsize() == 1
+
+        received_package = RECV_QUEUE.get()
+        assert isinstance(received_package, Package)
+        assert received_package.metadata.dst == rank
+
+
+@pytest.mark.parametrize("pipeline_parallel_size", [1, 2, 5])
 @pytest.mark.parametrize("package", ["forward_package"])
 def test_execute_a_forward_job(request, pipeline_parallel_size, package):
     TENSOR_PARALLEL_SIZE = 1
@@ -181,4 +191,8 @@ def test_create_forward_job_that_schedule_a_backward_job(rank, forward_package):
 
 @pytest.mark.skip
 def test_execute_a_backward_job_and_send_the_output():
+    pass
+
+
+def send_output_package_callback():
     pass
