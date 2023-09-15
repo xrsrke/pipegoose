@@ -21,12 +21,19 @@ def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_
     assert isinstance(pipeline_context.partition_idx, int)
     assert isinstance(pipeline_context.get_partition_forward(), nn.Module)
 
-    assert isinstance(pipeline_context.clock_idx, int)
+    assert pipeline_context.clock_idx == 0
     assert isinstance(pipeline_context.schedule, list)
     assert isinstance(pipeline_context.schedules, list)
     assert isinstance(pipeline_context.get_schedule_from_partition(clock_idx=3, partition_idx=2), list)
-    assert isinstance(pipeline_context.get_schedule_from_microbatch(clock_idx=3, microbatch_idx=3), list)
-    assert isinstance(pipeline_context.get_next_schedule_from_microbatch(microbatch_idx=3), list)
+    assert isinstance(pipeline_context.get_schedule_from_microbatch(clock_idx=3, microbatch_idx=0), list)
+
+    next_schedules = pipeline_context.get_next_schedule_from_microbatch(microbatch_idx=0)
+    assert isinstance(next_schedules, list)
+
+    for task in next_schedules:
+        # NOTE: expect all the tasks that being processed in the current clock cycle
+        # to be send to the next partition in the next clock cycle
+        assert task.partition_idx == pipeline_context.partition_idx + 1
 
     CURRENT_CLOCK_IDX = pipeline_context.clock_idx
     pipeline_context.increase_a_clock_cycle()
