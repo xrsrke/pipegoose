@@ -9,7 +9,7 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.data_parallel.data_parallel import DataParallel
 from pipegoose.testing.utils import init_parallel_context, spawn
 
-MODEL_NAME = "bigscience/bloom-560m"
+MODEL_NAME = "prajjwal1/bert-tiny"
 
 
 @pytest.fixture(scope="module")
