@@ -2,7 +2,7 @@ import pytest
 from transformers import AutoModelForCausalLM
 
 from pipegoose.nn.pipeline_parallel2.partitioner import NaivePartitioner
-from pipegoose.testing.utils import init_parallel_context, spawn
+from pipegoose.testing.utils import init_parallel_context, skip_in_github_actions, spawn
 
 
 def run_naive_partitioning(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, module):
@@ -18,6 +18,7 @@ def run_naive_partitioning(rank, world_size, port, tensor_parallel_size, pipelin
     assert len(partitions) == pipeline_parallel_size
 
 
+@skip_in_github_actions
 @pytest.mark.parametrize("pipeline_parallel_size", [1, 2, 5])
 def test_naive_partitioning(pipeline_parallel_size):
     TENSOR_PARALLEL_SIZE = 1
