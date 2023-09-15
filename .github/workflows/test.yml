@@ -46,7 +46,7 @@ jobs:
         python -c "import torch; print(torch.cuda.is_available())"
 
     - name: Run tests
-      run: pytest -vv --cov=trlx/ tests/
+      run: pytest -vv --cov=pipegoose tests/
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
