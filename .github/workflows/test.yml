@@ -18,7 +18,7 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.9
-    
+
     # - name: Install Poetry
     #   run: |
     #     curl -sSL https://install.python-poetry.org | python3 -
@@ -38,11 +38,12 @@ jobs:
         pip install -e .
         pip3 install torch torchvision torchaudio
         pip install pytest
-        
+        pip install pytest-cov
+
     - name: Print PyTorch and CUDA info
       run: |
         python -c "import torch; print(torch.__version__)"
         python -c "import torch; print(torch.cuda.is_available())"
 
     - name: Run tests
-      run: pytest .
+      run: pytest -v --cov=pipegoose tests/
