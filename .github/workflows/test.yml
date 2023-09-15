@@ -26,5 +26,8 @@ jobs:
     - name: Install dependencies
       run: poetry install
 
+    - name: Install torch cuda
+      run: pip install "torch==2.0.1+cu118"
+
     - name: Run tests
       run: poetry run pytest
