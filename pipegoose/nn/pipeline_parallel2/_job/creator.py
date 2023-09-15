@@ -42,7 +42,7 @@ class CreateForwardOutputPackage(Callback):
         # so we hardcore and select that one
         # TODO: take into account that a pipeline stage can has more than one task
         # in a clock cycle, then find the correspond task to send the output to
-        next_partition = next_schedule[0].partition_idx + 1
+        next_partition = next_schedule[0].partition_idx
         package.metadata.partition_idx = next_partition
 
         return package

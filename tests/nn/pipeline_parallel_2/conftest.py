@@ -41,8 +41,8 @@ def pipeline_context():
 
 @pytest.fixture
 def base_package():
-    MICROBATCH_IDX = 1
-    PARTITION_IDX = 2
+    MICROBATCH_IDX = 0
+    PARTITION_IDX = 0
     IS_TRAINING = True
     IS_GRAD_ENABLED = False
 
