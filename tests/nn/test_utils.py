@@ -22,7 +22,7 @@ def run_save_and_load_pretrained(rank, world_size, port, tensor_parallel_size, p
     # TODO: add automatically create the directory if it does not exist
     # and then delete it after the test is done
 
-    CHECKPOINT_WEIGHTS_PATH = "./" if os.getenv("GITHUB_ACTIONS") == "true" else "./downloads"
+    CHECKPOINT_WEIGHTS_PATH = "." if os.getenv("GITHUB_ACTIONS") == "true" else "./downloads"
 
     def zero_weights(m):
         """Sets all model weights to zero."""
