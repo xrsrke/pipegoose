@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import Union
 
+from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.job import BackwardJob, ForwardJob, Job
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
@@ -24,10 +25,11 @@ class CreateForwardOutputPackage(Callback):
 
     def after_compute(self):
         data = self.job.output
-        orig_metadata = deepcopy(self.job.input.metadata)
+        input_metadata = deepcopy(self.job.input.metadata)
 
-        package = Package(data, orig_metadata)
+        package = Package(data, input_metadata)
         package = self._update_next_pipeline_stage(package)
+        package = self._update_src_and_dst_rank(package)
 
         self.job.output = package
 
@@ -44,6 +46,17 @@ class CreateForwardOutputPackage(Callback):
         # in a clock cycle, then find the correspond task to send the output to
         next_partition = next_schedule[0].partition_idx
         package.metadata.partition_idx = next_partition
+
+        # NOTE: update the source and destination rank of the package
+
+        return package
+
+    def _update_src_and_dst_rank(self, package: Package) -> Package:
+        pipeline_context = self.job.pipeline_context
+        parallel_context = pipeline_context.parallel_context
+
+        package.metadata.src = parallel_context.get_global_rank()
+        package.metadata.dst = parallel_context.get_next_global_rank(ParallelMode.PIPELINE)
 
         return package
 

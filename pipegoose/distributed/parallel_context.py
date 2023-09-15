@@ -257,6 +257,22 @@ class ParallelContext:
     def get_ranks_in_group(self, parallel_mode: ParallelMode) -> List[int]:
         return dist.get_process_group_ranks(self._groups[parallel_mode])
 
+    def get_next_global_rank(self, parallel_mode: ParallelMode) -> int:
+        """Get the next global rank in a given parallel mode."""
+        rank = self.get_global_rank()
+        next_local_rank = self.get_next_local_rank(rank, parallel_mode)
+        ranks_in_group = self.get_ranks_in_group(parallel_mode)
+        next_global_rank = ranks_in_group[next_local_rank]
+        return next_global_rank
+
+    def get_prev_global_rank(self, parallel_mode: ParallelMode) -> int:
+        """Get the previous global rank in a given parallel mode."""
+        rank = self.get_global_rank()
+        prev_local_rank = self.get_prev_local_rank(rank, parallel_mode)
+        ranks_in_group = self.get_ranks_in_group(parallel_mode)
+        prev_global_rank = ranks_in_group[prev_local_rank]
+        return prev_global_rank
+
     def get_next_local_rank(self, rank, parallel_mode: ParallelMode) -> int:
         world_size = self.get_world_size(parallel_mode)
         return (rank + 1) % world_size

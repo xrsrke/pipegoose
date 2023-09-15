@@ -82,7 +82,6 @@ def run_execute_a_forward_job(
     ORIG_MICROBATCH_IDX = forward_job.input.metadata.microbatch_idx
     ORIG_PARTITION_IDX = forward_job.input.metadata.partition_idx
     # PARALLEL_MODE = ParallelMode.PIPELINE
-    # SRC = parallel_context.get_global_rank()
     # LOCAL_RANK = parallel_context.get_local_rank(PARALLEL_MODE)
     # DST = parallel_context.get_next_local_rank(LOCAL_RANK, PARALLEL_MODE)
 
@@ -108,13 +107,12 @@ def run_execute_a_forward_job(
 
     # NOTE: we expect the metadata of the output package to
     # indicate which node executed it
-
     # TODO: update source rank and destination rank based on pipeline context
-    # assert output.metadata.src == SRC
-    # assert output.metadata.dst == DST
+    assert isinstance(output.metadata.src, int)
+    assert isinstance(output.metadata.dst, int)
 
 
-@pytest.mark.parametrize("pipeline_parallel_size", [1, 2])
+@pytest.mark.parametrize("pipeline_parallel_size", [1, 5])
 @pytest.mark.parametrize("package", ["forward_package"])
 def test_execute_a_forward_job(request, pipeline_parallel_size, package, module):
     TENSOR_PARALLEL_SIZE = 1

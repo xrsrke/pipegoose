@@ -102,6 +102,14 @@ def init_parallel_context(
         prev_local_rank = parallel_context.get_prev_local_rank(local_rank, parallel_mode)
         assert prev_local_rank == LOCAL_RANK_TO_PREV_RANK[world_size][parallel_mode][local_rank]
 
+        next_global_rank = parallel_context.get_next_global_rank(parallel_mode)
+        # assert next_global_rank == parallel_context.get_global_rank() + 1
+        assert isinstance(next_global_rank, int)
+
+        prev_global_rank = parallel_context.get_prev_global_rank(parallel_mode)
+        # assert prev_global_rank == parallel_context.get_global_rank() - 1
+        assert isinstance(prev_global_rank, int)
+
         assert parallel_context.is_first_rank(parallel_mode) == (local_rank == 0)
         assert parallel_context.is_last_rank(parallel_mode) == (
             local_rank == parallel_context.get_world_size(parallel_mode) - 1
