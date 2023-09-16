@@ -165,11 +165,6 @@ def test_create_a_job_from_package(request, pipeline_parallel_size, package, job
 
 
 @pytest.mark.skip
-def test_execute_a_forward_job_and_send_the_output(forward_job, parallel_context):
-    pass
-
-
-@pytest.mark.skip
 def test_create_forward_job_that_schedule_a_backward_job(rank, forward_package):
     rank = None
     SRC = 1

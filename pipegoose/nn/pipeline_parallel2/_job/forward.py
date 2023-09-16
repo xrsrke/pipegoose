@@ -60,15 +60,12 @@ class SaveActivationIfTrainingCallback(Callback):
 
     order = 1
 
-    def __init__(self):
-        from pipegoose.nn.pipeline_parallel2.queue import ACTIVATIONS
-
-        self.saved_activations = ACTIVATIONS
-
     def after_compute(self):
-        if self.job.input.metadata.training.is_training is True:
-            key = self.job.key
-            self.saved_activations[key] = self.output
+        from pipegoose.nn.pipeline_parallel2.queue import save_activations
+
+        is_training = self.job.input.metadata.training.is_training
+        if is_training is True:
+            save_activations(self.job.key, self.job.output.data)
 
 
 class SendForwardPackage(Callback):

@@ -67,3 +67,10 @@ def create_job(function: Callable, package: Package, pipeline_context: PipelineC
     job = JOB_TYPE_TO_CREATOR[job_type].create(function, package, pipeline_context)
 
     return job
+
+
+def create_backwardable_forward_job():
+    """
+    Create a forward job that automatically schedules
+    a backward job if you call forward(input).backward()
+    """
