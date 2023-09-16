@@ -2,7 +2,7 @@ import pytest
 from torch import nn
 
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-from pipegoose.nn.pipeline_parallel2.scheduler import GPipeScheduler
+from pipegoose.nn.pipeline_parallel2.scheduler import Scheduler, get_scheduler
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 
@@ -14,7 +14,7 @@ def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
     partitions = [nn.Linear(10, 10) for _ in range(N_PARTITIONS)]
-    scheduler = GPipeScheduler(N_MICROBATCHES, N_PARTITIONS)
+    scheduler = get_scheduler(Scheduler.GPIPE)(N_MICROBATCHES, N_PARTITIONS)
 
     pipeline_context = PipelineContext(partitions, scheduler, parallel_context)
 

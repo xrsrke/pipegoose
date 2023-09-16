@@ -2,7 +2,7 @@ from torch import nn
 
 from pipegoose.constants import PIPELINE_MAX_WORKERS, PIPELINE_MIN_WORKERS
 from pipegoose.distributed.parallel_context import ParallelContext
-from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler, GPipeScheduler
+from pipegoose.nn.pipeline_parallel2.scheduler import Scheduler, get_scheduler
 
 
 class _PipelineEngine:
@@ -13,7 +13,7 @@ class _PipelineEngine:
         module: nn.Module,
         num_concurrent: int = PIPELINE_MIN_WORKERS,
         max_concurrent: int = PIPELINE_MAX_WORKERS,
-        scheduler: BaseScheduler = GPipeScheduler,
+        scheduler: Scheduler = Scheduler.GPIPE,
         parallel_context: ParallelContext = None,
     ):
         assert num_concurrent <= max_concurrent, "num_concurrent must be less than or equal to max_concurrent"
@@ -29,7 +29,7 @@ class _PipelineEngine:
         self.module = module
         self.num_concurrent = num_concurrent
         self.max_concurrent = max_concurrent
-        self.scheduler = scheduler
+        self.scheduler = get_scheduler(scheduler)
         self.parallel_context = parallel_context
 
     def parallelize(self) -> nn.Module:

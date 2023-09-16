@@ -1,8 +1,13 @@
 from abc import ABC, abstractclassmethod
 from dataclasses import dataclass
+from enum import Enum, auto
 from typing import List
 
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
+
+
+class Scheduler(Enum):
+    GPIPE = auto()
 
 
 @dataclass
@@ -32,7 +37,7 @@ class BaseScheduler(ABC):
         pass
 
 
-class GPipeScheduler(BaseScheduler):
+class _GPipeScheduler(BaseScheduler):
     """
     torchgpipe: On-the-fly Pipeline Parallelism for Training Giant Models
     https://arxiv.org/abs/2004.09910
@@ -115,3 +120,11 @@ class JobTracker:
             partition_idx: {microbatch_idx: False for microbatch_idx in range(n_microbatches)}
             for partition_idx in range(n_partitions)
         }
+
+
+def get_scheduler(scheduler: Scheduler) -> BaseScheduler:
+    scheduler_to_class = {
+        Scheduler.GPIPE: _GPipeScheduler,
+    }
+
+    return scheduler_to_class[scheduler]

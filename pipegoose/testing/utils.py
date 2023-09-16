@@ -74,18 +74,18 @@ def init_pipeline_context(
 ):
     from torch import nn
 
-    # from pipegoose.nn.pipeline_parallel2.partitioner import NaivePartitioner
     from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-    from pipegoose.nn.pipeline_parallel2.scheduler import GPipeScheduler
+    from pipegoose.nn.pipeline_parallel2.scheduler import Scheduler, get_scheduler
 
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
 
     partitions = [nn.Linear(10, 10) for _ in range(n_partitions)]
+    scheduler = get_scheduler(Scheduler.GPIPE)(n_microbatches, n_partitions)
 
     return PipelineContext(
         partitions=partitions,
-        scheduler=GPipeScheduler(n_partitions, n_microbatches),
+        scheduler=scheduler,
         parallel_context=parallel_context,
     )

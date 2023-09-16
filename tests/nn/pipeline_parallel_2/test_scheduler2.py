@@ -1,11 +1,8 @@
-import random
-from time import sleep
-
 import pytest
 
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
-from pipegoose.nn.pipeline_parallel2.scheduler import GPipeScheduler
-from pipegoose.testing.utils import init_parallel_context, spawn
+from pipegoose.nn.pipeline_parallel2.scheduler import Scheduler, get_scheduler
+from pipegoose.testing.utils import spawn
 
 
 def test_generate_schedules_using_gpipe_scheduler():
@@ -16,7 +13,10 @@ def test_generate_schedules_using_gpipe_scheduler():
     TOTAL_CLOCK_CYCLES_IN_FORWARD = N_MICROBATCHES + N_PARTITIONS - 1
     TOTAL_CLOCK_CYCLES = TOTAL_CLOCK_CYCLES_IN_FORWARD * 2
 
-    schedules = GPipeScheduler(N_MICROBATCHES, N_PARTITIONS).get_schedules()
+    scheduler = get_scheduler(Scheduler.GPIPE)
+    schedules = scheduler(N_MICROBATCHES, N_PARTITIONS).get_schedules()
+
+    # schedules = GPipeScheduler(N_MICROBATCHES, N_PARTITIONS).get_schedules()
 
     assert len(schedules) == TOTAL_CLOCK_CYCLES
 
@@ -30,25 +30,26 @@ def test_generate_schedules_using_gpipe_scheduler():
 
 
 def run_syncronous_gpipe_scheduler(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-    parallel_context = init_parallel_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
-    )
+    # parallel_context = init_parallel_context(
+    #     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    # )
 
-    local_clock_idx = 0
+    # local_clock_idx = 0
 
-    scheduler = GPipeScheduler(parallel_context)
-    scheduler.start()
+    # scheduler = GPipeScheduler(parallel_context)
+    # scheduler.start()
 
-    assert scheduler.clock_idx == local_clock_idx
+    # assert scheduler.clock_idx == local_clock_idx
 
-    for _ in range(5):
-        # NOTE: simulate that different nodes have different processing times
-        sleep(random.uniform(1, 5))
+    # for _ in range(5):
+    #     # NOTE: simulate that different nodes have different processing times
+    #     sleep(random.uniform(1, 5))
 
-        scheduler.confirm()
+    #     scheduler.confirm()
 
-        assert scheduler.clock_idx == local_clock_idx + 1
-        local_clock_idx += 1
+    #     assert scheduler.clock_idx == local_clock_idx + 1
+    #     local_clock_idx += 1
+    pass
 
 
 @pytest.mark.skip

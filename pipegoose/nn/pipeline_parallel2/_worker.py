@@ -92,7 +92,7 @@ class BaseWorkerManager(ABC):
         raise NotImplementedError
 
 
-class WorkerManager(BaseWorkerManager, threading.Thread):
+class _WorkerManager(BaseWorkerManager, threading.Thread):
     def __init__(
         self,
         num_workers: int = PIPELINE_MIN_WORKERS,
@@ -165,3 +165,21 @@ class WorkerManager(BaseWorkerManager, threading.Thread):
 
             # Remove the worker from the original worker pool
             self.worker_pool.remove(worker)
+
+
+def WorkerManager(
+    num_workers: int = PIPELINE_MIN_WORKERS,
+    min_workers: int = PIPELINE_MIN_WORKERS,
+    max_workers: int = PIPELINE_MAX_WORKERS,
+    pending_jobs: Queue = JobQueue.PENDING_JOBS,
+    selected_jobs: Queue = JobQueue.SELECTED_JOBS,
+):
+    worker_manager = _WorkerManager(
+        num_workers=num_workers,
+        min_workers=min_workers,
+        max_workers=max_workers,
+        pending_jobs=pending_jobs,
+        selected_jobs=selected_jobs,
+    )
+
+    return worker_manager
