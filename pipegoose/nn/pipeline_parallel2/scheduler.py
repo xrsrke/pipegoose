@@ -6,7 +6,7 @@ from typing import List
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 
 
-class Scheduler(Enum):
+class SchedulerType(Enum):
     GPIPE = auto()
 
 
@@ -122,9 +122,9 @@ class JobTracker:
         }
 
 
-def get_scheduler(scheduler: Scheduler) -> BaseScheduler:
-    scheduler_to_class = {
-        Scheduler.GPIPE: _GPipeScheduler,
+def get_scheduler(scheduler_type: SchedulerType) -> BaseScheduler:
+    scheduler_type_to_scheduler = {
+        SchedulerType.GPIPE: _GPipeScheduler,
     }
 
-    return scheduler_to_class[scheduler]
+    return scheduler_type_to_scheduler[scheduler_type]

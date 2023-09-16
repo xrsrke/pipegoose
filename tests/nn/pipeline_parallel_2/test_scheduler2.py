@@ -1,7 +1,7 @@
 import pytest
 
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
-from pipegoose.nn.pipeline_parallel2.scheduler import Scheduler, get_scheduler
+from pipegoose.nn.pipeline_parallel2.scheduler import SchedulerType, get_scheduler
 from pipegoose.testing.utils import spawn
 
 
@@ -13,7 +13,7 @@ def test_generate_schedules_using_gpipe_scheduler():
     TOTAL_CLOCK_CYCLES_IN_FORWARD = N_MICROBATCHES + N_PARTITIONS - 1
     TOTAL_CLOCK_CYCLES = TOTAL_CLOCK_CYCLES_IN_FORWARD * 2
 
-    scheduler = get_scheduler(Scheduler.GPIPE)
+    scheduler = get_scheduler(SchedulerType.GPIPE)
     schedules = scheduler(N_MICROBATCHES, N_PARTITIONS).get_schedules()
 
     # schedules = GPipeScheduler(N_MICROBATCHES, N_PARTITIONS).get_schedules()
