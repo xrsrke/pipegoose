@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import torch
 
@@ -21,11 +21,12 @@ class JobStatus(Enum):
 class Job(ABC):
     """A job that will be executed by a worker."""
 
-    def __init__(self, input: Package, cbs: List[Callback] = [], pipeline_context: PipelineContext = None):
+    def __init__(self, function: Callable, input: Package, cbs: List[Callback] = [], pipeline_context: PipelineContext = None):
         assert isinstance(
             pipeline_context, PipelineContext
         ), f"input must be an instance of PipelineContext, got {type(input)}"
 
+        self.function = function
         self.input = input
         self.cbs = []
         self.pipeline_context = pipeline_context
@@ -125,9 +126,9 @@ class Job(ABC):
 
 class ForwardJob(Job):
     def run_compute(self) -> torch.Tensor:
-        return self.input.data
+        return self.function(self.input.data)
 
 
 class BackwardJob(Job):
     def run_compute(self) -> torch.Tensor:
-        return self.input.data
+        return self.function(self.input.data)

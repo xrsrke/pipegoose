@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import Union
+from typing import Callable, Union
 
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2._comm import send_package
@@ -9,14 +9,6 @@ from pipegoose.nn.pipeline_parallel2._job.job import BackwardJob, ForwardJob, Jo
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-
-
-class SetForwardFunctionCallback(Callback):
-    """Set the forward function of a forward job to the partition forward function."""
-
-    def after_create(self):
-        pipeline_context = self.job.pipeline_context
-        self.job.function = pipeline_context.get_partition_forward()
 
 
 class CreateForwardOutputPackage(Callback):
@@ -76,17 +68,6 @@ class SaveActivationIfTrainingCallback(Callback):
             self.saved_activations[key] = self.output
 
 
-class SetBackwardFunctionCallback(Callback):
-    def after_create(self):
-        # TODO: change to autograd
-        def wrapper(*args, **kwargs):
-            import torch
-
-            return torch.randn(1)
-
-        self.job.function = wrapper
-
-
 class CreateBackwardOutputPackage(Callback):
     """Create a new package for the output of a backward job."""
 
@@ -129,30 +110,30 @@ class JobCreator(ABC):
 class _ForwardJobCreator(JobCreator):
     """Put a forward job into job queue for a worker to execute."""
 
-    CBS = [SetForwardFunctionCallback, CreateForwardOutputPackage, SendForwardPackage]
+    CBS = [CreateForwardOutputPackage, SendForwardPackage]
 
     @classmethod
-    def create(cls, package: Package, pipeline_context: PipelineContext) -> ForwardJob:
+    def create(cls, function: Callable, package: Package, pipeline_context: PipelineContext) -> ForwardJob:
         assert isinstance(package, Package), f"package must be an instance of Package, got {type(package)}"
 
-        job = ForwardJob(package, cbs=cls.CBS, pipeline_context=pipeline_context)
+        job = ForwardJob(function, package, cbs=cls.CBS, pipeline_context=pipeline_context)
 
         return job
 
 
 class _BackwardJobCreator(JobCreator):
-    CBS = [SetBackwardFunctionCallback, CreateBackwardOutputPackage, SendBackwardPackage]
+    CBS = [CreateBackwardOutputPackage, SendBackwardPackage]
 
     @classmethod
-    def create(cls, package: Package, pipeline_context: PipelineContext) -> BackwardJob:
+    def create(cls, function: Callable, package: Package, pipeline_context: PipelineContext) -> BackwardJob:
         assert isinstance(package, Package), f"package must be an instance of Package, got {type(package)}"
 
-        job = BackwardJob(package, cbs=cls.CBS, pipeline_context=pipeline_context)
+        job = BackwardJob(function, package, cbs=cls.CBS, pipeline_context=pipeline_context)
 
         return job
 
 
-def create_job(package: Package, pipeline_context: PipelineContext) -> Union[ForwardJob, BackwardJob]:
+def create_job(function: Callable, package: Package, pipeline_context: PipelineContext) -> Union[ForwardJob, BackwardJob]:
     assert isinstance(package, Package), f"package must be an instance of Package, got {type(package)}"
     assert isinstance(
         pipeline_context, PipelineContext
@@ -164,6 +145,6 @@ def create_job(package: Package, pipeline_context: PipelineContext) -> Union[For
     }
 
     job_type = package.metadata.job_type
-    job = JOB_TYPE_TO_CREATOR[job_type].create(package, pipeline_context)
+    job = JOB_TYPE_TO_CREATOR[job_type].create(function, package, pipeline_context)
 
     return job

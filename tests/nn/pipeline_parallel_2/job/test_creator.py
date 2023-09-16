@@ -1,5 +1,6 @@
 import pytest
 import torch
+from torch import nn
 
 from pipegoose.nn.pipeline_parallel2._job.creator import create_job
 from pipegoose.nn.pipeline_parallel2._job.job import BackwardJob, ForwardJob, JobStatus
@@ -8,6 +9,9 @@ from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2._utils import sleep
 from pipegoose.nn.pipeline_parallel2.queue import JobQueue
 from pipegoose.testing.utils import init_pipeline_context, spawn
+
+# NOTE: use for creating a forward job
+function = nn.Linear(2, 4)
 
 
 def run_check_the_job_status_after_executing_a_job(
@@ -21,7 +25,7 @@ def run_check_the_job_status_after_executing_a_job(
         pipeline_parallel_size,
         data_parallel_size,
     )
-    job = create_job(package, pipeline_context)
+    job = create_job(function, package, pipeline_context)
 
     job.compute()
 
@@ -66,7 +70,7 @@ def run_execute_a_forward_job(
     pipeline_context = init_pipeline_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    forward_job = create_job(package, pipeline_context)
+    forward_job = create_job(function, package, pipeline_context)
 
     ORIG_MICROBATCH_IDX = forward_job.input.metadata.microbatch_idx
     ORIG_PARTITION_IDX = forward_job.input.metadata.partition_idx
@@ -131,7 +135,7 @@ def run_create_a_job_from_package(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
 
-    job = create_job(package, pipeline_context)
+    job = create_job(function, package, pipeline_context)
 
     assert isinstance(job, job_cls)
     assert isinstance(job.key, str)
@@ -171,7 +175,7 @@ def test_create_forward_job_that_schedule_a_backward_job(rank, forward_package):
 
     if rank == SRC:
         input = torch.randn(4, 2, requires_grad=True)
-        forward_job = create_job(forward_package)
+        forward_job = create_job(function, forward_package)
 
         package = forward_job.compute(input)
         package.data.sum().backward()

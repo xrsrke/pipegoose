@@ -29,12 +29,12 @@ class _UniformPartitioner(BasePartitioner):
         module = self.module
         n_partitions = self.parallel_context.pipeline_parallel_size
 
-        # BLOOM-560
+        # NOTE: BLOOM-560
         # embedding_module = module.transformer.word_embeddings
         # transformer_blocks = module.transformer.h
         # lm_head = module.lm_head
 
-        # For sshleifer/tiny-gpt2
+        # NOTE: For sshleifer/tiny-gpt2
         embed_module = module.transformer.wte
         pos_embed_module = module.transformer.wpe
         drop_module = module.transformer.drop
@@ -72,6 +72,7 @@ def get_model_partition(module: nn.Module, policy: PartitionPolicy, parallel_con
     partitioner = _get_partitioner(policy)
     partitions = partitioner(module, parallel_context).split()
 
+    # TODO: remove this, use pipeline_context instead
     def _get_partition_idx():
         rank = parallel_context.get_local_rank(ParallelMode.PIPELINE)
         rank_per_group = len(parallel_context.get_ranks_in_group(ParallelMode.PIPELINE))

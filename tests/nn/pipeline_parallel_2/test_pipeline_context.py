@@ -1,5 +1,4 @@
 import pytest
-from torch import nn
 
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 from pipegoose.nn.pipeline_parallel2.scheduler import SchedulerType, get_scheduler
@@ -13,13 +12,11 @@ def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    partitions = [nn.Linear(10, 10) for _ in range(N_PARTITIONS)]
     scheduler = get_scheduler(SchedulerType.GPIPE)(N_MICROBATCHES, N_PARTITIONS)
 
-    pipeline_context = PipelineContext(partitions, scheduler, parallel_context)
+    pipeline_context = PipelineContext(scheduler, parallel_context)
 
     assert isinstance(pipeline_context.partition_idx, int)
-    assert isinstance(pipeline_context.get_partition_forward(), nn.Module)
 
     assert pipeline_context.clock_idx == 0
     assert isinstance(pipeline_context.schedule, list)
