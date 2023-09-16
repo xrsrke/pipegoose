@@ -15,7 +15,7 @@ from pipegoose.nn.tensor_parallel.parallelizer import (
     LinearParallelizer,
     LMHeadParallelizer,
 )
-from pipegoose.testing.utils import init_parallel_context, skip_in_github_actions, spawn
+from pipegoose.testing.utils import init_parallel_context, spawn
 
 
 def run_parallelize_embedding(
@@ -43,7 +43,6 @@ def run_parallelize_embedding(
     assert isinstance(parallelized_module, ParallelEmbedding)
 
 
-@skip_in_github_actions
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 def test_parallelize_embedding(model, tensor_parallel_size):
     PIPELINE_PARALLEL_SIZE = 1
@@ -104,7 +103,6 @@ LINEAR_MODULE_INFO = [
 ]
 
 
-@skip_in_github_actions
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 @pytest.mark.parametrize("MODULE_NAME, get_module, expected_type", LINEAR_MODULE_INFO)
 def test_parallelize_linear(model, tensor_parallel_size, MODULE_NAME, get_module, expected_type):
@@ -158,7 +156,6 @@ def run_parallelize_layernorm(
     assert isinstance(parallelized_module, LayerNorm)
 
 
-@skip_in_github_actions
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 def test_parallelize_layer_norm(model, tensor_parallel_size):
     DATA_PARALLEL_SIZE = 1
@@ -215,7 +212,6 @@ def run_parallelize_lm_head(
     assert isinstance(parallelized_module, ColumnParallelLinear)
 
 
-@skip_in_github_actions
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 def test_parallelize_lm_head(model, tensor_parallel_size):
     DATA_PARALLEL_SIZE = 1

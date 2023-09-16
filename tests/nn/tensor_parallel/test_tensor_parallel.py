@@ -3,6 +3,7 @@ from copy import deepcopy
 import pytest
 import torch
 from torch.optim import SGD
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
@@ -10,6 +11,18 @@ from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
 from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
 from pipegoose.nn.tensor_parallel.tensor_parallel import TensorParallel
 from pipegoose.testing.utils import init_parallel_context, skip_in_github_actions, spawn
+
+MODEL_NAME = "bigscience/bloom-560m"
+
+
+@pytest.fixture(scope="session")
+def model():
+    return AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+
+
+@pytest.fixture(scope="session")
+def tokenizer():
+    return AutoTokenizer.from_pretrained(MODEL_NAME)
 
 
 def run_parallelize_a_transformers_and_inference(

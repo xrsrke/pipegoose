@@ -1,14 +1,9 @@
 import pytest
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM
 
-MODEL_NAME = "bigscience/bloom-560m"
+MODEL_NAME = "Muennighoff/bloom-tiny-random"
 
 
 @pytest.fixture(scope="session")
 def model():
     return AutoModelForCausalLM.from_pretrained(MODEL_NAME)
-
-
-@pytest.fixture(scope="session")
-def tokenizer():
-    return AutoTokenizer.from_pretrained(MODEL_NAME)
