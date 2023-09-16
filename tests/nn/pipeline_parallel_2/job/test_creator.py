@@ -2,8 +2,10 @@ import pytest
 import torch
 from torch import nn
 
+from pipegoose.nn.pipeline_parallel2._job.backward import BackwardJob
 from pipegoose.nn.pipeline_parallel2._job.creator import create_job
-from pipegoose.nn.pipeline_parallel2._job.job import BackwardJob, ForwardJob, JobStatus
+from pipegoose.nn.pipeline_parallel2._job.forward import ForwardJob
+from pipegoose.nn.pipeline_parallel2._job.job import JobStatus
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2._utils import sleep

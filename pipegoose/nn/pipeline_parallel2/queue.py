@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from queue import Queue
 
-# class Queue:
-#     def __init__(self):
-#         self._queue = Queue()
+import torch
+
+_SAVED_ACTIVATIONS = {}
 
 
 @dataclass
@@ -14,4 +14,11 @@ class JobQueue:
     SELECTED_JOBS = Queue()
 
 
-ACTIVATIONS = {}
+def get_saved_activations(key: str) -> torch.Tensor:
+    """Get the saved activations for a given key for backward job."""
+    return _SAVED_ACTIVATIONS[key]
+
+
+def save_activations(key: str, data: torch.Tensor):
+    """Save forward job's activations for backward job."""
+    _SAVED_ACTIVATIONS[key] = torch.Tensor

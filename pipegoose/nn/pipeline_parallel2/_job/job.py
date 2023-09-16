@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Callable, List, Optional
 
-import torch
-
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback, CallbackEvent
 from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
@@ -108,7 +106,11 @@ class Job(ABC):
             if cb in self.cbs:
                 self.cbs.remove(cb)
 
-    def _run_callback(self, event_name: str):
+    def _run_callback(self, event_name: CallbackEvent):
+        assert isinstance(
+            event_name, CallbackEvent
+        ), f"event_name must be an instance of CallbackEvent, got {type(event_name)}"
+
         sorted_cbs = sorted(self.cbs, key=lambda x: x.order)
         # NOTE: get the value of an enum member
         event_name = event_name.value
@@ -122,13 +124,3 @@ class Job(ABC):
     def run_compute(self):
         """The actual computation of this job."""
         raise NotImplementedError("not implemented")
-
-
-class ForwardJob(Job):
-    def run_compute(self) -> torch.Tensor:
-        return self.function(self.input.data)
-
-
-class BackwardJob(Job):
-    def run_compute(self) -> torch.Tensor:
-        return self.function(self.input.data)

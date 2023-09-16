@@ -195,12 +195,3 @@ def test_backward_pass_a_parallelized_transformers(model, tokenizer, tensor_para
         data_parallel_size=DATA_PARALLEL_SIZE,
         kwargs=kwargs,
     )
-
-
-def test_save_checkpoint_of_parallelized_model():
-    # model = TensorParallel()
-    pass
-
-
-def test_load_checkpoint_into_a_parallelized_model():
-    pass

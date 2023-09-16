@@ -7,6 +7,17 @@ from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
 from pipegoose.testing.utils import init_pipeline_context
 
+# NOTE: it should be compatible to perform
+# matrix multiplication with the job's function
+INPUT_SHAPE = (
+    4,
+    2,
+)
+LINEAR_SHAPE = (
+    2,
+    4,
+)
+
 
 @pytest.fixture(scope="session")
 def pipeline_context():
@@ -44,9 +55,7 @@ def base_package():
     SRC = 0
     DST = 1
 
-    # NOTE: it should be compatible to perform
-    # matrix multiplication with the job's function
-    data = torch.randn(4, 2)
+    data = torch.randn(*INPUT_SHAPE)
 
     metadata = Metadata(
         microbatch_idx=MICROBATCH_IDX,
@@ -90,5 +99,5 @@ def backward_job(backward_package, pipeline_context):
 
 @pytest.fixture(scope="function")
 def forward_job(forward_package, pipeline_context):
-    function = nn.Linear(2, 4)
+    function = nn.Linear(*LINEAR_SHAPE)
     return create_job(function, forward_package, pipeline_context)
