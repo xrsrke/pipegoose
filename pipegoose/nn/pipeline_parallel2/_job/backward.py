@@ -5,7 +5,7 @@ from pipegoose.nn.pipeline_parallel2._job.job import Job
 from pipegoose.nn.pipeline_parallel2._package import Package
 
 
-class CreateBackwardOutputPackage(Callback):
+class CreateBackwardOutputPackageCallback(Callback):
     """Create a new package for the output of a backward job."""
 
     def after_compute(self):
@@ -18,7 +18,7 @@ class CreateBackwardOutputPackage(Callback):
         self.job.output = package
 
 
-class SendBackwardPackage(Callback):
+class SendBackwardPackageCallback(Callback):
     pass
 
 

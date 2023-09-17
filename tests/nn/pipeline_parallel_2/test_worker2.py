@@ -3,11 +3,12 @@ from queue import Queue
 from pipegoose.nn.pipeline_parallel2._utils import sleep
 from pipegoose.nn.pipeline_parallel2._worker import WorkerManager
 
+NUM_WORKERS = 5
+MIN_WORKERS = 2
+MAX_WORKERS = 7
+
 
 def test_worker_manager():
-    NUM_WORKERS = 5
-    MIN_WORKERS = 2
-    MAX_WORKERS = 7
 
     worker_manager = WorkerManager(num_workers=NUM_WORKERS, min_workers=MIN_WORKERS, max_workers=MAX_WORKERS)
     worker_manager.spawn()
@@ -47,8 +48,14 @@ def test_execute_a_job_from_selected_job_queue():
         def compute(self):
             QUEUE.append(1)
 
-    worker_manager = WorkerManager(pending_jobs=PENDING_JOBS, selected_jobs=SELECTED_JOBS)
     job = FakeJob()
+    worker_manager = WorkerManager(
+        pending_jobs=PENDING_JOBS,
+        selected_jobs=SELECTED_JOBS,
+        num_workers=NUM_WORKERS,
+        min_workers=MIN_WORKERS,
+        max_workers=MAX_WORKERS,
+    )
     worker_manager.spawn()
 
     PENDING_JOBS.put(job)
@@ -60,7 +67,3 @@ def test_execute_a_job_from_selected_job_queue():
     assert QUEUE == [1]
     assert PENDING_JOBS.qsize() == 0
     assert SELECTED_JOBS.qsize() == 0
-
-
-def test_execute_a_job_from_job_queue_and_send_the_output():
-    pass

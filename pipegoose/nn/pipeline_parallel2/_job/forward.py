@@ -14,7 +14,7 @@ class ForwardJob(Job):
         return self.function(self.input.data)
 
 
-class CreateForwardOutputPackage(Callback):
+class CreateForwardOutputPackageCallback(Callback):
     """Create a new package for the output of a forward job."""
 
     order = 0
@@ -68,7 +68,7 @@ class SaveActivationIfTrainingCallback(Callback):
             save_activations(self.job.key, self.job.output.data)
 
 
-class SendForwardPackage(Callback):
+class SendForwardPackageCallback(Callback):
     """Send the output of a forward job to the next pipeline stage."""
 
     order = 5

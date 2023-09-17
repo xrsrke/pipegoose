@@ -3,13 +3,13 @@ from typing import Callable, Union
 
 from pipegoose.nn.pipeline_parallel2._job.backward import (
     BackwardJob,
-    CreateBackwardOutputPackage,
-    SendBackwardPackage,
+    CreateBackwardOutputPackageCallback,
+    SendBackwardPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.forward import (
-    CreateForwardOutputPackage,
+    CreateForwardOutputPackageCallback,
     ForwardJob,
-    SendForwardPackage,
+    SendForwardPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.job import Job
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
@@ -28,26 +28,20 @@ class JobCreator(ABC):
 class _ForwardJobCreator(JobCreator):
     """Put a forward job into job queue for a worker to execute."""
 
-    CBS = [CreateForwardOutputPackage, SendForwardPackage]
+    CBS = [CreateForwardOutputPackageCallback, SendForwardPackageCallback]
 
     @classmethod
     def create(cls, function: Callable, package: Package, pipeline_context: PipelineContext) -> ForwardJob:
-        assert isinstance(package, Package), f"package must be an instance of Package, got {type(package)}"
-
         job = ForwardJob(function, package, cbs=cls.CBS, pipeline_context=pipeline_context)
-
         return job
 
 
 class _BackwardJobCreator(JobCreator):
-    CBS = [CreateBackwardOutputPackage, SendBackwardPackage]
+    CBS = [CreateBackwardOutputPackageCallback, SendBackwardPackageCallback]
 
     @classmethod
     def create(cls, function: Callable, package: Package, pipeline_context: PipelineContext) -> BackwardJob:
-        assert isinstance(package, Package), f"package must be an instance of Package, got {type(package)}"
-
         job = BackwardJob(function, package, cbs=cls.CBS, pipeline_context=pipeline_context)
-
         return job
 
 

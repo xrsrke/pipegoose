@@ -43,7 +43,10 @@ class PipelineEngine:
 
         self.pipeline_context = PipelineContext(self.scheduler, self.parallel_context)
 
-    def forward(self, input: torch.Tensor):
+    def parallelize(self):
+        pass
+
+    def forward(self, *args, **kwargs) -> torch.Tensor:
         with self.worker_manager.spawn(self.pipeline_context):
             for schedule in self.scheduler.generate():
                 self._compute(schedule)
