@@ -23,5 +23,17 @@ class SendBackwardPackageCallback(Callback):
 
 
 class BackwardJob(Job):
+    """Do backward pass."""
+
     def run_compute(self) -> torch.Tensor:
-        return self.function(self.input.data)
+        # key = self.job.key
+        # activations = get_saved_activations(key)
+
+        # grad_output = self.input.data
+
+        # if activations.requires_grad:
+        #     with torch.enable_grad():
+        #         torch.autograd.backward(activations, grad_output)
+
+        # return activations.grad
+        return self.input.data

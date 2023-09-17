@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import Callable, List, Optional
+from typing import Callable, List, NewType, Optional
 
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback, CallbackEvent
 from pipegoose.nn.pipeline_parallel2._package import Package
@@ -14,6 +14,11 @@ class JobStatus(Enum):
     EXECUTED = auto()  # executed but not sent the output to another pipeline stage
     DONE = auto()  # executed and sent the output to another pipeline stage
     FAILED = auto()  # failed to execute
+
+
+# NOTE: Both forward job and backward pass of
+# the same model partition has the same key
+PartitionKey = NewType("PartitionKey", str)
 
 
 class Job(ABC):

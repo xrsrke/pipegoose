@@ -9,7 +9,6 @@ MAX_WORKERS = 7
 
 
 def test_worker_manager():
-
     worker_manager = WorkerManager(num_workers=NUM_WORKERS, min_workers=MIN_WORKERS, max_workers=MAX_WORKERS)
     worker_manager.spawn()
 
