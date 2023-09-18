@@ -56,6 +56,22 @@ def test_the_output_package_of_a_forward_job(request, package, pipeline_context)
     assert isinstance(output.metadata.dst, int)
 
 
+def test_forward_job_save_activations_for_backward_pass(forward_package, pipeline_context):
+    forward_job = create_job(function, forward_package, pipeline_context)
+
+    output = forward_job.compute()
+
+    from pipegoose.nn.pipeline_parallel2._job.forward import get_activation_name
+    from pipegoose.nn.pipeline_parallel2.queue import get_saved_activations
+
+    name = get_activation_name(forward_package.metadata.microbatch_idx, forward_package.metadata.partition_idx)
+
+    saved_activations = get_saved_activations(name)
+
+    assert isinstance(saved_activations, torch.Tensor)
+    assert torch.equal(saved_activations, output.data)
+
+
 def run_forward_job_send_output_to_the_next_pipeline_stage(
     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package
 ):

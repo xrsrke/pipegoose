@@ -15,11 +15,12 @@ class JobQueue:
     SELECTED_JOBS = Queue()
 
 
-def get_saved_activations(key: str) -> torch.Tensor:
+def get_saved_activations(microbatch_idx: int) -> torch.Tensor:
     """Get the saved activations for a given key for backward job."""
-    return _SAVED_ACTIVATIONS.pop(key)
+    # NOTE: because a partition can have multiple microbatches,
+    return _SAVED_ACTIVATIONS.pop(microbatch_idx)
 
 
-def save_activations(key: str, data: torch.Tensor):
+def save_activations(microbatch_idx: int, data: torch.Tensor):
     """Save forward job's activations for backward job."""
-    _SAVED_ACTIVATIONS[key] = data
+    _SAVED_ACTIVATIONS[microbatch_idx] = data
