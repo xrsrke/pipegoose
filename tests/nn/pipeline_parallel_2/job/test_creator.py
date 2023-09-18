@@ -3,7 +3,10 @@ import torch
 from torch import nn
 
 from pipegoose.nn.pipeline_parallel2._job.backward import BackwardJob
-from pipegoose.nn.pipeline_parallel2._job.creator import create_job
+from pipegoose.nn.pipeline_parallel2._job.creator import (
+    create_job,
+    schedule_backward_job,
+)
 from pipegoose.nn.pipeline_parallel2._job.forward import ForwardJob
 from pipegoose.nn.pipeline_parallel2._job.job import JobStatus
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
@@ -11,24 +14,6 @@ from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2._utils import sleep
 from pipegoose.nn.pipeline_parallel2.queue import JobQueue
 from pipegoose.testing.utils import init_pipeline_context, spawn
-
-PIPLINE_PARALLEL_SIZE = 1
-TENSOR_PARALLEL_SIZE = 1
-DATA_PARALLEL_SIZE = 1
-
-
-@pytest.fixture(scope="module")
-def pipeline_context():
-    pipeline_context = init_pipeline_context(
-        rank=0,
-        world_size=PIPLINE_PARALLEL_SIZE,
-        port=1234,
-        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
-        pipeline_parallel_size=PIPLINE_PARALLEL_SIZE,
-        data_parallel_size=DATA_PARALLEL_SIZE,
-    )
-    return pipeline_context
-
 
 # NOTE: use for creating a forward job
 function = nn.Linear(2, 4)
@@ -112,6 +97,9 @@ def run_forward_job_send_output_to_the_next_pipeline_stage(
 @pytest.mark.parametrize("pipeline_parallel_size", [1, 2, 5])
 @pytest.mark.parametrize("package", ["forward_package"])
 def test_forward_job_send_output_to_the_next_pipeline_stage(request, pipeline_parallel_size, package):
+    TENSOR_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+
     package = request.getfixturevalue(package)
     spawn(
         run_forward_job_send_output_to_the_next_pipeline_stage,
@@ -135,19 +123,17 @@ def test_create_a_job_from_package(request, package, job_cls, pipeline_context):
 
 
 @pytest.mark.skip
-def test_create_forward_job_that_schedule_a_backward_job(rank, forward_package):
-    rank = None
-    SRC = 1
-    DST = 0
+def test_create_a_backward_job_if_a_tensor_do_backprop(rank, forward_package):
+    SRC = forward_package.metadata.src
+    DST = forward_package.metadata.dst
 
     if rank == SRC:
-        input = torch.randn(4, 2, requires_grad=True)
-        forward_job = create_job(function, forward_package)
-
-        package = forward_job.compute(input)
-        package.data.sum().backward()
+        forward_package = schedule_backward_job(forward_package)
+        forward_package.data.sum().backward()
 
     elif rank == DST:
+        # NOTE: wait for the backward job to be created
+        # and added to the job queue
         sleep(2)
 
         # NOTE: since we don't launch any job selector workers in the background,
