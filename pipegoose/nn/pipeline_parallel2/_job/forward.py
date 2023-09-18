@@ -1,5 +1,4 @@
 from copy import deepcopy
-from typing import Tuple
 
 import torch
 
@@ -8,10 +7,6 @@ from pipegoose.nn.pipeline_parallel2._comm import send_package
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.job import Job
 from pipegoose.nn.pipeline_parallel2._package import Package
-
-
-def get_activation_name(microbatch_idx: int, partition_idx: int) -> Tuple[int, int]:
-    return (microbatch_idx, partition_idx)
 
 
 class ForwardJob(Job):
@@ -66,16 +61,16 @@ class SaveActivationIfTrainingCallback(Callback):
     order = 2
 
     def after_compute(self):
-        from pipegoose.nn.pipeline_parallel2.queue import save_activations
-
         is_training = self.job.input.metadata.training.is_training
         if is_training is True:
+            from pipegoose.nn.pipeline_parallel2.queue import SavedActivation
+
             # TODO: refactor
             microbatch_idx = self.job.input.metadata.microbatch_idx
             partition_idx = self.job.input.metadata.partition_idx
 
-            key = get_activation_name(microbatch_idx, partition_idx)
-            save_activations(key, self.job.output.data)
+            key = SavedActivation.get_key(microbatch_idx, partition_idx)
+            SavedActivation.save_activations(key, self.job.output.data)
 
 
 class SendForwardPackageCallback(Callback):

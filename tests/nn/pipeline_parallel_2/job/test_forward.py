@@ -6,14 +6,14 @@ from pipegoose.nn.pipeline_parallel2._job.creator import create_job
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2._utils import sleep
+from pipegoose.nn.pipeline_parallel2.queue import SavedActivation
 from pipegoose.testing.utils import init_pipeline_context, spawn
 
 # NOTE: use for creating a forward job
 function = nn.Linear(2, 4)
 
 
-@pytest.mark.parametrize("package", ["forward_package"])
-def test_the_output_package_of_a_forward_job(request, package, pipeline_context):
+def test_the_output_package_of_a_forward_job(forward_package, pipeline_context):
     # NOTE: (microbatch_idx, partition_idx) -> (microbatch_idx, next_partition_idx)
     OUTPUT_DESTINATION = {
         (0, 0): (0, 1),
@@ -28,8 +28,7 @@ def test_the_output_package_of_a_forward_job(request, package, pipeline_context)
         (4, 1): (4, 2),
     }
 
-    package = request.getfixturevalue(package)
-    forward_job = create_job(function, package, pipeline_context)
+    forward_job = create_job(function, forward_package, pipeline_context)
     ORIG_MICROBATCH_IDX = forward_job.input.metadata.microbatch_idx
     ORIG_PARTITION_IDX = forward_job.input.metadata.partition_idx
 
@@ -57,28 +56,31 @@ def test_the_output_package_of_a_forward_job(request, package, pipeline_context)
 
 
 def test_forward_job_save_activations_for_backward_pass(forward_package, pipeline_context):
+    MICROBATCH_IDX = forward_package.metadata.microbatch_idx
+    PARTITION_IDX = forward_package.metadata.partition_idx
+    key = SavedActivation.get_key(MICROBATCH_IDX, PARTITION_IDX)
     forward_job = create_job(function, forward_package, pipeline_context)
 
     output = forward_job.compute()
-
-    from pipegoose.nn.pipeline_parallel2._job.forward import get_activation_name
-    from pipegoose.nn.pipeline_parallel2.queue import get_saved_activations
-
-    name = get_activation_name(forward_package.metadata.microbatch_idx, forward_package.metadata.partition_idx)
-
-    saved_activations = get_saved_activations(name)
+    saved_activations = SavedActivation.get_saved_activations(key)
 
     assert isinstance(saved_activations, torch.Tensor)
     assert torch.equal(saved_activations, output.data)
+    assert saved_activations.requires_grad is True
+
+    with pytest.raises(KeyError):
+        # NOTE: we expect the saved activations to be removed
+        # after retrieving them
+        SavedActivation.get_saved_activations(key)
 
 
 def run_forward_job_send_output_to_the_next_pipeline_stage(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, forward_package
 ):
     pipeline_context = init_pipeline_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    forward_job = create_job(function, package, pipeline_context)
+    forward_job = create_job(function, forward_package, pipeline_context)
 
     forward_job.compute()
 
@@ -94,17 +96,15 @@ def run_forward_job_send_output_to_the_next_pipeline_stage(
 
 
 @pytest.mark.parametrize("pipeline_parallel_size", [1, 2, 5])
-@pytest.mark.parametrize("package", ["forward_package"])
-def test_forward_job_send_output_to_the_next_pipeline_stage(request, pipeline_parallel_size, package):
+def test_forward_job_send_output_to_the_next_pipeline_stage(forward_package, pipeline_parallel_size):
     TENSOR_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 
-    package = request.getfixturevalue(package)
     spawn(
         run_forward_job_send_output_to_the_next_pipeline_stage,
         world_size=pipeline_parallel_size,
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        package=package,
+        forward_package=forward_package,
     )
