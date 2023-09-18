@@ -36,4 +36,4 @@ class BackwardJob(Job):
         #         torch.autograd.backward(activations, grad_output)
 
         # return activations.grad
-        return self.input.data
+        return self.function(self.input.data)

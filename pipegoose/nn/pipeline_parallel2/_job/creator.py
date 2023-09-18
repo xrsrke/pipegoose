@@ -79,7 +79,7 @@ def _create_backward_job_and_put_to_pending_queue(grad_input: torch.Tensor, meta
     package.metadata.job_type = JobType.BACKWARD
 
     # NOTE: construct backward job
-    def backward_function():
+    def backward_function(self):
         pass
 
     parallel_context = get_pipeline_context()
