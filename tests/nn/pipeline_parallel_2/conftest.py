@@ -50,12 +50,12 @@ def base_package():
     MICROBATCH_IDX = 0
     PARTITION_IDX = 0
     IS_TRAINING = True
-    IS_GRAD_ENABLED = False
+    IS_GRAD_ENABLED = True
 
     SRC = 0
     DST = 1
 
-    data = torch.randn(*INPUT_SHAPE)
+    data = torch.randn(*INPUT_SHAPE, requires_grad=IS_GRAD_ENABLED)
 
     metadata = Metadata(
         microbatch_idx=MICROBATCH_IDX,
