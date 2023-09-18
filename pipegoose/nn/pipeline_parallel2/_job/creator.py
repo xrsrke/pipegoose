@@ -71,14 +71,8 @@ def create_job(function: Callable, package: Package, pipeline_context: PipelineC
     return job
 
 
-# def create_backwardable_forward_job(function: Callable, package: Package, pipeline_context: PipelineContext) -> ForwardJob:
-#     """
-#     Create a forward job that automatically schedules
-#     a backward job if you call forward(input).backward()
-#     """
-
-
-def create_backward_job_and_put_to_pending_queue(grad_input: torch.Tensor, metadata: Metadata):
+def _create_backward_job_and_put_to_pending_queue(grad_input: torch.Tensor, metadata: Metadata):
+    """Create a backward job and put it to pending queue."""
     # NOTE: construct backward package
     data = torch.randn(2, 4)
     package = Package(data, metadata)
@@ -121,7 +115,7 @@ def schedule_backward_job(package: Package, pipeline_context: PipelineContext) -
                 # NOTE: the backward job create in the same node
                 # as the forward job
                 to=parallel_context.get_worker_name(metadata.src),
-                func=create_backward_job_and_put_to_pending_queue,
+                func=_create_backward_job_and_put_to_pending_queue,
                 args=(grad_input, metadata),
             )
 

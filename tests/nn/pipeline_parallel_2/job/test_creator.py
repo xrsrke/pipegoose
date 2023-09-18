@@ -130,11 +130,11 @@ def run_create_a_backward_job_if_a_tensor_do_backprop(
     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, forward_package
 ):
     SRC = forward_package.metadata.src
+    N_PARTITIONS = 3
+    N_MICROBATCHES = 5
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    N_PARTITIONS = 3
-    N_MICROBATCHES = 5
 
     scheduler = get_scheduler(SchedulerType.GPIPE)(N_MICROBATCHES, N_PARTITIONS)
     pipeline_context = PipelineContext(scheduler, parallel_context)
