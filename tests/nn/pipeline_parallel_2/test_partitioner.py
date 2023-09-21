@@ -17,6 +17,7 @@ def run_model_partitioner(rank, world_size, port, tensor_parallel_size, pipeline
     )
     module = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer.pad_token = tokenizer.eos_token
 
     text = ["Hello world", "How are you?"]
     inputs = tokenizer(text, return_tensors="pt", padding=True)

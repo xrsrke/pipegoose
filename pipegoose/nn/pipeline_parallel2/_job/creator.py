@@ -17,7 +17,6 @@ from pipegoose.nn.pipeline_parallel2._job.forward import (
     CreateForwardOutputPackageCallback,
     ForwardJob,
     SaveActivationIfTrainingCallback,
-    SendForwardPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.job import Job
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
@@ -37,7 +36,8 @@ class JobCreator(ABC):
 class _ForwardJobCreator(JobCreator):
     """Put a forward job into job queue for a worker to execute."""
 
-    CBS = [CreateForwardOutputPackageCallback, SaveActivationIfTrainingCallback, SendForwardPackageCallback]
+    CBS = [CreateForwardOutputPackageCallback, SaveActivationIfTrainingCallback]
+    # SendForwardPackageCallback
 
     @classmethod
     def create(cls, function: Callable, package: Package, pipeline_context: PipelineContext) -> ForwardJob:

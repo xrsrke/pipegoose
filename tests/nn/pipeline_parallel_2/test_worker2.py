@@ -59,6 +59,7 @@ def test_execute_a_job_from_selected_job_queue():
 
     PENDING_JOBS.put(job)
     assert PENDING_JOBS.qsize() == 1
+    assert SELECTED_JOBS.qsize() == 0
 
     # NOTE: wait for job selector picks up the job
     sleep(2)

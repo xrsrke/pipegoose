@@ -37,7 +37,7 @@ class BaseScheduler(ABC):
         pass
 
 
-class _GPipeScheduler(BaseScheduler):
+class GPipeScheduler(BaseScheduler):
     """
     torchgpipe: On-the-fly Pipeline Parallelism for Training Giant Models
     https://arxiv.org/abs/2004.09910
@@ -124,7 +124,7 @@ class JobTracker:
 
 def get_scheduler(scheduler_type: SchedulerType) -> BaseScheduler:
     scheduler_type_to_scheduler = {
-        SchedulerType.GPIPE: _GPipeScheduler,
+        SchedulerType.GPIPE: GPipeScheduler,
     }
 
     return scheduler_type_to_scheduler[scheduler_type]
