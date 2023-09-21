@@ -20,7 +20,7 @@ class BasePartitioner(ABC):
         raise NotImplementedError
 
 
-class _UniformPartitioner(BasePartitioner):
+class UniformPartitioner(BasePartitioner):
     def __init__(self, module: nn.Module, parallel_context: ParallelContext):
         self.module = module
         self.parallel_context = parallel_context
@@ -61,7 +61,7 @@ class _UniformPartitioner(BasePartitioner):
 def _get_partitioner(policy: PartitionPolicy) -> BasePartitioner:
     """Return the corresponding partitioner based on the policy."""
     policy_to_partitioner = {
-        PartitionPolicy.UNIFORM: _UniformPartitioner,
+        PartitionPolicy.UNIFORM: UniformPartitioner,
     }
 
     return policy_to_partitioner[policy]
