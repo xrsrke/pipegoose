@@ -18,6 +18,8 @@ class Worker(threading.Thread):
         self._running = False
         # self._stop_event = threading.Event()
 
+        self.lock = threading.Lock()
+
     @property
     def is_running(self) -> bool:
         return self._running
@@ -30,10 +32,11 @@ class Worker(threading.Thread):
 
     def run(self):
         while True:
-            job = self._selected_jobs.get()
-            self._running = True
-            job.compute()
-            self._running = False
+            with self.lock:
+                job = self._selected_jobs.get()
+                self._running = True
+                job.compute()
+                self._running = False
 
 
 class WorkerPoolWatcher(threading.Thread):

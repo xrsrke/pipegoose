@@ -81,7 +81,7 @@ class SendForwardPackageCallback(Callback):
     def after_compute(self):
         parallel_context = self.job.pipeline_context.parallel_context
 
-        if parallel_context.get_world_size(ParallelMode.GLOBAL) > 1 and parallel_context.pipeline_parallel_size > 1:
+        if parallel_context.pipeline_parallel_size > 1:
             output = self.job.output
             assert isinstance(output, Package), f"output must be an instance of Package, got {type(output)}"
             send_package(output, parallel_context)

@@ -34,10 +34,6 @@ def test_destroy_worker_manager():
     pass
 
 
-def test_select_job_based_on_scheduler():
-    pass
-
-
 def test_execute_a_job_from_selected_job_queue():
     PENDING_JOBS = Queue()
     SELECTED_JOBS = Queue()
@@ -67,3 +63,11 @@ def test_execute_a_job_from_selected_job_queue():
     assert QUEUE == [1]
     assert PENDING_JOBS.qsize() == 0
     assert SELECTED_JOBS.qsize() == 0
+
+
+def test_construct_a_job_from_received_package():
+    pass
+
+
+def test_putting_a_job_into_the_pending_job_queue():
+    pass

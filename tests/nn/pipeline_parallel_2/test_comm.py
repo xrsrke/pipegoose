@@ -11,6 +11,9 @@ def run_send_recv_package(rank, world_size, port, tensor_parallel_size, pipeline
     PACKAGE_SRC_RANK = package.metadata.src
     PACKAGE_DST_RANK = package.metadata.dst
 
+    MICROBATCH_IDX = package.metadata.microbatch_idx
+    PARTITION_IDX = package.metadata.partition_idx
+
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
@@ -19,7 +22,8 @@ def run_send_recv_package(rank, world_size, port, tensor_parallel_size, pipeline
         send_package(package, parallel_context=parallel_context)
     elif rank == PACKAGE_DST_RANK:
         time.sleep(1)
-        received_package = RECV_QUEUE.get()
+        # received_package = RECV_QUEUE.get()
+        received_package = RECV_QUEUE[(MICROBATCH_IDX, PARTITION_IDX)]
 
         assert isinstance(received_package, Package)
 

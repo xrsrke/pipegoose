@@ -14,7 +14,8 @@ skip_if_no_cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA
 backend = ["gloo", pytest.param("nccl", marks=skip_if_no_cuda)]
 
 
-# map local rank to next rank based in [world_size][parallel_mode][local_rank]
+# NOTE: map local rank to next rank based in [world_size][parallel_mode][local_rank]
+# for world_size = 8
 LOCAL_RANK_TO_NEXT_RANK = {
     1: {
         ParallelMode.TENSOR: {0: 0},
@@ -96,12 +97,16 @@ def init_parallel_context(
         assert type(parallel_context.get_world_size(parallel_mode)) == int
         assert isinstance(parallel_context.get_ranks_in_group(parallel_mode), list)
 
-        next_local_rank = parallel_context.get_next_local_rank(local_rank, parallel_mode)
-        assert next_local_rank == LOCAL_RANK_TO_NEXT_RANK[world_size][parallel_mode][local_rank]
+        # NOTE: the LOCAL_RANK_TO_NEXT_RANK is only valid for world_size = 1 and world_size = 8
+        if world_size == 8 or world_size == 1:
+            next_local_rank = parallel_context.get_next_local_rank(local_rank, parallel_mode)
+            assert next_local_rank == LOCAL_RANK_TO_NEXT_RANK[world_size][parallel_mode][local_rank]
 
-        prev_local_rank = parallel_context.get_prev_local_rank(local_rank, parallel_mode)
-        assert prev_local_rank == LOCAL_RANK_TO_PREV_RANK[world_size][parallel_mode][local_rank]
+            prev_local_rank = parallel_context.get_prev_local_rank(local_rank, parallel_mode)
+            assert prev_local_rank == LOCAL_RANK_TO_PREV_RANK[world_size][parallel_mode][local_rank]
 
+        # TODO: fix tensor_parallel_size = 1, pipeline_parallel_size = 2, data_parallel_size = 2
+        # get_ranks_in_group only return 1
         next_global_rank = parallel_context.get_next_global_rank(parallel_mode)
         # assert next_global_rank == parallel_context.get_global_rank() + 1
         assert isinstance(next_global_rank, int)
@@ -121,16 +126,18 @@ def init_parallel_context(
         assert parallel_context.is_initialized(parallel_mode) is False
 
 
-@pytest.mark.parametrize(
-    "world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 1, 1, 1), (8, 2, 2, 2)]
-)
-def test_init_parallel_context(world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+@pytest.mark.parametrize("tensor_parallel_size", (1, 2))
+@pytest.mark.parametrize("pipeline_parallel_size", (1, 2))
+@pytest.mark.parametrize("data_parallel_size", (1, 2))
+def test_init_parallel_context(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     SEED = 69
     BACKEND = "gloo"
 
+    WORLD_SIZE = tensor_parallel_size * pipeline_parallel_size * data_parallel_size
+
     spawn(
         init_parallel_context,
-        world_size=world_size,
+        world_size=WORLD_SIZE,
         seed=SEED,
         backend=BACKEND,
         tensor_parallel_size=tensor_parallel_size,

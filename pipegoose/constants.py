@@ -1,5 +1,5 @@
 # RPC global worker name
-WORKER_NAME = "WORKER_{}"
+WORKER_NAME = "RPC_GLOBAL_WORKER_{}"
 
 
 CHECKPOINT_WEIGHTS_NAME = "pytorch_model_tp_{}_pp_{}.bin"
