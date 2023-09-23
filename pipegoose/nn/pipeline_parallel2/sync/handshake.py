@@ -14,23 +14,6 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 SessionId = str
 
 
-_PIPELINE_SCHEDULER_SYNC = {}
-
-
-def get_execution_plan():
-    return _PIPELINE_SCHEDULER_SYNC
-
-
-def recv_execution_plan(data):
-    # microbatch_idx, partition_idx = torch.unbind(task, dim=0)
-    # microbatch_idx = microbatch_idx.item()
-    # partition_idx = partition_idx.item()
-    # key = (microbatch_idx, partition_idx)
-    # _PIPELINE_SCHEDULER_SYNC[key] = False
-    global _PIPELINE_SCHEDULER_SYNC
-    _PIPELINE_SCHEDULER_SYNC = data
-
-
 class Handshake(ABC):
     def __init__(self, parallel_context: ParallelContext, parallel_mode: ParallelMode):
         self.parallel_context = parallel_context
@@ -81,23 +64,26 @@ class SchedulerHandshake(Handshake):
     # TODO: make this configurable
     MASTER_RANK = 0
 
+    PIPELINE_TASKS = None
+
     @property
-    def session_id(self) -> str:
-        return self._session_id
+    def pipeline_progress(self):
+        return SchedulerHandshake.PIPELINE_TASKS
+
+    @pipeline_progress.setter
+    def pipeline_progress(self, data):
+        SchedulerHandshake._recv_execution_plan(data)
+
+    @staticmethod
+    def _recv_execution_plan(data):
+        # microbatch_idx, partition_idx = torch.unbind(task, dim=0)
+        # microbatch_idx = microbatch_idx.item()
+        # partition_idx = partition_idx.item()
+        # key = (microbatch_idx, partition_idx)
+        # _PIPELINE_SCHEDULER_SYNC[key] = False
+        SchedulerHandshake.PIPELINE_TASKS = data
 
     def initiate(self, data):
-        # NOTE: broadcast expected tasks to all corresponding ranks
-        # for task in data:
-        #     # NOTE: get the first rank of the pipeline stage
-        #     # the rank that we do confirmation
-        #     # is the last rank of a tensor parallel group
-        #     # dst = self.parallel_context._ranks_in_group[ParallelMode.TENSOR][-1]
-        #     worker_name = self.parallel_context.get_worker_name(rank=1)
-        #     task = torch.tensor(task)
-
-        #     rpc.rpc_sync(to=worker_name, func=recv_execution_plan, args=(task,))
-        #     break
-
         rank = self.parallel_context.get_local_rank(self.parallel_mode)
         world_size = self.parallel_context.get_world_size(self.parallel_mode)
         for dst in range(world_size):
@@ -105,14 +91,14 @@ class SchedulerHandshake(Handshake):
                 continue
 
             worker_name = self.parallel_context.get_worker_name(dst)
-            rpc.rpc_sync(to=worker_name, func=recv_execution_plan, args=(data,))
+            rpc.rpc_sync(to=worker_name, func=SchedulerHandshake._recv_execution_plan, args=(data,))
 
-        self._data = data
+        self.pipeline_progress = data
 
     def _set_session(self, session_id: torch.Tensor):
         self._session_id = session_id
 
-    def confirm(self):
+    def confirm(self, task):
         # TODO: only non-scheduler ranks should confirm
         master_worker_name = self.parallel_context.get_worker_name(self.MASTER_RANK)
         rank = self.parallel_context.get_rank(self.parallel_mode)
@@ -122,9 +108,7 @@ class SchedulerHandshake(Handshake):
         self._queue[self.session_id].put(rank)
 
     def is_initiated(self) -> bool:
-        # return self.session_id is not None
-        # data = get_execution_plan()
-        return self._data is not None
+        return self.pipeline_progress is not None
 
     def is_confirmed(self) -> bool:
         raise NotImplementedError

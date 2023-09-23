@@ -1,10 +1,9 @@
 import time
 
+import pytest
+
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.pipeline_parallel2.sync.handshake import (
-    SchedulerHandshake,
-    get_execution_plan,
-)
+from pipegoose.nn.pipeline_parallel2.sync.handshake import SchedulerHandshake
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 
@@ -21,30 +20,30 @@ def run_send_rcv_rpc(rank, world_size, port, tensor_parallel_size, pipeline_para
     handshake = SchedulerHandshake(parallel_context, ParallelMode.GLOBAL)
 
     if rank == 0:
-        # task = torch.tensor([1, 2])
         handshake.initiate(EXPECTED_TASKS)
         assert handshake.is_initiated() is True
-        # rpc.rpc_sync(to=parallel_context.get_worker_name(rank=1), func=recv_execution_plan, args=(task,))
 
     else:
         time.sleep(2)
-        # # handshake = SchedulerHandshake(parallel_context, ParallelMode.GLOBAL)
-        # # assert handshake.is_initiated() is True
-        output = get_execution_plan()
+        assert handshake.is_initiated() is True
+
+        output = handshake.pipeline_progress
         assert output == EXPECTED_TASKS
 
     parallel_context.destroy()
 
 
-def test_send_rcv_rpc():
-    TENSOR_PARALLEL_SIZE = 1
-    PIPELINE_PARALLEL_SIZE = 2
+@pytest.mark.parametrize("tensor_parallel_size", [2])
+@pytest.mark.parametrize("pipeline_parallel_size", [2])
+def test_send_rcv_rpc(tensor_parallel_size, pipeline_parallel_size):
     DATA_PARALLEL_SIZE = 1
+
+    world_size = tensor_parallel_size * pipeline_parallel_size * DATA_PARALLEL_SIZE
 
     spawn(
         run_send_rcv_rpc,
-        world_size=PIPELINE_PARALLEL_SIZE,
-        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
-        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        world_size=world_size,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=DATA_PARALLEL_SIZE,
     )
