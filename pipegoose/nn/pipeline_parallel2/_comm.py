@@ -1,3 +1,4 @@
+from queue import Queue
 from typing import Any
 
 import torch.distributed.rpc as rpc
@@ -6,8 +7,8 @@ from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 
-# RECV_QUEUE = Queue()
-RECV_QUEUE = dict()
+RECV_QUEUE = Queue()
+# RECV_QUEUE = dict()
 
 # TODO: refactor to a singleton class
 # NOTE: save parallel context for backward job
@@ -49,9 +50,9 @@ def _recv_package(package: Package, src: int, dst: int):
     # TODO: add configurable destination queue
     assert isinstance(package, Package)
 
-    microbatch_idx = package.metadata.microbatch_idx
-    partition_idx = package.metadata.partition_idx
+    package.metadata.microbatch_idx
+    package.metadata.partition_idx
 
     # TODO: refactor, user should not recall how to construct the key
-    RECV_QUEUE[(microbatch_idx, partition_idx)] = package
-    # RECV_QUEUE.put(package)
+    # RECV_QUEUE[(microbatch_idx, partition_idx)] = package
+    RECV_QUEUE.put(package)

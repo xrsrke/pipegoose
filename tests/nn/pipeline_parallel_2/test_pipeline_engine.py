@@ -76,6 +76,10 @@ def run_pipeline_engine(rank, world_size, port, tensor_parallel_size, pipeline_p
 
     sleep(3)
 
+    # assert 1 == 1
+    # if rank == 1:
+    #     assert 1 == 1
+
     assert 1 == 1
 
     # if rank == 1:

@@ -66,13 +66,15 @@ class PipelineEngine:
                     batch = microbatches[microbatch_idx]
                     forward_job = self._construct_first_job(microbatch_idx, input=batch)
                     JobQueue.PENDING_JOBS.put(forward_job)
-                else:
-                    package = self._retrieve_package_from_received_package(microbatch_idx, partition_idx)
-                    job = create_job(self.partition_func, package, self.pipeline_context)
-                    JobQueue.PENDING_JOBS.put(job)
+        else:
+            # package = self._retrieve_package_from_received_package(microbatch_idx, partition_idx)
+            package = RECV_QUEUE.get()
+            job = create_job(self.partition_func, package, self.pipeline_context)
+            JobQueue.PENDING_JOBS.put(job)
 
     def _retrieve_package_from_received_package(self, microbatch_idx, partition_idx):
-        package = RECV_QUEUE[(microbatch_idx, partition_idx)]
+        # package = RECV_QUEUE[(microbatch_idx, partition_idx)]
+        package = RECV_QUEUE.get()
         return package
 
     def _construct_first_job(self, microbatch_idx: int, input: torch.Tensor):

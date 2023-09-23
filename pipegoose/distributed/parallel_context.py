@@ -141,7 +141,7 @@ class ParallelContext:
 
         # NOTE: ensure all processes have joined the global group
         # before creating other groups
-        torch.distributed.barrier()
+        dist.barrier()
 
         params = {
             "rank": rank,
@@ -180,8 +180,6 @@ class ParallelContext:
                     options.set_device_map(WORKER_NAME.format(other_rank), {rank: other_rank})
 
             rpc.init_rpc(name=worker_name, rank=rank, world_size=world_size, rpc_backend_options=options)
-
-            assert 1 == 1
 
     def _register_dist(
         self,

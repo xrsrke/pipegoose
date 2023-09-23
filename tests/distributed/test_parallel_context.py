@@ -154,8 +154,13 @@ def recv_rpc_call(value):
     RPC_RECEIVE_QUEUE.append(tensor)
 
 
-def run_send_rcv_rpc(rank, world_size, seed, backend, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+def run_send_rcv_rpc(
+    rank, world_size, seed, backend, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, rpc_type
+):
     VALUE = 69
+
+    RPC_TYPE_TO_FUNC = {"rpc_sync": rpc.rpc_sync, "rpc_async": rpc.rpc_async}
+    rpc_func = RPC_TYPE_TO_FUNC[rpc_type]
 
     parallel_context = ParallelContext(
         rank=rank,
@@ -178,9 +183,11 @@ def run_send_rcv_rpc(rank, world_size, seed, backend, port, tensor_parallel_size
 
     if rank == 0:
         tensor = torch.tensor(VALUE)
-        fut = rpc.rpc_async(to=parallel_context.get_worker_name(rank=1), func=recv_rpc_call, args=(tensor,))
 
-        fut.wait()
+        fut = rpc_func(to=parallel_context.get_worker_name(rank=1), func=recv_rpc_call, args=(tensor,))
+
+        if rpc_func == rpc.rpc_async:
+            fut.wait()
 
     else:
         while len(RPC_RECEIVE_QUEUE) < 1:
@@ -196,7 +203,8 @@ def run_send_rcv_rpc(rank, world_size, seed, backend, port, tensor_parallel_size
         assert rpc._is_current_rpc_agent_set() is False
 
 
-def test_send_rcv_rpc():
+@pytest.mark.parametrize("rpc_type", ["rpc_sync", "rpc_async"])
+def test_send_rcv_rpc(rpc_type):
     TENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 2
     DATA_PARALLEL_SIZE = 1
@@ -212,4 +220,5 @@ def test_send_rcv_rpc():
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
+        rpc_type=rpc_type,
     )
