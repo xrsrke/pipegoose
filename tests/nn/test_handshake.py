@@ -3,7 +3,8 @@ import torch
 import torch.distributed.rpc as rpc
 
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.pipeline_parallel2.sync.func import recv_execution_plan
+
+# from pipegoose.nn.pipeline_parallel2.sync.func import recv_execution_plan
 from pipegoose.nn.pipeline_parallel2.sync.handshake import SchedulerHandshake
 from pipegoose.testing.utils import init_parallel_context, spawn
 

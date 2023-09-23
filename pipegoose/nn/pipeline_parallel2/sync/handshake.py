@@ -10,23 +10,25 @@ import torch.distributed.rpc as rpc
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.pipeline_parallel2.sync.func import recv_execution_plan
 
 SessionId = str
 
 
-# def trigger():
-#     # worker_name = self.parallel_context.get_worker_name(rank=1)
-#     worker_name = "RPC_GLOBAL_WORKER_1"
-#     # task = torch.tensor([1, 2])
-#     # from pipegoose.nn.pipeline_parallel2.sync.func import recv_execution_plan
-#     rpc.rpc_sync(
-#         to=worker_name,
-#         func=recv_execution_plan,
-#         # args=(task,)
-#         # func=torch.add,
-#         args=(torch.ones(2), 3)
-#     )
+_PIPELINE_SCHEDULER_SYNC = {}
+
+
+def get_execution_plan():
+    return _PIPELINE_SCHEDULER_SYNC
+
+
+def recv_execution_plan(data):
+    # microbatch_idx, partition_idx = torch.unbind(task, dim=0)
+    # microbatch_idx = microbatch_idx.item()
+    # partition_idx = partition_idx.item()
+    # key = (microbatch_idx, partition_idx)
+    # _PIPELINE_SCHEDULER_SYNC[key] = False
+    global _PIPELINE_SCHEDULER_SYNC
+    _PIPELINE_SCHEDULER_SYNC = data
 
 
 class Handshake(ABC):
@@ -85,18 +87,25 @@ class SchedulerHandshake(Handshake):
 
     def initiate(self, data):
         # NOTE: broadcast expected tasks to all corresponding ranks
-        for task in data:
-            # microbatch_idx, partition_idx = task
+        # for task in data:
+        #     # NOTE: get the first rank of the pipeline stage
+        #     # the rank that we do confirmation
+        #     # is the last rank of a tensor parallel group
+        #     # dst = self.parallel_context._ranks_in_group[ParallelMode.TENSOR][-1]
+        #     worker_name = self.parallel_context.get_worker_name(rank=1)
+        #     task = torch.tensor(task)
 
-            # NOTE: get the first rank of the pipeline stage
-            # the rank that we do confirmation
-            # is the last rank of a tensor parallel group
-            # self.parallel_context._ranks_in_group[ParallelMode.TENSOR][-1]
-            worker_name = self.parallel_context.get_worker_name(rank=1)
-            task = torch.tensor(task)
+        #     rpc.rpc_sync(to=worker_name, func=recv_execution_plan, args=(task,))
+        #     break
 
-            rpc.rpc_sync(to=worker_name, func=recv_execution_plan, args=(task,))
-            break
+        rank = self.parallel_context.get_local_rank(self.parallel_mode)
+        world_size = self.parallel_context.get_world_size(self.parallel_mode)
+        for dst in range(world_size):
+            if dst == rank:
+                continue
+
+            worker_name = self.parallel_context.get_worker_name(dst)
+            rpc.rpc_sync(to=worker_name, func=recv_execution_plan, args=(data,))
 
         self._data = data
 
