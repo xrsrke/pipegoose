@@ -1,14 +1,38 @@
 import pytest
+import torch
+import torch.distributed.rpc as rpc
 
 from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.nn.pipeline_parallel2.sync.func import recv_execution_plan
 from pipegoose.nn.pipeline_parallel2.sync.handshake import SchedulerHandshake
 from pipegoose.testing.utils import init_parallel_context, spawn
+
+RPC_RECEIVE_QUEUE = list()
+
+
+# def recv_execution_plan(value):
+#     tensor = torch.Tensor(value)
+#     RPC_RECEIVE_QUEUE.append(tensor)
+
+
+def recv_rpc_call(value):
+    tensor = torch.Tensor(value)
+    RPC_RECEIVE_QUEUE.append(tensor)
+
+
+def recv_execution_plan(*args, **kwargs):
+    # microbatch_idx, partition_idx = torch.unbind(task, dim=0)
+    # key = (microbatch_idx, partition_idx)
+    # _PIPELINE_SCHEDULER_SYNC[key] = False
+    pass
 
 
 def run_handshake(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode):
     NUM_SECONDS_IDLE = 1
     EXPECTED_TASKS = {}
     MICROBATCH_IDX = 0
+
+    VALUE = 2
 
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
@@ -23,6 +47,22 @@ def run_handshake(rank, world_size, port, tensor_parallel_size, pipeline_paralle
 
     for partition_idx in range(pipeline_parallel_size):
         EXPECTED_TASKS[(MICROBATCH_IDX, partition_idx)] = False
+
+    # if pipeline_parallel_size > 1:
+    #     assert rpc._is_current_rpc_agent_set() is True
+
+    # if rank == 0:
+    #     # tensor = torch.tensor(VALUE)
+
+    #     rpc.rpc_sync(to=parallel_context.get_worker_name(rank=1), func=recv_execution_plan, args=(VALUE,))
+
+    # else:
+    #     while len(RPC_RECEIVE_QUEUE) < 1:
+    #         time.sleep(0.1)
+
+    #     tensor = RPC_RECEIVE_QUEUE.pop()
+
+    #     assert tensor == VALUE
 
     # def get_pipeline_stage_idx():
     #     rank = parallel_context.get_local_rank(ParallelMode.PIPELINE)
@@ -40,22 +80,49 @@ def run_handshake(rank, world_size, port, tensor_parallel_size, pipeline_paralle
     # def start():
     #     nonlocal IN_SESSION
     #     IN_SESSION = True
+    # from pipegoose.nn.pipeline_parallel2.sync.func import recv_execution_plan
 
-    if parallel_context.is_first_rank(parallel_mode):
-        # assert handshake.is_initiated() is False
-        # assert handshake.session_id is None
-
-        handshake.initiate(EXPECTED_TASKS)
+    if rank == 0:
+        # handshake.initiate(EXPECTED_TASKS)
         # assert handshake.is_initiated() is True
-        # assert handshake.session_id is not None
+        # trigger()
+        worker_name = "RPC_GLOBAL_WORKER_1"
+        # task = torch.tensor([1, 2])
+        # from pipegoose.nn.pipeline_parallel2.sync.func import recv_execution_plan
+        rpc.rpc_sync(
+            to=worker_name,
+            func=recv_execution_plan,
+            # args=(task,)
+            # func=torch.add,
+            args=(torch.ones(2), 3),
+        )
 
-        # while True:
-        #     if handshake.wait_until_all_confirmed() is True:
-        #         for task in EXPECTED_TASKS:
-        #             assert handshake.is_confirmed(task) is True
-        #         break
-        #     else:
-        #         sleep(NUM_SECONDS_IDLE)
+    # if parallel_context.is_first_rank(parallel_mode):
+    #     # assert handshake.is_initiated() is False
+    #     # assert handshake.session_id is None
+
+    #     import torch
+    #     import torch.distributed.rpc as rpc
+
+    #     # handshake.initiate(EXPECTED_TASKS)
+    #     worker_name = parallel_context.get_worker_name(rank=1)
+    #     tensor = torch.tensor(1)
+    #     rpc.rpc_sync(
+    #         to=worker_name,
+    #         func=recv_execution_plan,
+    #         args=(tensor,)
+    #     )
+
+    # assert handshake.is_initiated() is True
+    # assert handshake.session_id is not None
+
+    # while True:
+    #     if handshake.wait_until_all_confirmed() is True:
+    #         for task in EXPECTED_TASKS:
+    #             assert handshake.is_confirmed(task) is True
+    #         break
+    #     else:
+    #         sleep(NUM_SECONDS_IDLE)
 
     # else:
 
@@ -88,52 +155,7 @@ def run_handshake(rank, world_size, port, tensor_parallel_size, pipeline_paralle
     # assert handshake.num_confirmed() == local_world_size
 
 
-# def run_handshake(
-#     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode
-# ):
-#     N_HANDSHAKE = 1
-#     parallel_context = init_parallel_context(
-#         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
-#     )
-#     local_world_size = parallel_context.get_world_size(parallel_mode)
-
-#     handshake = Handshake(parallel_context)
-
-#     for _ in range(N_HANDSHAKE):
-#         assert handshake.is_initiated() is False
-#         assert handshake.is_all_confirmed() is False
-
-#         if parallel_context.is_first_rank() is True:
-#             handshake.initiate()
-#             assert handshake.is_initiated() is True
-#             assert handshake.session_id is not None
-
-#             with pytest.raises(Exception):
-#                 # NOTE: can't initiate twice
-#                 # have to wait for the other ranks to confirm first
-#                 # then end the current handshake session
-#                 handshake.initiate()
-#         else:
-#             # TODO: test that the other ranks cannot initiate
-#             assert handshake.is_confirmed() is False
-#             handshake.confirm()
-#             assert handshake.is_confirmed() is True
-
-#             with pytest.raises(Exception):
-#                 # cannot confirm twice
-#                 handshake.confirm()
-
-#         while True:
-#             if handshake.is_all_confirmed() is True:
-#                 break
-#             else:
-#                 sleep(0.1)
-
-#         assert handshake.is_all_confirmed() is True
-#         assert handshake.num_confirmed() == local_world_size
-
-
-@pytest.mark.parametrize("tensor_parallel_size", [2])
+@pytest.mark.parametrize("tensor_parallel_size", [1])
 @pytest.mark.parametrize("pipeline_parallel_size", [2])
 # @pytest.mark.parametrize("data_parallel_size", [2])
 @pytest.mark.parametrize("parallel_mode", [ParallelMode.GLOBAL])
