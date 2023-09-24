@@ -55,7 +55,7 @@ class Handshake(ABC):
 
 @dataclass
 class SessionMetadata:
-    src_rank: int
+    clock_idx: int
     parallel_mode: ParallelMode
 
 
@@ -67,9 +67,8 @@ class SchedulerHandshake(Handshake):
     progress = None
     clock_idx = 0
 
-    @staticmethod
-    def _recv_execution_plan(data):
-        SchedulerHandshake.progress = data
+    def is_initiated(self) -> bool:
+        return self.progress is not None
 
     def initiate(self, data):
         rank = self.parallel_context.get_local_rank(self.parallel_mode)
@@ -83,30 +82,40 @@ class SchedulerHandshake(Handshake):
 
         SchedulerHandshake._recv_execution_plan(data)
 
+    @staticmethod
+    def _recv_execution_plan(data):
+        SchedulerHandshake.progress = data
+
+    def is_confirmed(self, task, clock_idx: int) -> bool:
+        return self.progress[clock_idx][task] is True
+
+    @staticmethod
+    def is_all_confirmed(clock_idx: int) -> bool:
+        progress = SchedulerHandshake.progress
+        return all([progress[clock_idx][task] is True for task in progress[clock_idx]])
+
     def confirm(self, task):
         # TODO: only non-scheduler ranks should confirm
         master_worker_name = self.parallel_context.get_worker_name(self.MASTER_RANK)
-        rank = self.parallel_context.get_local_rank(self.parallel_mode)
-        rpc.rpc_sync(master_worker_name, func=SchedulerHandshake._recv_confirm, args=(task, rank))
+        # rank = self.parallel_context.get_local_rank(self.parallel_mode)
+        rpc.rpc_sync(master_worker_name, func=SchedulerHandshake._recv_confirm_from_worker, args=(task,))
 
-        SchedulerHandshake._recv_confirm(task, rank)
+        # NOTE: a worker node should confirm itself
+        SchedulerHandshake._update_progress(task)
 
     @staticmethod
-    def _recv_confirm(task, src):
+    def _update_progress(task):
         clock_idx = SchedulerHandshake.clock_idx
         progress = SchedulerHandshake.progress
         progress[clock_idx][task] = True
 
-    def is_initiated(self) -> bool:
-        return self.progress is not None
+    @staticmethod
+    def _recv_confirm_from_worker(task):
+        SchedulerHandshake._update_progress(task)
 
-    def is_confirmed(self, task) -> bool:
-        return self.progress[self.clock_idx][task] is True
-
-    def is_all_confirmed(self) -> bool:
         clock_idx = SchedulerHandshake.clock_idx
-        progress = SchedulerHandshake.progress
-        return all([progress[clock_idx][task] is True for task in progress[clock_idx]])
+        if SchedulerHandshake.is_all_confirmed(clock_idx) is True:
+            SchedulerHandshake.clock_idx += 1
 
     def wait_until_all_confirmed(self):
         if self.parallel_context.is_first_rank() is True:
@@ -117,7 +126,3 @@ class SchedulerHandshake(Handshake):
                     sleep(self.NUM_SECONDS_IDLE)
         else:
             pass
-
-
-def recv_handshake():
-    pass

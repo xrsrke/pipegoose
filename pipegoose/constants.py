@@ -1,12 +1,18 @@
-# RPC global worker name
-WORKER_NAME = "RPC_GLOBAL_WORKER_{}"
-
-
 CHECKPOINT_WEIGHTS_NAME = "pytorch_model_tp_{}_pp_{}.bin"
 CHECKPOINT_PATH_NAME = "./"
 
 
-# PIPELINE PARALLELISM
+# ==================================================
+#               Distributed Communication
+# ==================================================
+
+# RPC global worker's name
+WORKER_NAME = "RPC_GLOBAL_WORKER_{}"
+
+
+# ==================================================
+#               Pipeline Parallelism
+# ==================================================
 
 
 # NOTE: the minimum number of cocurrent worker threads that execute jobs

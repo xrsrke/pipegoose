@@ -1,4 +1,5 @@
 import time
+from copy import deepcopy
 
 import pytest
 
@@ -48,8 +49,12 @@ def run_send_rcv_rpc(rank, world_size, port, tensor_parallel_size, pipeline_para
         assert handshake.clock_idx == 0
 
         # NOTE: wait until all workers are confirmed
-        time.sleep(3)
-        assert handshake.is_all_confirmed() is True
+        time.sleep(5)
+        assert SchedulerHandshake.is_all_confirmed(clock_idx=0) is True
+
+        # NOTE: after all workers are confirmed,
+        # the clock index should be incremented
+        assert handshake.clock_idx == 1
     else:
         # NOTE: wait until the handshake is initiated
         time.sleep(2)
@@ -57,12 +62,14 @@ def run_send_rcv_rpc(rank, world_size, port, tensor_parallel_size, pipeline_para
         assert handshake.progress == PROGRESS
         assert handshake.clock_idx == 0
 
+        PREV_CLOCK_IDX = deepcopy(handshake.clock_idx)
         task = (MICROBATCH_IDX, get_partition_idx(parallel_context))
         handshake.confirm(task)
-        assert handshake.is_confirmed(task) is True
+        assert handshake.is_confirmed(task, PREV_CLOCK_IDX) is True
 
         # NOTE: wait until all workers are confirmed
         # time.sleep(5)
+        # assert handshake.clock_idx == PREV_CLOCK_IDX + 1
 
     parallel_context.destroy()
 
