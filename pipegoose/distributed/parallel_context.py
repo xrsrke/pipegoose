@@ -240,6 +240,10 @@ class ParallelContext:
     def add_local_rank(self, parallel_mode: ParallelMode, rank: int):
         self._local_ranks[parallel_mode] = rank
 
+    def get_global_rank_from_local_rank(self, local_rank: int, parallel_mode: ParallelMode) -> int:
+        process_group = self.get_group(parallel_mode)
+        return dist.get_global_rank(process_group, local_rank)
+
     def get_world_size(self, parallel_mode: ParallelMode) -> int:
         return self._world_sizes[parallel_mode]
 

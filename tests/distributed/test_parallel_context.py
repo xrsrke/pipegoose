@@ -56,6 +56,13 @@ LOCAL_RANK_TO_PREV_RANK = {
 def init_parallel_context(
     rank, world_size, seed, backend, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
 ):
+    parallel_modes = [
+        ParallelMode.GLOBAL,
+        ParallelMode.TENSOR,
+        ParallelMode.PIPELINE,
+        ParallelMode.DATA,
+    ]
+
     parallel_context = ParallelContext(
         rank=rank,
         local_rank=rank,
@@ -69,13 +76,6 @@ def init_parallel_context(
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=data_parallel_size,
     )
-
-    parallel_modes = [
-        ParallelMode.GLOBAL,
-        ParallelMode.TENSOR,
-        ParallelMode.PIPELINE,
-        ParallelMode.DATA,
-    ]
 
     assert parallel_context.tensor_parallel_size == tensor_parallel_size
     assert parallel_context.pipeline_parallel_size == pipeline_parallel_size
@@ -95,8 +95,10 @@ def init_parallel_context(
 
         assert type(parallel_context.get_local_rank(parallel_mode)) == int
         assert type(parallel_context.get_world_size(parallel_mode)) == int
+        assert isinstance(parallel_context.get_global_rank_from_local_rank(local_rank, parallel_mode), int)
         assert isinstance(parallel_context.get_ranks_in_group(parallel_mode), list)
 
+        # TODO: fix this
         # NOTE: the LOCAL_RANK_TO_NEXT_RANK is only valid for world_size = 1 and world_size = 8
         if world_size == 8 or world_size == 1:
             next_local_rank = parallel_context.get_next_local_rank(local_rank, parallel_mode)
@@ -104,7 +106,6 @@ def init_parallel_context(
 
             prev_local_rank = parallel_context.get_prev_local_rank(local_rank, parallel_mode)
             assert prev_local_rank == LOCAL_RANK_TO_PREV_RANK[world_size][parallel_mode][local_rank]
-
         # TODO: fix tensor_parallel_size = 1, pipeline_parallel_size = 2, data_parallel_size = 2
         # get_ranks_in_group only return 1
         next_global_rank = parallel_context.get_next_global_rank(parallel_mode)

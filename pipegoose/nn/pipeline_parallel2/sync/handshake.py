@@ -52,23 +52,23 @@ class ProgressTracker(Handshake):
 
     def initiate(self, progress):
         INITIAL_CLOCK_IDX = 0
-        ProgressTracker._broadcast_tasks(progress)
+        ProgressTracker._broadcast_tasks(progress, clock_idx=INITIAL_CLOCK_IDX)
         ProgressTracker._recv_tasks(progress, clock_idx=INITIAL_CLOCK_IDX)
 
     @staticmethod
-    def _broadcast_tasks(progress):
+    def _broadcast_tasks(progress, clock_idx):
         parallel_context = ProgressTracker.parallel_context
         parallel_mode = ProgressTracker.parallel_mode
-        clock_idx = ProgressTracker.clock_idx
 
-        rank = parallel_context.get_local_rank(parallel_mode)
-        world_size = parallel_context.get_world_size(parallel_mode)
+        local_rank = parallel_context.get_local_rank(parallel_mode)
+        local_world_size = parallel_context.get_world_size(parallel_mode)
 
-        for dst in range(world_size):
-            if dst == rank:
+        for local_dst in range(local_world_size):
+            if local_dst == local_rank:
                 continue
 
-            worker_name = parallel_context.get_worker_name(dst)
+            global_dst = parallel_context.get_global_rank_from_local_rank(local_dst, parallel_mode)
+            worker_name = parallel_context.get_worker_name(global_dst)
             rpc.rpc_sync(to=worker_name, func=ProgressTracker._recv_tasks, args=(progress, clock_idx))
 
     @staticmethod
@@ -105,6 +105,7 @@ class ProgressTracker(Handshake):
 
         clock_idx = ProgressTracker.clock_idx
         if ProgressTracker.is_all_confirmed(clock_idx) is True:
-            ProgressTracker.clock_idx += 1
+            NEXT_CLOCK_IDX = clock_idx + 1
+            ProgressTracker.clock_idx = NEXT_CLOCK_IDX
             # broadcast the progress to all worker nodes
-            ProgressTracker._broadcast_tasks(ProgressTracker.progress)
+            ProgressTracker._broadcast_tasks(ProgressTracker.progress, clock_idx=NEXT_CLOCK_IDX)
