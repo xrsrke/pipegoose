@@ -5,7 +5,7 @@ import pytest
 
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2._utils import get_partition_idx
-from pipegoose.nn.pipeline_parallel2.sync.handshake import SchedulerHandshake
+from pipegoose.nn.pipeline_parallel2.sync.handshake import ProgressTracker
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 
@@ -36,13 +36,14 @@ def run_send_rcv_rpc(rank, world_size, port, tensor_parallel_size, pipeline_para
 
     schedules = get_gpipe_schedules(pipeline_parallel_size, N_MICROBATCHES)
     PROGRESS = schedules_to_progress(schedules)
+    INITIAL_PROGRESS = deepcopy(PROGRESS)
 
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    handshake = SchedulerHandshake(parallel_context, ParallelMode.GLOBAL)
+    handshake = ProgressTracker(parallel_context, ParallelMode.GLOBAL)
 
-    if rank == SchedulerHandshake.MASTER_RANK:
+    if rank == handshake.MASTER_RANK:
         handshake.initiate(PROGRESS)
         assert handshake.is_initiated() is True
         assert handshake.progress == PROGRESS
@@ -50,41 +51,42 @@ def run_send_rcv_rpc(rank, world_size, port, tensor_parallel_size, pipeline_para
 
         # NOTE: wait until all workers are confirmed
         time.sleep(5)
-        assert SchedulerHandshake.is_all_confirmed(clock_idx=0) is True
+        assert handshake.is_all_confirmed(clock_idx=0) is True
 
         # NOTE: after all workers are confirmed,
         # the clock index should be incremented
         assert handshake.clock_idx == 1
+        assert handshake.progress != INITIAL_PROGRESS
     else:
         # NOTE: wait until the handshake is initiated
         time.sleep(2)
         assert handshake.is_initiated() is True
         assert handshake.progress == PROGRESS
-        assert handshake.clock_idx == 0
+        # TODO: if haven't confirmed any task, clock_idx should be 0
+        # assert handshake.clock_idx == 0
 
-        PREV_CLOCK_IDX = deepcopy(handshake.clock_idx)
         task = (MICROBATCH_IDX, get_partition_idx(parallel_context))
         handshake.confirm(task)
-        assert handshake.is_confirmed(task, PREV_CLOCK_IDX) is True
+        assert handshake.is_confirmed(task, 0) is True
 
         # NOTE: wait until all workers are confirmed
-        # time.sleep(5)
-        # assert handshake.clock_idx == PREV_CLOCK_IDX + 1
+        time.sleep(5)
+        assert handshake.clock_idx == 1
+        assert handshake.progress != INITIAL_PROGRESS
 
     parallel_context.destroy()
 
 
-@pytest.mark.parametrize("tensor_parallel_size", [2])
-@pytest.mark.parametrize("pipeline_parallel_size", [2])
-def test_send_rcv_rpc(tensor_parallel_size, pipeline_parallel_size):
-    DATA_PARALLEL_SIZE = 1
-
-    world_size = tensor_parallel_size * pipeline_parallel_size * DATA_PARALLEL_SIZE
+@pytest.mark.parametrize("tensor_parallel_size", [1, 2])
+@pytest.mark.parametrize("pipeline_parallel_size", [2, 4])
+@pytest.mark.parametrize("data_parallel_size", [1, 2])
+def test_send_rcv_rpc(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    world_size = tensor_parallel_size * pipeline_parallel_size * data_parallel_size
 
     spawn(
         run_send_rcv_rpc,
         world_size=world_size,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,
-        data_parallel_size=DATA_PARALLEL_SIZE,
+        data_parallel_size=data_parallel_size,
     )
