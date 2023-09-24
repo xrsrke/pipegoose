@@ -5,7 +5,6 @@ from queue import Queue
 from time import sleep
 from typing import Dict, List
 
-import torch
 import torch.distributed.rpc as rpc
 
 from pipegoose.distributed.parallel_context import ParallelContext
@@ -24,6 +23,7 @@ class Handshake(ABC):
         self._ranks_confirmed: Dict[SessionId, List[int]] = set()
 
         self._data = None
+        self._clock_idx = 0
 
     @abstractclassmethod
     def initiate(self):
@@ -64,24 +64,19 @@ class SchedulerHandshake(Handshake):
     # TODO: make this configurable
     MASTER_RANK = 0
 
-    PIPELINE_TASKS = None
+    progress = None
+    clock_idx = 0
 
-    @property
-    def pipeline_progress(self):
-        return SchedulerHandshake.PIPELINE_TASKS
+    # def pipeline_progress(self):
+    #     return SchedulerHandshake._PIPELINE_TASKS
 
-    @pipeline_progress.setter
-    def pipeline_progress(self, data):
-        SchedulerHandshake._recv_execution_plan(data)
+    # @pipeline_progress.setter
+    # def pipeline_progress(self, data):
+    #     SchedulerHandshake._recv_execution_plan(data)
 
     @staticmethod
     def _recv_execution_plan(data):
-        # microbatch_idx, partition_idx = torch.unbind(task, dim=0)
-        # microbatch_idx = microbatch_idx.item()
-        # partition_idx = partition_idx.item()
-        # key = (microbatch_idx, partition_idx)
-        # _PIPELINE_SCHEDULER_SYNC[key] = False
-        SchedulerHandshake.PIPELINE_TASKS = data
+        SchedulerHandshake.progress = data
 
     def initiate(self, data):
         rank = self.parallel_context.get_local_rank(self.parallel_mode)
@@ -93,22 +88,23 @@ class SchedulerHandshake(Handshake):
             worker_name = self.parallel_context.get_worker_name(dst)
             rpc.rpc_sync(to=worker_name, func=SchedulerHandshake._recv_execution_plan, args=(data,))
 
-        self.pipeline_progress = data
-
-    def _set_session(self, session_id: torch.Tensor):
-        self._session_id = session_id
+        # self.pipeline_progress = data
+        SchedulerHandshake._recv_execution_plan(data)
 
     def confirm(self, task):
         # TODO: only non-scheduler ranks should confirm
         master_worker_name = self.parallel_context.get_worker_name(self.MASTER_RANK)
-        rank = self.parallel_context.get_rank(self.parallel_mode)
-        rpc.rpc_sync(master_worker_name, func=self._recv_confirm, args=(rank,))
+        rank = self.parallel_context.get_local_rank(self.parallel_mode)
+        rpc.rpc_sync(master_worker_name, func=SchedulerHandshake._recv_confirm, args=(task, rank))
 
-    def _recv_confirm(self, rank: int):
-        self._queue[self.session_id].put(rank)
+    @staticmethod
+    def _recv_confirm(task, src):
+        clock_idx = SchedulerHandshake.clock_idx
+        progress = SchedulerHandshake.progress
+        progress[clock_idx][task] = True
 
     def is_initiated(self) -> bool:
-        return self.pipeline_progress is not None
+        return self.progress is not None
 
     def is_confirmed(self) -> bool:
         raise NotImplementedError
