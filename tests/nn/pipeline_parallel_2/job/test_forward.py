@@ -77,8 +77,8 @@ def test_forward_job_save_activations_for_backward_pass(forward_package, pipelin
 def run_forward_job_send_output_to_the_next_pipeline_stage(
     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, forward_package
 ):
-    MICROBATCH_IDX = forward_package.metadata.microbatch_idx
-    PARTITION_IDX = forward_package.metadata.partition_idx
+    # MICROBATCH_IDX = forward_package.metadata.microbatch_idx
+    # PARTITION_IDX = forward_package.metadata.partition_idx
 
     pipeline_context = init_pipeline_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
@@ -91,11 +91,11 @@ def run_forward_job_send_output_to_the_next_pipeline_stage(
         from pipegoose.nn.pipeline_parallel2._comm import RECV_QUEUE
 
         sleep(5)
-        # assert RECV_QUEUE.qsize() == 1
+        assert RECV_QUEUE.qsize() == 1
 
-        # received_package = RECV_QUEUE.get()
-        NEXT_PARTITION_IDX = PARTITION_IDX + 1
-        received_package = RECV_QUEUE[(MICROBATCH_IDX, NEXT_PARTITION_IDX)]
+        received_package = RECV_QUEUE.get()
+        # NEXT_PARTITION_IDX = PARTITION_IDX + 1
+        # received_package = RECV_QUEUE[(MICROBATCH_IDX, NEXT_PARTITION_IDX)]
         assert isinstance(received_package, Package)
         assert received_package.metadata.dst == rank
 
