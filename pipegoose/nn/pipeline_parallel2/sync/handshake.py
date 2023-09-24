@@ -67,13 +67,6 @@ class SchedulerHandshake(Handshake):
     progress = None
     clock_idx = 0
 
-    # def pipeline_progress(self):
-    #     return SchedulerHandshake._PIPELINE_TASKS
-
-    # @pipeline_progress.setter
-    # def pipeline_progress(self, data):
-    #     SchedulerHandshake._recv_execution_plan(data)
-
     @staticmethod
     def _recv_execution_plan(data):
         SchedulerHandshake.progress = data
@@ -88,7 +81,6 @@ class SchedulerHandshake(Handshake):
             worker_name = self.parallel_context.get_worker_name(dst)
             rpc.rpc_sync(to=worker_name, func=SchedulerHandshake._recv_execution_plan, args=(data,))
 
-        # self.pipeline_progress = data
         SchedulerHandshake._recv_execution_plan(data)
 
     def confirm(self, task):
@@ -96,6 +88,8 @@ class SchedulerHandshake(Handshake):
         master_worker_name = self.parallel_context.get_worker_name(self.MASTER_RANK)
         rank = self.parallel_context.get_local_rank(self.parallel_mode)
         rpc.rpc_sync(master_worker_name, func=SchedulerHandshake._recv_confirm, args=(task, rank))
+
+        SchedulerHandshake._recv_confirm(task, rank)
 
     @staticmethod
     def _recv_confirm(task, src):
@@ -106,25 +100,21 @@ class SchedulerHandshake(Handshake):
     def is_initiated(self) -> bool:
         return self.progress is not None
 
-    def is_confirmed(self) -> bool:
-        raise NotImplementedError
+    def is_confirmed(self, task) -> bool:
+        return self.progress[self.clock_idx][task] is True
 
     def is_all_confirmed(self) -> bool:
-        num_confirmed = len(self._ranks_confirmed[self.session_id])
-        local_world_size = self.parallel_context.get_world_size(self.parallel_mode)
-        return num_confirmed == local_world_size
+        clock_idx = SchedulerHandshake.clock_idx
+        progress = SchedulerHandshake.progress
+        return all([progress[clock_idx][task] is True for task in progress[clock_idx]])
 
     def wait_until_all_confirmed(self):
         if self.parallel_context.is_first_rank() is True:
             while True:
-                while self._queue.empty() is True:
-                    sleep(self.NUM_SECONDS_IDLE)
-
-                new_rank_confirmed = self._queue.get()
-                self._ranks_confirmed[self.session_id].add(new_rank_confirmed)
-
                 if self.is_all_confirmed() is True:
                     break
+                else:
+                    sleep(self.NUM_SECONDS_IDLE)
         else:
             pass
 
