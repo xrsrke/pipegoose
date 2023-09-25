@@ -6,14 +6,18 @@ import torch.distributed.rpc as rpc
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 
+# NOTE: (microbatch_idx, partition_idx)
 Task = NewType("Task", Tuple[int, int])
 
 
 class Handshake(ABC):
+    master_rank = None
+
     parallel_context = None
     parallel_mode = None
 
-    def __init__(self, parallel_context: ParallelContext, parallel_mode: ParallelMode):
+    def __init__(self, master_rank: int, parallel_context: ParallelContext, parallel_mode: ParallelMode):
+        Handshake.master_rank = master_rank
         Handshake.parallel_context = parallel_context
         Handshake.parallel_mode = parallel_mode
 
@@ -40,9 +44,6 @@ class Handshake(ABC):
 
 class ProgressTracker(Handshake):
     """Pipeline parallelism's progress tracker."""
-
-    # TODO: make this configurable
-    MASTER_RANK = 0
 
     progress = None
     clock_idx = None
@@ -86,7 +87,8 @@ class ProgressTracker(Handshake):
 
     def confirm(self, task: Task):
         # TODO: only non-scheduler ranks should confirm
-        master_worker_name = self.parallel_context.get_worker_name(self.MASTER_RANK)
+        global_master_rank = self.parallel_context.get_global_rank_from_local_rank(self.master_rank, self.parallel_mode)
+        master_worker_name = self.parallel_context.get_worker_name(global_master_rank)
         # rank = self.parallel_context.get_local_rank(self.parallel_mode)
         rpc.rpc_sync(master_worker_name, func=ProgressTracker._recv_confirm_from_worker, args=(task,))
 

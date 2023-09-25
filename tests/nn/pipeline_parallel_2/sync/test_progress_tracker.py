@@ -31,6 +31,7 @@ def schedules_to_progress(schedules):
 
 def run_init_progress_tracker(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     N_MICROBATCHES = 4
+    MASTER_RANK = 0
 
     schedules = get_gpipe_schedules(pipeline_parallel_size, N_MICROBATCHES)
     PROGRESS = schedules_to_progress(schedules)
@@ -38,9 +39,9 @@ def run_init_progress_tracker(rank, world_size, port, tensor_parallel_size, pipe
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    tracker = ProgressTracker(parallel_context, ParallelMode.GLOBAL)
+    tracker = ProgressTracker(MASTER_RANK, parallel_context, ParallelMode.GLOBAL)
 
-    if rank == tracker.MASTER_RANK:
+    if rank == tracker.master_rank:
         tracker.initiate(PROGRESS)
         assert tracker.is_initiated() is True
         assert tracker.progress == PROGRESS
@@ -75,6 +76,7 @@ def test_init_progress_tracker():
 def run_confirm_progress_tracker(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     N_MICROBATCHES = 4
     MICROBATCH_IDX = 0
+    MASTER_RANK = 0
 
     schedules = get_gpipe_schedules(pipeline_parallel_size, N_MICROBATCHES)
     PROGRESS = schedules_to_progress(schedules)
@@ -83,9 +85,9 @@ def run_confirm_progress_tracker(rank, world_size, port, tensor_parallel_size, p
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    tracker = ProgressTracker(parallel_context, ParallelMode.GLOBAL)
+    tracker = ProgressTracker(MASTER_RANK, parallel_context, ParallelMode.GLOBAL)
 
-    if rank == tracker.MASTER_RANK:
+    if rank == tracker.master_rank:
         tracker.initiate(PROGRESS)
         # NOTE: wait until all workers are confirmed
         time.sleep(5)
