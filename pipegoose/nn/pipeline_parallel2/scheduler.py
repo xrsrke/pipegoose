@@ -1,20 +1,13 @@
 from abc import ABC, abstractclassmethod
-from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List
 
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
+from pipegoose.nn.pipeline_parallel2.task import Task
 
 
 class SchedulerType(Enum):
     GPIPE = auto()
-
-
-@dataclass
-class Task:
-    job_type: JobType
-    microbatch_idx: int
-    partition_idx: int
 
 
 class BaseScheduler(ABC):

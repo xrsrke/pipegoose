@@ -1,20 +1,20 @@
 from abc import ABC, abstractclassmethod
-from typing import NewType, Tuple
+from typing import Dict, NewType
 
 import torch.distributed.rpc as rpc
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.nn.pipeline_parallel2.task import Task
 
-# NOTE: (microbatch_idx, partition_idx)
-Task = NewType("Task", Tuple[int, int])
+Progress = NewType("Progress", Dict[int, Dict[Task, bool]])
 
 
 class Handshake(ABC):
-    master_rank = None
+    master_rank: int = None
 
-    parallel_context = None
-    parallel_mode = None
+    parallel_context: ParallelContext = None
+    parallel_mode: ParallelMode = None
 
     def __init__(self, master_rank: int, parallel_context: ParallelContext, parallel_mode: ParallelMode):
         Handshake.master_rank = master_rank
@@ -45,13 +45,13 @@ class Handshake(ABC):
 class ProgressTracker(Handshake):
     """Pipeline parallelism's progress tracker."""
 
-    progress = None
-    clock_idx = None
+    progress: Progress = None
+    clock_idx: int = None
 
     def is_initiated(self) -> bool:
         return self.progress is not None
 
-    def initiate(self, progress):
+    def initiate(self, progress: Progress):
         INITIAL_CLOCK_IDX = 0
         ProgressTracker._broadcast_tasks(progress, clock_idx=INITIAL_CLOCK_IDX)
         ProgressTracker._recv_tasks(progress, clock_idx=INITIAL_CLOCK_IDX)
@@ -73,7 +73,7 @@ class ProgressTracker(Handshake):
             rpc.rpc_sync(to=worker_name, func=ProgressTracker._recv_tasks, args=(progress, clock_idx))
 
     @staticmethod
-    def _recv_tasks(progress, clock_idx):
+    def _recv_tasks(progress: Progress, clock_idx: int):
         ProgressTracker.progress = progress
         ProgressTracker.clock_idx = clock_idx
 

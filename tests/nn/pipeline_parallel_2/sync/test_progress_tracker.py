@@ -9,6 +9,10 @@ from pipegoose.nn.pipeline_parallel2.sync.handshake import ProgressTracker
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 
+def get_task(microbatch_idx, partition_idx):
+    return (microbatch_idx, partition_idx)
+
+
 def get_gpipe_schedules(n_partitions, n_microbatches):
     n_clock_cycles = n_partitions + n_microbatches - 1
     schedules = []
@@ -18,7 +22,8 @@ def get_gpipe_schedules(n_partitions, n_microbatches):
         tasks = []
         for partition_idx in range(start_partrition, end_partition):
             microbatch_idx = clock_idx - partition_idx
-            tasks.append((microbatch_idx, partition_idx))
+            task = get_task(microbatch_idx, partition_idx)
+            tasks.append(task)
 
         schedules.append(tasks)
 
@@ -102,7 +107,7 @@ def run_confirm_progress_tracker(rank, world_size, port, tensor_parallel_size, p
         # NOTE: wait until the tracker is initiated
         time.sleep(2)
         partition_idx = get_partition_idx(parallel_context)
-        task = (MICROBATCH_IDX, partition_idx)
+        task = get_task(MICROBATCH_IDX, partition_idx)
         tracker.confirm(task)
         assert tracker.is_confirmed(task, clock_idx=0) is True
 
