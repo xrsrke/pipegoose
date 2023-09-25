@@ -30,11 +30,11 @@ class Handshake(ABC):
         raise NotImplementedError
 
     @abstractclassmethod
-    def is_confirmed(self) -> bool:
+    def is_confirmed(self, clock_idx: int) -> bool:
         raise NotImplementedError
 
     @abstractclassmethod
-    def is_all_confirmed(self) -> bool:
+    def is_all_confirmed(self, clock_idx: int) -> bool:
         raise NotImplementedError
 
 

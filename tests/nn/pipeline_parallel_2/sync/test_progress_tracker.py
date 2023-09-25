@@ -15,7 +15,6 @@ def get_gpipe_schedules(n_partitions, n_microbatches):
     for clock_idx in range(n_clock_cycles):
         start_partrition = max(clock_idx + 1 - n_microbatches, 0)
         end_partition = min(clock_idx + 1, n_partitions)
-
         tasks = []
         for partition_idx in range(start_partrition, end_partition):
             microbatch_idx = clock_idx - partition_idx
@@ -30,7 +29,50 @@ def schedules_to_progress(schedules):
     return {i: {item: False for item in sublist} for i, sublist in enumerate(schedules)}
 
 
-def run_progress_tracker(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+def run_init_progress_tracker(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+    N_MICROBATCHES = 4
+
+    schedules = get_gpipe_schedules(pipeline_parallel_size, N_MICROBATCHES)
+    PROGRESS = schedules_to_progress(schedules)
+
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
+    tracker = ProgressTracker(parallel_context, ParallelMode.GLOBAL)
+
+    if rank == tracker.MASTER_RANK:
+        tracker.initiate(PROGRESS)
+        assert tracker.is_initiated() is True
+        assert tracker.progress == PROGRESS
+        assert tracker.clock_idx == 0
+        assert tracker.is_all_confirmed(clock_idx=0) is False
+    else:
+        # NOTE: wait until the tracker is initiated
+        time.sleep(2)
+        assert tracker.is_initiated() is True
+        # TODO: if haven't confirmed any task, clock_idx should be 0
+        assert tracker.progress == PROGRESS
+        assert tracker.clock_idx == 0
+
+    parallel_context.destroy()
+
+
+def test_init_progress_tracker():
+    TENSOR_PARALLEL_SIZE = 2
+    PIPELINE_PARALLEL_SIZE = 2
+    DATA_PARALLEL_SIZE = 2
+    world_size = TENSOR_PARALLEL_SIZE * PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE
+
+    spawn(
+        run_init_progress_tracker,
+        world_size=world_size,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
+    )
+
+
+def run_confirm_progress_tracker(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     N_MICROBATCHES = 4
     MICROBATCH_IDX = 0
 
@@ -45,13 +87,10 @@ def run_progress_tracker(rank, world_size, port, tensor_parallel_size, pipeline_
 
     if rank == tracker.MASTER_RANK:
         tracker.initiate(PROGRESS)
-        assert tracker.is_initiated() is True
-        assert tracker.progress == PROGRESS
-        assert tracker.clock_idx == 0
-
         # NOTE: wait until all workers are confirmed
         time.sleep(5)
         assert tracker.is_all_confirmed(clock_idx=0) is True
+        assert tracker.is_all_confirmed(clock_idx=1) is False
 
         # NOTE: after all workers are confirmed,
         # the clock index should be incremented
@@ -60,19 +99,15 @@ def run_progress_tracker(rank, world_size, port, tensor_parallel_size, pipeline_
     else:
         # NOTE: wait until the tracker is initiated
         time.sleep(2)
-        assert tracker.is_initiated() is True
-        # NOTE: other workers may updated the progress
-        # so the progress should be updated
-        # TODO: if haven't confirmed any task, clock_idx should be 0
-        # assert tracker.progress == PROGRESS
-        # assert handshake.clock_idx == 0
-
-        task = (MICROBATCH_IDX, get_partition_idx(parallel_context))
+        partition_idx = get_partition_idx(parallel_context)
+        task = (MICROBATCH_IDX, partition_idx)
         tracker.confirm(task)
-        assert tracker.is_confirmed(task, 0) is True
+        assert tracker.is_confirmed(task, clock_idx=0) is True
 
         # NOTE: wait until all workers are confirmed
         time.sleep(5)
+        assert tracker.is_all_confirmed(clock_idx=0) is True
+        assert tracker.is_all_confirmed(clock_idx=1) is False
         assert tracker.clock_idx == 1
         assert tracker.progress != INITIAL_PROGRESS
 
@@ -82,11 +117,11 @@ def run_progress_tracker(rank, world_size, port, tensor_parallel_size, pipeline_
 @pytest.mark.parametrize("tensor_parallel_size", [1, 2])
 @pytest.mark.parametrize("pipeline_parallel_size", [2, 4])
 @pytest.mark.parametrize("data_parallel_size", [1, 2])
-def test_progress_tracker(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+def test_confirm_progress_tracker(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     world_size = tensor_parallel_size * pipeline_parallel_size * data_parallel_size
 
     spawn(
-        run_progress_tracker,
+        run_confirm_progress_tracker,
         world_size=world_size,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,
