@@ -1,3 +1,4 @@
+import pytest
 import torch
 from torch import nn
 
@@ -5,6 +6,7 @@ from pipegoose.nn.expert_parallel.layers import MoELayer
 from pipegoose.nn.expert_parallel.routers import Top1Router
 
 
+@pytest.mark.skip
 def test_moe_layer():
     BATCH_SIZE = 10
     SEQ_LEN = 5

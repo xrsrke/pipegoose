@@ -1,23 +1,40 @@
 from abc import ABC, abstractclassmethod
-from typing import Dict, NewType
+from typing import Dict, List, NewType
 
 import torch.distributed.rpc as rpc
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.nn.pipeline_parallel2.sync.callback import Callback
 from pipegoose.nn.pipeline_parallel2.task import Task
 
-Progress = NewType("Progress", Dict[int, Dict[Task, bool]])
+ClockIdx = NewType("ClockIdx", int)
+Progress = NewType("Progress", Dict[ClockIdx, Dict[Task, bool]])
 
 
 class Handshake(ABC):
     master_rank: int = None
+    callbacks: List[Callback] = []
 
     parallel_context: ParallelContext = None
     parallel_mode: ParallelMode = None
 
-    def __init__(self, master_rank: int, parallel_context: ParallelContext, parallel_mode: ParallelMode):
+    def __init__(
+        self,
+        master_rank: int,
+        callbacks: List[Callback] = [],
+        parallel_context: ParallelContext = None,
+        parallel_mode: ParallelMode = None,
+    ):
+        assert isinstance(
+            parallel_context, ParallelContext
+        ), f"parallel_context must be an instance of ParallelContext, got {type(parallel_context)}"
+        assert isinstance(
+            parallel_mode, ParallelMode
+        ), f"parallel_mode must be an instance of ParallelMode, got {type(parallel_mode)}"
+
         Handshake.master_rank = master_rank
+        Handshake.callbacks = callbacks
         Handshake.parallel_context = parallel_context
         Handshake.parallel_mode = parallel_mode
 
@@ -40,6 +57,15 @@ class Handshake(ABC):
     @abstractclassmethod
     def is_all_confirmed(self, clock_idx: int) -> bool:
         raise NotImplementedError
+
+    @staticmethod
+    def _run_callback(event_name: str, *args, **kwargs):
+        sorted_callbacks = sorted(Handshake.callbacks, key=lambda x: x.order)
+
+        for callback in sorted_callbacks:
+            event_method = getattr(callback, event_name, None)
+            if event_method is not None:
+                event_method(*args, **kwargs)
 
 
 class ProgressTracker(Handshake):
@@ -76,6 +102,9 @@ class ProgressTracker(Handshake):
     def _recv_tasks(progress: Progress, clock_idx: int):
         ProgressTracker.progress = progress
         ProgressTracker.clock_idx = clock_idx
+
+        # NOTE: after a worker node receives the progress, it should run the callback
+        ProgressTracker._run_callback("after_new_clock_cycle", progress=progress, clock_idx=clock_idx)
 
     def is_confirmed(self, task: Task, clock_idx: int) -> bool:
         return self.progress[clock_idx][task] is True

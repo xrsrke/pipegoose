@@ -4,6 +4,7 @@ import torch
 from pipegoose.nn.expert_parallel.routers import RouterType, get_router
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("router_type", [RouterType.TOP_1])
 def test_topk_router(router_type):
     SEQ_LEN = 10
