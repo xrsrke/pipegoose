@@ -14,6 +14,7 @@ class PipelineContext:
         self.parallel_context = parallel_context
 
         self._clock_idx = 0
+        # NOTE: block CPU thread until the next clock cycle
         self._wait_new_clock_cycle = threading.Condition()
 
     @property

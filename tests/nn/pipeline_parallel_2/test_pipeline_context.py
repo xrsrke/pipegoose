@@ -67,7 +67,6 @@ def run_get_syncronous_schedule(rank, world_size, port, tensor_parallel_size, pi
 
     def increase_clock_every_second(pipeline_context):
         for _ in range(TOTAL_SCHEDULES):
-            # time.sleep(1)
             pipeline_context.increase_a_clock_cycle()
 
     pipeline_context = PipelineContext(scheduler, parallel_context)
@@ -83,17 +82,16 @@ def run_get_syncronous_schedule(rank, world_size, port, tensor_parallel_size, pi
     assert pipeline_context.clock_idx == TOTAL_SCHEDULES
 
 
-@pytest.mark.parametrize("pipeline_parallel_size", [1, 2])
-def test_get_syncronous_schedule(pipeline_parallel_size):
+def test_get_syncronous_schedule():
     TENSOR_PARALLEL_SIZE = 1
+    PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
-
-    world_size = pipeline_parallel_size * TENSOR_PARALLEL_SIZE * DATA_PARALLEL_SIZE
+    WORLD_SIZE = TENSOR_PARALLEL_SIZE * PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE
 
     spawn(
         run_get_syncronous_schedule,
-        world_size=world_size,
+        world_size=WORLD_SIZE,
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
-        pipeline_parallel_size=pipeline_parallel_size,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
     )

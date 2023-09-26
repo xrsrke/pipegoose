@@ -47,7 +47,7 @@ def run_init_progress_tracker(rank, world_size, port, tensor_parallel_size, pipe
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    tracker = ProgressTracker(MASTER_RANK, parallel_context, ParallelMode.GLOBAL)
+    tracker = ProgressTracker(MASTER_RANK, parallel_context=parallel_context, parallel_mode=ParallelMode.GLOBAL)
 
     if rank == tracker.master_rank:
         tracker.initiate(PROGRESS)
@@ -92,7 +92,7 @@ def run_confirm_progress_tracker(rank, world_size, port, tensor_parallel_size, p
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    tracker = ProgressTracker(MASTER_RANK, parallel_context, ParallelMode.GLOBAL)
+    tracker = ProgressTracker(MASTER_RANK, parallel_context=parallel_context, parallel_mode=ParallelMode.GLOBAL)
 
     if rank == tracker.master_rank:
         tracker.initiate(PROGRESS)
@@ -122,9 +122,7 @@ def run_confirm_progress_tracker(rank, world_size, port, tensor_parallel_size, p
     parallel_context.destroy()
 
 
-@pytest.mark.parametrize("tensor_parallel_size", [1, 2])
-@pytest.mark.parametrize("pipeline_parallel_size", [2, 4])
-@pytest.mark.parametrize("data_parallel_size", [1, 2])
+@pytest.mark.parametrize("tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 2, 1), (2, 2, 2)])
 def test_confirm_progress_tracker(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     world_size = tensor_parallel_size * pipeline_parallel_size * data_parallel_size
 

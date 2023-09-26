@@ -16,19 +16,6 @@ class BaseScheduler(ABC):
         """Return the schedule for the whole training run."""
         raise NotImplementedError
 
-    @abstractclassmethod
-    def clock_idx(self) -> int:
-        """Return the current clock cycle index."""
-        raise NotImplementedError
-
-    @abstractclassmethod
-    def start(self):
-        pass
-
-    @abstractclassmethod
-    def is_running(self):
-        pass
-
 
 class GPipeScheduler(BaseScheduler):
     """
@@ -50,17 +37,6 @@ class GPipeScheduler(BaseScheduler):
 
         self.n_microbatches = n_microbatches
         self.n_partitions = n_partitions
-
-        self._clock_idx = None
-        self._schedules = None
-
-    @property
-    def clock_idx(self):
-        pass
-
-    @property
-    def is_running(self):
-        pass
 
     def get_schedules(self) -> List[List[Task]]:
         def generate_forward_schedule(n_microbatches, n_partitions):
@@ -100,23 +76,9 @@ class GPipeScheduler(BaseScheduler):
 
         return forward_schedule
 
-    def start(self):
-        self._schedules = self.get_schedules()
-
     @property
     def total_clock_cycles(self) -> int:
         return len(self.get_schedules())
-
-
-class JobTracker:
-    def __init__(self, n_microbatches: int, n_partitions: int):
-        self.n_microbatches = n_microbatches
-        self.n_partitions = n_partitions
-
-        self._progress = {
-            partition_idx: {microbatch_idx: False for microbatch_idx in range(n_microbatches)}
-            for partition_idx in range(n_partitions)
-        }
 
 
 def get_scheduler(scheduler_type: SchedulerType) -> BaseScheduler:
