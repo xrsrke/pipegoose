@@ -103,6 +103,10 @@ class GPipeScheduler(BaseScheduler):
     def start(self):
         self._schedules = self.get_schedules()
 
+    @property
+    def total_clock_cycles(self) -> int:
+        return len(self.get_schedules())
+
 
 class JobTracker:
     def __init__(self, n_microbatches: int, n_partitions: int):

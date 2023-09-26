@@ -1,3 +1,4 @@
+import threading
 from typing import List
 
 from pipegoose.distributed.parallel_context import ParallelContext
@@ -13,6 +14,7 @@ class PipelineContext:
         self.parallel_context = parallel_context
 
         self._clock_idx = 0
+        self._wait_new_clock_cycle = threading.Condition()
 
     @property
     def partition_idx(self) -> int:
@@ -30,7 +32,9 @@ class PipelineContext:
     def increase_a_clock_cycle(self):
         """Increase the current clock cycle in the pipline by 1."""
         # TODO: add assert maximum clock cycles
-        self._clock_idx += 1
+        with self._wait_new_clock_cycle:
+            self._clock_idx += 1
+            self._wait_new_clock_cycle.notify_all()
 
     @property
     def schedule(self) -> List:
@@ -41,6 +45,15 @@ class PipelineContext:
     def schedules(self) -> List:
         """Get the schedule for entire training run."""
         return self.scheduler.get_schedules()
+
+    def get_schedule(self):
+        with self._wait_new_clock_cycle:
+            while self.clock_idx < self.scheduler.total_clock_cycles:
+                schedules = self.get_schedule_from_partition(self.clock_idx, self.partition_idx)
+                yield from schedules
+
+                # NOTE: wait for the next clock cycle
+                self._wait_new_clock_cycle.wait()
 
     def get_schedule_from_partition(self, clock_idx: int, partition_idx: int):
         """Get the schedule of a partition at a certain clock cycle."""
