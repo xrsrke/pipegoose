@@ -13,6 +13,7 @@ class PipelineContext:
         self.scheduler = scheduler
         self.parallel_context = parallel_context
 
+        # NOTE: fix this
         self._clock_idx = 0
         # NOTE: block CPU thread until the next clock cycle
         self._wait_new_clock_cycle = threading.Condition()
@@ -84,3 +85,12 @@ class PipelineContext:
             microbatch_idx=microbatch_idx,
         )
         return schedule
+
+    @property
+    def is_first_stage(self) -> bool:
+        return self.partition_idx == 0
+
+    @property
+    def is_last_stage(self) -> bool:
+        n_pipeline_stages = self.parallel_context.pipeline_parallel_size
+        return self.partition_idx == n_pipeline_stages - 1

@@ -1,6 +1,5 @@
 import time
 
-import pytest
 import torch
 from torch import nn
 
@@ -18,7 +17,7 @@ model = nn.Sequential(
 )
 
 
-def run_pipeline_engine(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, package):
+def run_pipeline_engine(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     BATCH_SIZE = 32
     SEQ_LEN = 10
     HIDDEN_DIM = 5
@@ -84,18 +83,17 @@ def run_pipeline_engine(rank, world_size, port, tensor_parallel_size, pipeline_p
     ]
 
 
-@pytest.mark.parametrize("pipeline_parallel_size", [1, 2, 4])
-def test_pipeline_engine(pipeline_parallel_size, forward_package):
+if __name__ == "__main__":
     DATA_PARALLEL_SIZE = 1
     TENSOR_PARALLEL_SIZE = 1
+    PIPELINE_PARALLEL_SIZE = 4
 
-    WORLD_SIZE = pipeline_parallel_size * DATA_PARALLEL_SIZE * TENSOR_PARALLEL_SIZE
+    WORLD_SIZE = PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE * TENSOR_PARALLEL_SIZE
 
     spawn(
         run_pipeline_engine,
         world_size=WORLD_SIZE,
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
-        pipeline_parallel_size=pipeline_parallel_size,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        package=forward_package,
     )

@@ -6,7 +6,10 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2._comm import send_package
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.job import Job
+from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Package
+from pipegoose.nn.pipeline_parallel2.sync.handshake import get_progress_tracker
+from pipegoose.nn.pipeline_parallel2.task import Task
 
 
 class ForwardJob(Job):
@@ -24,8 +27,10 @@ class CreateForwardOutputPackageCallback(Callback):
         input_metadata = deepcopy(self.job.input.metadata)
 
         package = Package(data, input_metadata)
-        package = self._update_next_pipeline_stage(package)
-        package = self._update_src_and_dst_rank(package)
+
+        if not self.job.pipeline_context.is_last_stage:
+            package = self._update_next_pipeline_stage(package)
+            package = self._update_src_and_dst_rank(package)
 
         self.job.output = package
 
@@ -40,6 +45,16 @@ class CreateForwardOutputPackageCallback(Callback):
         # so we hardcode and select that one
         # TODO: take into account that a pipeline stage can has more than one task
         # in a clock cycle, then find the correspond task to send the output to
+
+        print("---------- _update_next_pipeline_stage -----------")
+        print(f"rank: {self.job.pipeline_context.parallel_context.get_local_rank(ParallelMode.GLOBAL)}")
+        print(f"clock_idx: {self.job.pipeline_context.clock_idx}")
+        print(
+            f"schedules = {self.job.pipeline_context.get_schedule_from_microbatch(clock_idx=self.job.pipeline_context.clock_idx+1, microbatch_idx=microbatch_idx)}"
+        )
+        print(f"microbatch_idx: {microbatch_idx}")
+        print(f"next_schedule: {next_schedule}")
+
         next_partition = next_schedule[0].partition_idx
         package.metadata.partition_idx = next_partition
 
@@ -85,3 +100,19 @@ class SendForwardPackageCallback(Callback):
             output = self.job.output
             assert isinstance(output, Package), f"output must be an instance of Package, got {type(output)}"
             send_package(output, parallel_context)
+
+
+class ConfirmCompleteATaskToProgressTracker(Callback):
+    """Confirm that a task is completed to progress tracker."""
+
+    order = 6
+
+    def after_compute(self):
+        progress_tracker = get_progress_tracker()
+        microbatch_idx = self.job.input.metadata.microbatch_idx
+        task = Task(
+            job_type=JobType.FORWARD,
+            microbatch_idx=microbatch_idx,
+            partition_idx=self.job.input.metadata.partition_idx,
+        )
+        progress_tracker.confirm(task)

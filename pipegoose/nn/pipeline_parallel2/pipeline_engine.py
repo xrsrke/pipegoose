@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 
 import torch
@@ -13,6 +14,11 @@ from pipegoose.nn.pipeline_parallel2._worker import BaseWorkerManager
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 from pipegoose.nn.pipeline_parallel2.queue import JobQueue
 from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
+from pipegoose.nn.pipeline_parallel2.sync.callback import Callback
+from pipegoose.nn.pipeline_parallel2.sync.handshake import (
+    ProgressTracker,
+    set_progress_tracker,
+)
 
 
 @dataclass
@@ -51,33 +57,76 @@ class PipelineEngine:
         self.partition_func = partition_func
 
     def run(self, inputs: torch.Tensor) -> torch.Tensor:
+        MASTER_RANK = 0
+
         self.worker_manager.spawn()
         n_microbatches = self.scheduler.n_microbatches
 
         # microbatches = microbatch.split(inputs, n_microbatches=n_microbatches)
         microbatches = torch.chunk(inputs, chunks=n_microbatches, dim=0)
 
-        if self.parallel_context.is_first_rank(ParallelMode.PIPELINE):
-            for task in self.pipeline_context.schedule:
-                microbatch_idx = task.microbatch_idx
-                partition_idx = task.partition_idx
+        # NOTE: add a callback to the progress tracker
+        # that if the clock_idx is increased, then
+        # notify pipeline_context to yield the next schedule
+        class IncreasePipelineContextClockCycleCallback(Callback):
+            def __init__(self, pipeline_context):
+                self.pipeline_context = pipeline_context
 
+            def after_new_clock_cycle(self, progress, clock_idx):
+                self.pipeline_context.increase_a_clock_cycle()
+
+        callbacks = [IncreasePipelineContextClockCycleCallback(self.pipeline_context)]
+
+        if self.parallel_context.is_first_rank(ParallelMode.PIPELINE):
+            progress_tracker = ProgressTracker(
+                MASTER_RANK, callbacks=callbacks, parallel_context=self.parallel_context, parallel_mode=ParallelMode.GLOBAL
+            )
+
+            schedules = self.pipeline_context.schedules
+            progress_tracker.initiate(schedules)
+        else:
+            progress_tracker = ProgressTracker(
+                MASTER_RANK, callbacks=callbacks, parallel_context=self.parallel_context, parallel_mode=ParallelMode.GLOBAL
+            )
+
+        set_progress_tracker(progress_tracker)
+
+        print("----------------------------")
+        print("before loop")
+        print("clock_idx", self.pipeline_context.clock_idx)
+
+        time.sleep(2)
+
+        for task in self.pipeline_context.get_schedule():
+            time.sleep(2)
+            print("[loop] ------------------")
+            print("[loop] clock_idx", self.pipeline_context.clock_idx)
+            print("[loop] rank", self.parallel_context.get_local_rank(ParallelMode.GLOBAL))
+
+            microbatch_idx = task.microbatch_idx
+            partition_idx = task.partition_idx
+            if self.parallel_context.is_first_rank(ParallelMode.PIPELINE):
                 if partition_idx == 0:
                     batch = microbatches[microbatch_idx]
-                    forward_job = self._construct_first_job(microbatch_idx, input=batch)
-                    JobQueue.PENDING_JOBS.put(forward_job)
-        else:
-            # package = self._retrieve_package_from_received_package(microbatch_idx, partition_idx)
-            package = RECV_QUEUE.get()
+                    package = self._construct_first_package(microbatch_idx, input=batch)
+            else:
+                package = RECV_QUEUE.get()
+
+            print("received a package", package.metadata)
+
             job = create_job(self.partition_func, package, self.pipeline_context)
+
+            print(f"created a job: {package.metadata}")
+
             JobQueue.PENDING_JOBS.put(job)
 
-    def _retrieve_package_from_received_package(self, microbatch_idx, partition_idx):
-        # package = RECV_QUEUE[(microbatch_idx, partition_idx)]
-        package = RECV_QUEUE.get()
-        return package
+    # def _retrieve_package_from_received_package(self, microbatch_idx, partition_idx):
+    #     # package = RECV_QUEUE[(microbatch_idx, partition_idx)]
+    #     package = RECV_QUEUE.get()
+    #     return package
 
-    def _construct_first_job(self, microbatch_idx: int, input: torch.Tensor):
+    def _construct_first_package(self, microbatch_idx: int, input: torch.Tensor):
+        """Construct the first forward package of a microbatch."""
         PARTITION_IDX = 0
         IS_TRAINING = torch.is_grad_enabled()
 
@@ -97,5 +146,4 @@ class PipelineEngine:
             metadata=metadata,
         )
 
-        job = create_job(self.partition_func, package, self.pipeline_context)
-        return job
+        return package

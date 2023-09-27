@@ -12,6 +12,19 @@ ClockIdx = NewType("ClockIdx", int)
 Progress = NewType("Progress", Dict[ClockIdx, Dict[Task, bool]])
 
 
+_PROGRESS_TRACKER = None
+
+
+def set_progress_tracker(progress_tracker):
+    global _PROGRESS_TRACKER
+    _PROGRESS_TRACKER = progress_tracker
+
+
+def get_progress_tracker():
+    global _PROGRESS_TRACKER
+    return _PROGRESS_TRACKER
+
+
 class Handshake(ABC):
     master_rank: int = None
     callbacks: List[Callback] = []
@@ -80,7 +93,9 @@ class ProgressTracker(Handshake):
     def initiate(self, progress: Progress):
         INITIAL_CLOCK_IDX = 0
         ProgressTracker._broadcast_tasks(progress, clock_idx=INITIAL_CLOCK_IDX)
-        ProgressTracker._recv_tasks(progress, clock_idx=INITIAL_CLOCK_IDX)
+        # ProgressTracker._recv_tasks(progress, clock_idx=INITIAL_CLOCK_IDX)
+        ProgressTracker.progress = progress
+        ProgressTracker.clock_idx = INITIAL_CLOCK_IDX
 
     @staticmethod
     def _broadcast_tasks(progress, clock_idx):
@@ -103,6 +118,7 @@ class ProgressTracker(Handshake):
         ProgressTracker.progress = progress
         ProgressTracker.clock_idx = clock_idx
 
+        # NOTE: don't increase a new clock cycle if just initializing it
         # NOTE: after a worker node receives the progress, it should run the callback
         ProgressTracker._run_callback("after_new_clock_cycle", progress=progress, clock_idx=clock_idx)
 
