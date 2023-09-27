@@ -137,6 +137,8 @@ class ProgressTracker(Handshake):
         # rank = self.parallel_context.get_local_rank(self.parallel_mode)
         rpc.rpc_sync(master_worker_name, func=ProgressTracker._recv_confirm_from_worker, args=(task,))
 
+        # NOTE: if master node confirm itself, then no need rpc call
+
         # NOTE: a worker node should confirm itself
         ProgressTracker._update_progress(task)
 

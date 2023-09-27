@@ -2,7 +2,7 @@ import threading
 from typing import List
 
 from pipegoose.distributed.parallel_context import ParallelContext
-from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.nn.pipeline_parallel2._utils import get_partition_idx
 from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
 
 
@@ -21,9 +21,10 @@ class PipelineContext:
     @property
     def partition_idx(self) -> int:
         parallel_context = self.parallel_context
-        rank = parallel_context.get_local_rank(ParallelMode.PIPELINE)
-        n_ranks_per_group = len(parallel_context.get_ranks_in_group(ParallelMode.PIPELINE))
-        pipeline_stage_idx = rank // n_ranks_per_group
+        # rank = parallel_context.get_local_rank(ParallelMode.PIPELINE)
+        # n_ranks_per_group = len(parallel_context.get_ranks_in_group(ParallelMode.PIPELINE))
+        # pipeline_stage_idx = rank // n_ranks_per_group
+        pipeline_stage_idx = get_partition_idx(parallel_context)
         return pipeline_stage_idx
 
     @property
@@ -52,7 +53,7 @@ class PipelineContext:
         with self._wait_new_clock_cycle:
             while self.clock_idx < self.scheduler.total_clock_cycles:
                 schedules = self.get_schedule_from_partition(self.clock_idx, self.partition_idx)
-                yield from schedules
+                yield schedules
 
                 # NOTE: wait for the next clock cycle
                 self._wait_new_clock_cycle.wait()

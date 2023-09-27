@@ -14,6 +14,7 @@ from pipegoose.nn.pipeline_parallel2._job.backward import (
     SendBackwardPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.forward import (
+    ConfirmCompleteATaskToProgressTracker,
     CreateForwardOutputPackageCallback,
     ForwardJob,
     SaveActivationIfTrainingCallback,
@@ -37,7 +38,12 @@ class JobCreator(ABC):
 class _ForwardJobCreator(JobCreator):
     """Put a forward job into job queue for a worker to execute."""
 
-    CBS = [CreateForwardOutputPackageCallback, SaveActivationIfTrainingCallback, SendForwardPackageCallback]
+    CBS = [
+        CreateForwardOutputPackageCallback,
+        SaveActivationIfTrainingCallback,
+        SendForwardPackageCallback,
+        ConfirmCompleteATaskToProgressTracker,
+    ]
 
     @classmethod
     def create(cls, function: Callable, package: Package, pipeline_context: PipelineContext) -> ForwardJob:

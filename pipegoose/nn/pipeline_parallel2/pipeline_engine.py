@@ -83,8 +83,14 @@ class PipelineEngine:
             )
 
             schedules = self.pipeline_context.schedules
-            progress_tracker.initiate(schedules)
+            progress = {
+                i: {(item.microbatch_idx, item.partition_idx): False for item in sublist}
+                for i, sublist in enumerate(schedules)
+            }
+            progress_tracker.initiate(progress)
+            time.sleep(2)
         else:
+            time.sleep(2)
             progress_tracker = ProgressTracker(
                 MASTER_RANK, callbacks=callbacks, parallel_context=self.parallel_context, parallel_mode=ParallelMode.GLOBAL
             )
@@ -97,28 +103,38 @@ class PipelineEngine:
 
         time.sleep(2)
 
-        for task in self.pipeline_context.get_schedule():
+        for tasks in self.pipeline_context.get_schedule():
+
             time.sleep(2)
-            print("[loop] ------------------")
-            print("[loop] clock_idx", self.pipeline_context.clock_idx)
-            print("[loop] rank", self.parallel_context.get_local_rank(ParallelMode.GLOBAL))
+            # print("[loop] ------------------")
+            rank = self.parallel_context.get_local_rank(ParallelMode.GLOBAL)
+            partition_idx = self.pipeline_context.partition_idx
 
-            microbatch_idx = task.microbatch_idx
-            partition_idx = task.partition_idx
-            if self.parallel_context.is_first_rank(ParallelMode.PIPELINE):
-                if partition_idx == 0:
-                    batch = microbatches[microbatch_idx]
-                    package = self._construct_first_package(microbatch_idx, input=batch)
-            else:
-                package = RECV_QUEUE.get()
+            if rank == 0:
+                assert 1 == 1
 
-            print("received a package", package.metadata)
+            if len(tasks) > 0:
+                print(f"[loop] clock_idx={self.pipeline_context.clock_idx}, rank={rank}, partition_idx={partition_idx}")
+                for task in tasks:
+                    microbatch_idx = task.microbatch_idx
+                    partition_idx = task.partition_idx
+                    if self.parallel_context.is_first_rank(ParallelMode.PIPELINE):
+                        if partition_idx == 0:
+                            batch = microbatches[microbatch_idx]
+                            package = self._construct_first_package(microbatch_idx, input=batch)
+                    else:
+                        package = RECV_QUEUE.get()
 
-            job = create_job(self.partition_func, package, self.pipeline_context)
+                    print(
+                        f"[received a package]clock_idx={self.pipeline_context.clock_idx}, rank={rank}, partition_idx={partition_idx}",
+                        package.metadata,
+                    )
 
-            print(f"created a job: {package.metadata}")
+                    job = create_job(self.partition_func, package, self.pipeline_context)
 
-            JobQueue.PENDING_JOBS.put(job)
+                    # print(f"created a job: {package.metadata}")
+
+                    JobQueue.PENDING_JOBS.put(job)
 
     # def _retrieve_package_from_received_package(self, microbatch_idx, partition_idx):
     #     # package = RECV_QUEUE[(microbatch_idx, partition_idx)]
