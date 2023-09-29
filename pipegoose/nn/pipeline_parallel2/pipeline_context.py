@@ -56,6 +56,9 @@ class PipelineContext:
                 schedules = self.get_schedule_from_partition(self.clock_idx, self.partition_idx)
                 yield schedules
 
+                # if self.clock_idx == 1:
+                #     assert 1 == 1
+
                 # NOTE: wait for the next clock cycle
                 print(
                     f"waiting for the next clock cycle, clock_idx={self.clock_idx}, rank={self.parallel_context.get_local_rank(ParallelMode.GLOBAL)}"

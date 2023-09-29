@@ -138,7 +138,7 @@ class ProgressTracker(Handshake):
         master_rank = self.parallel_context.get_global_rank_from_local_rank(self.master_rank, self.parallel_mode)
         rank = self.parallel_context.get_global_rank()
 
-        print("confirm", self.clock_idx, rank)
+        print(f"confirm, clock_idx={self.clock_idx}, rank={rank}")
 
         if rank == master_rank:
             # NOTE: if master node confirm itself, then no need rpc call

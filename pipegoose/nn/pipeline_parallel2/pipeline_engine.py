@@ -79,47 +79,46 @@ class PipelineEngine:
                 parallel_context = self.pipeline_context.parallel_context
                 print(f"increase clock, clock_idx={clock_idx}, rank={parallel_context.get_local_rank(ParallelMode.GLOBAL)}")
                 self.pipeline_context.increase_a_clock_cycle()
+                time.sleep(1)
 
         callbacks = [IncreasePipelineContextClockCycleCallback(self.pipeline_context)]
+        progress_tracker = ProgressTracker(
+            MASTER_RANK, callbacks=callbacks, parallel_context=self.parallel_context, parallel_mode=ParallelMode.GLOBAL
+        )
+        # NOTE: wait for all ranks to be initiated
+        time.sleep(1)
 
         if self.parallel_context.is_first_rank(ParallelMode.PIPELINE):
-            progress_tracker = ProgressTracker(
-                MASTER_RANK, callbacks=callbacks, parallel_context=self.parallel_context, parallel_mode=ParallelMode.GLOBAL
-            )
-
             schedules = self.pipeline_context.schedules
             progress = {
                 i: {(item.microbatch_idx, item.partition_idx): False for item in sublist}
                 for i, sublist in enumerate(schedules)
             }
             progress_tracker.initiate(progress)
-            time.sleep(2)
-        else:
-            time.sleep(2)
-            progress_tracker = ProgressTracker(
-                MASTER_RANK, callbacks=callbacks, parallel_context=self.parallel_context, parallel_mode=ParallelMode.GLOBAL
-            )
+
+        time.sleep(1)
 
         set_progress_tracker(progress_tracker)
 
-        print("----------------------------")
-        print("before loop")
-        print("clock_idx", self.pipeline_context.clock_idx)
+        time.sleep(1)
 
-        time.sleep(2)
+        # from hanging_threads import start_monitoring
+        # monitoring_thread = start_monitoring()
 
         for tasks in self.pipeline_context.get_schedule():
 
             time.sleep(2)
-            # print("[loop] ------------------")
             rank = self.parallel_context.get_local_rank(ParallelMode.GLOBAL)
             partition_idx = self.pipeline_context.partition_idx
 
             if rank == 0:
                 assert 1 == 1
 
+            if self.pipeline_context.clock_idx == 1:
+                assert 1 == 1
+
             if len(tasks) > 0:
-                print(f"[loop] clock_idx={self.pipeline_context.clock_idx}, rank={rank}, partition_idx={partition_idx}")
+                print(f"[enter look] clock_idx={self.pipeline_context.clock_idx}, rank={rank}, partition_idx={partition_idx}")
                 for task in tasks:
                     microbatch_idx = task.microbatch_idx
                     partition_idx = task.partition_idx
