@@ -115,7 +115,6 @@ class ProgressTracker(Handshake):
             rpc.rpc_sync(to=worker_name, func=ProgressTracker._recv_tasks, args=(progress, clock_idx))
 
         # NOTE: since we skip the master node, we need to manually run the callback
-        # TODO: refactor this
         ProgressTracker._run_callback("after_new_clock_cycle", progress=progress, clock_idx=clock_idx)
 
     @staticmethod
@@ -154,18 +153,16 @@ class ProgressTracker(Handshake):
         time.sleep(0.1)
 
     @staticmethod
-    def _update_progress(task: Task):
-        clock_idx = ProgressTracker.clock_idx
-        progress = ProgressTracker.progress
-        progress[clock_idx][task] = True
-
-    @staticmethod
     def _recv_confirm_from_worker(task: Task):
-        ProgressTracker._update_progress(task)
+        def _update_local_progress(task: Task):
+            clock_idx = ProgressTracker.clock_idx
+            progress = ProgressTracker.progress
+            progress[clock_idx][task] = True
+
+        _update_local_progress(task)
 
         clock_idx = ProgressTracker.clock_idx
         if ProgressTracker.is_all_confirmed(clock_idx) is True:
             NEXT_CLOCK_IDX = clock_idx + 1
             ProgressTracker.clock_idx = NEXT_CLOCK_IDX
-            # broadcast the progress to all worker nodes
             ProgressTracker._broadcast_tasks(ProgressTracker.progress, clock_idx=NEXT_CLOCK_IDX)

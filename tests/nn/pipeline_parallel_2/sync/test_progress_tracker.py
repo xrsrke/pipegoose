@@ -12,31 +12,6 @@ from pipegoose.testing.utils import init_parallel_context, spawn
 MASTER_RANK = 0
 
 
-# def get_task(microbatch_idx, partition_idx):
-#     return (microbatch_idx, partition_idx)
-
-
-# def get_gpipe_schedules(n_partitions, n_microbatches):
-#     n_clock_cycles = n_partitions + n_microbatches - 1
-#     schedules = []
-#     for clock_idx in range(n_clock_cycles):
-#         start_partrition = max(clock_idx + 1 - n_microbatches, 0)
-#         end_partition = min(clock_idx + 1, n_partitions)
-#         tasks = []
-#         for partition_idx in range(start_partrition, end_partition):
-#             microbatch_idx = clock_idx - partition_idx
-#             task = get_task(microbatch_idx, partition_idx)
-#             tasks.append(task)
-
-#         schedules.append(tasks)
-
-#     return schedules
-
-
-# def schedules_to_progress(schedules):
-#     return {i: {item: False for item in sublist} for i, sublist in enumerate(schedules)}
-
-
 def generate_unfinished_tasks(n):
     # {0: {0: False, 1: False, 2: False, 3: False, 4: False},...}
     return {i: {j: False for j in range(n)} for i in range(n)}
@@ -57,17 +32,13 @@ def run_init_progress_tracker(rank, world_size, port, tensor_parallel_size, pipe
 
     if rank == tracker.master_rank:
         tracker.initiate(PROGRESS)
-        assert tracker.is_initiated() is True
-        assert tracker.progress == PROGRESS
-        assert tracker.clock_idx == 0
-        assert tracker.is_all_confirmed(clock_idx=0) is False
-    else:
-        # NOTE: wait until the tracker is initiated
-        time.sleep(2)
-        assert tracker.is_initiated() is True
-        # NOTE: if haven't confirmed any task, clock_idx should be 0
-        assert tracker.progress == PROGRESS
-        assert tracker.clock_idx == 0
+
+    # NOTE: wait until the tracker is initiated
+    time.sleep(0.1)
+    assert tracker.is_initiated() is True
+    assert tracker.clock_idx == 0
+    assert tracker.is_all_confirmed(clock_idx=0) is False
+    assert tracker.progress == PROGRESS
 
     parallel_context.destroy()
 
