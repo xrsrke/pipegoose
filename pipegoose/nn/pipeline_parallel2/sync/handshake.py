@@ -1,3 +1,4 @@
+import threading
 import time
 from abc import ABC, abstractclassmethod
 from typing import Dict, List, NewType
@@ -87,6 +88,7 @@ class ProgressTracker(Handshake):
 
     progress: Progress = None
     clock_idx: int = None
+    update_progress_lock = threading.Lock()
 
     def is_initiated(self) -> bool:
         return self.progress is not None
@@ -117,12 +119,13 @@ class ProgressTracker(Handshake):
 
     @staticmethod
     def _recv_tasks(progress: Progress, clock_idx: int):
-        ProgressTracker.progress = progress
-        ProgressTracker.clock_idx = clock_idx
+        with ProgressTracker.update_progress_lock:
+            ProgressTracker.progress = progress
+            ProgressTracker.clock_idx = clock_idx
 
-        # NOTE: don't increase a new clock cycle if just initializing it
-        # NOTE: after a worker node receives the progress, it should run the callback
-        ProgressTracker._run_callback("after_new_clock_cycle", progress=progress, clock_idx=clock_idx)
+            # NOTE: don't increase a new clock cycle if just initializing it
+            # NOTE: after a worker node receives the progress, it should run the callback
+            ProgressTracker._run_callback("after_new_clock_cycle", progress=progress, clock_idx=clock_idx)
 
     def is_confirmed(self, task: Task, clock_idx: int) -> bool:
         return self.progress[clock_idx][task] is True
