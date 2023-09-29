@@ -94,7 +94,6 @@ class ProgressTracker(Handshake):
     def initiate(self, progress: Progress):
         INITIAL_CLOCK_IDX = 0
         ProgressTracker._broadcast_tasks(progress, clock_idx=INITIAL_CLOCK_IDX)
-        # ProgressTracker._recv_tasks(progress, clock_idx=INITIAL_CLOCK_IDX)
         ProgressTracker.progress = progress
         ProgressTracker.clock_idx = INITIAL_CLOCK_IDX
 
@@ -108,14 +107,13 @@ class ProgressTracker(Handshake):
 
         for local_dst in range(local_world_size):
             if local_dst == local_rank:
+                # NOTE: since we skip the master node, we need to manually run the callback
+                ProgressTracker._run_callback("after_new_clock_cycle", progress=progress, clock_idx=clock_idx)
                 continue
 
             global_dst = parallel_context.get_global_rank_from_local_rank(local_dst, parallel_mode)
             worker_name = parallel_context.get_worker_name(global_dst)
             rpc.rpc_sync(to=worker_name, func=ProgressTracker._recv_tasks, args=(progress, clock_idx))
-
-        # NOTE: since we skip the master node, we need to manually run the callback
-        ProgressTracker._run_callback("after_new_clock_cycle", progress=progress, clock_idx=clock_idx)
 
     @staticmethod
     def _recv_tasks(progress: Progress, clock_idx: int):

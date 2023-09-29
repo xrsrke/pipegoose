@@ -130,12 +130,14 @@ def run_progress_tracker_callback(rank, world_size, port, tensor_parallel_size, 
 
     # NOTE: wait until the tracker is initiated
     time.sleep(0.5)
+    assert QUEUE == [rank]
+
     tracker.confirm(rank)
 
     # NOTE: wait until all workers are confirmed
+    # callback should be called again after all workers are confirmed
     time.sleep(0.5)
-    # TODO: QUEUE should be equal to [rank], fix the bug
-    assert QUEUE == [rank] or QUEUE == [rank, rank]
+    assert QUEUE == [rank, rank]
 
     parallel_context.destroy()
 
