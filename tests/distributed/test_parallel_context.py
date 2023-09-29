@@ -2,6 +2,7 @@ import time
 
 import pytest
 import torch
+import torch.distributed as dist
 import torch.distributed.rpc as rpc
 from torch.distributed import ProcessGroup
 
@@ -86,34 +87,33 @@ def init_parallel_context(
     for parallel_mode in parallel_modes:
         local_rank = parallel_context.get_local_rank(parallel_mode)
 
-        if parallel_mode is ParallelMode.GLOBAL:
-            assert parallel_context.is_initialized(parallel_mode) is True
-            assert isinstance(parallel_context.get_group(parallel_mode), ProcessGroup)
-        else:
-            # TODO: how to assert process_group?
-            assert parallel_context.get_group(parallel_mode) is not None
+        assert parallel_context.is_initialized(parallel_mode) is True
+        assert isinstance(parallel_context.get_group(parallel_mode), ProcessGroup)
 
         assert type(parallel_context.get_local_rank(parallel_mode)) == int
         assert type(parallel_context.get_world_size(parallel_mode)) == int
         assert isinstance(parallel_context.get_global_rank_from_local_rank(local_rank, parallel_mode), int)
-        assert isinstance(parallel_context.get_ranks_in_group(parallel_mode), list)
 
-        # TODO: fix this
-        # NOTE: the LOCAL_RANK_TO_NEXT_RANK is only valid for world_size = 1 and world_size = 8
+        process_group = parallel_context.get_group(parallel_mode)
+        ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode)
+        assert isinstance(ranks_in_group, list)
+        assert ranks_in_group == dist.get_process_group_ranks(process_group)
+        assert len(ranks_in_group) == parallel_context.get_world_size(parallel_mode)
+
+        # TODO: fix this, the LOCAL_RANK_TO_NEXT_RANK is only valid for world_size = 1 and world_size = 8
         if world_size == 8 or world_size == 1:
             next_local_rank = parallel_context.get_next_local_rank(local_rank, parallel_mode)
             assert next_local_rank == LOCAL_RANK_TO_NEXT_RANK[world_size][parallel_mode][local_rank]
 
             prev_local_rank = parallel_context.get_prev_local_rank(local_rank, parallel_mode)
             assert prev_local_rank == LOCAL_RANK_TO_PREV_RANK[world_size][parallel_mode][local_rank]
+
         # TODO: fix tensor_parallel_size = 1, pipeline_parallel_size = 2, data_parallel_size = 2
         # get_ranks_in_group only return 1
         next_global_rank = parallel_context.get_next_global_rank(parallel_mode)
-        # assert next_global_rank == parallel_context.get_global_rank() + 1
         assert isinstance(next_global_rank, int)
 
         prev_global_rank = parallel_context.get_prev_global_rank(parallel_mode)
-        # assert prev_global_rank == parallel_context.get_global_rank() - 1
         assert isinstance(prev_global_rank, int)
 
         assert parallel_context.is_first_rank(parallel_mode) == (local_rank == 0)

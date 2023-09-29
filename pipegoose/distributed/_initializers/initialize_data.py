@@ -29,12 +29,13 @@ class DataParallelGroupInitializer(ProcessGroupInitializer):
                 # that would be part of the group, which means every process in the group
                 # needs to call this function. If only a subset of the processes call new_group(),
                 # it will hang because it's waiting for the rest of the processes to join.
-                process_group = dist.new_group(ranks=ranks)
+                group = dist.new_group(ranks=ranks)
 
                 if self.rank in ranks:
                     local_rank = ranks.index(self.rank)
                     local_world_size = len(ranks)
                     ranks_in_group = ranks
+                    process_group = group
 
         return {
             "local_rank": local_rank,

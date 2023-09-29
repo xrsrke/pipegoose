@@ -261,7 +261,8 @@ class ParallelContext:
 
     def get_ranks_in_group(self, parallel_mode: ParallelMode) -> List[int]:
         """A list of global ranks in a given parallel mode of the local process."""
-        return dist.get_process_group_ranks(self._groups[parallel_mode])
+        # return dist.get_process_group_ranks(self._groups[parallel_mode])
+        return self._ranks_in_group[parallel_mode]
 
     def get_next_global_rank(self, parallel_mode: ParallelMode) -> int:
         """Get the next global rank in a given parallel mode."""

@@ -1,5 +1,4 @@
 import pytest
-import torch
 import torch.distributed as dist
 from utils import map_rank_to_group
 
@@ -17,9 +16,9 @@ def init_tensor_parallel_group(
     rank, world_size, host, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, groups
 ):
     init_method = f"tcp://{host}:{port}"
-    expected_group = map_rank_to_group(rank, groups)
+    expected_ranks = map_rank_to_group(rank, groups)
 
-    torch.distributed.init_process_group(
+    dist.init_process_group(
         rank=rank,
         world_size=world_size,
         backend="gloo",
@@ -34,12 +33,16 @@ def init_tensor_parallel_group(
         data_parallel_size=data_parallel_size,
     ).init_dist_group()
 
-    assert isinstance(result["local_rank"], int)
-    assert isinstance(result["local_world_size"], int)
-    # TODO: how to assert process_group?
-    assert result["process_group"] is not None
-    assert isinstance(result["ranks_in_group"], list)
-    assert result["ranks_in_group"] == expected_group
+    assert 0 <= result["local_rank"] < result["local_world_size"]
+    assert result["local_rank"] < tensor_parallel_size
+
+    assert result["local_world_size"] == tensor_parallel_size
+
+    assert isinstance(result["process_group"], dist.ProcessGroup)
+
+    assert result["ranks_in_group"] == expected_ranks
+    assert dist.get_process_group_ranks(result["process_group"]) == expected_ranks
+
     assert result["parallel_mode"] == ParallelMode.TENSOR
 
     dist.barrier()
