@@ -9,7 +9,7 @@ def sleep(timeout: int = 0.05):
 
 
 def get_partition_idx(parallel_context: ParallelContext) -> int:
-    rank = parallel_context.get_local_rank(ParallelMode.PIPELINE)
+    rank = parallel_context.get_global_rank()
     ranks_in_group = parallel_context.get_ranks_in_group(ParallelMode.PIPELINE)
     # pipeline_stage_idx = rank // n_ranks_per_group
     # return pipeline_stage_idx

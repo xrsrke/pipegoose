@@ -5,7 +5,6 @@ from typing import Dict
 import pytest
 
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.pipeline_parallel2._utils import get_partition_idx
 from pipegoose.nn.pipeline_parallel2.sync.callback import Callback
 from pipegoose.nn.pipeline_parallel2.sync.handshake import ProgressTracker
 from pipegoose.testing.utils import init_parallel_context, spawn
@@ -13,36 +12,43 @@ from pipegoose.testing.utils import init_parallel_context, spawn
 MASTER_RANK = 0
 
 
-def get_task(microbatch_idx, partition_idx):
-    return (microbatch_idx, partition_idx)
+# def get_task(microbatch_idx, partition_idx):
+#     return (microbatch_idx, partition_idx)
 
 
-def get_gpipe_schedules(n_partitions, n_microbatches):
-    n_clock_cycles = n_partitions + n_microbatches - 1
-    schedules = []
-    for clock_idx in range(n_clock_cycles):
-        start_partrition = max(clock_idx + 1 - n_microbatches, 0)
-        end_partition = min(clock_idx + 1, n_partitions)
-        tasks = []
-        for partition_idx in range(start_partrition, end_partition):
-            microbatch_idx = clock_idx - partition_idx
-            task = get_task(microbatch_idx, partition_idx)
-            tasks.append(task)
+# def get_gpipe_schedules(n_partitions, n_microbatches):
+#     n_clock_cycles = n_partitions + n_microbatches - 1
+#     schedules = []
+#     for clock_idx in range(n_clock_cycles):
+#         start_partrition = max(clock_idx + 1 - n_microbatches, 0)
+#         end_partition = min(clock_idx + 1, n_partitions)
+#         tasks = []
+#         for partition_idx in range(start_partrition, end_partition):
+#             microbatch_idx = clock_idx - partition_idx
+#             task = get_task(microbatch_idx, partition_idx)
+#             tasks.append(task)
 
-        schedules.append(tasks)
+#         schedules.append(tasks)
 
-    return schedules
+#     return schedules
 
 
-def schedules_to_progress(schedules):
-    return {i: {item: False for item in sublist} for i, sublist in enumerate(schedules)}
+# def schedules_to_progress(schedules):
+#     return {i: {item: False for item in sublist} for i, sublist in enumerate(schedules)}
+
+
+def generate_unfinished_tasks(n):
+    # {0: {0: False, 1: False, 2: False, 3: False, 4: False},...}
+    return {i: {j: False for j in range(n)} for i in range(n)}
+
+
+def generate_finsihed_task(n):
+    # {0: {0: True, 1: True, 2: True, 3: True, 4: True},...}
+    return {i: {j: True for j in range(n)} for i in range(n)}
 
 
 def run_init_progress_tracker(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-    N_MICROBATCHES = 4
-
-    schedules = get_gpipe_schedules(pipeline_parallel_size, N_MICROBATCHES)
-    PROGRESS = schedules_to_progress(schedules)
+    PROGRESS = generate_unfinished_tasks(n=world_size)
 
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
@@ -82,11 +88,9 @@ def test_init_progress_tracker():
 
 
 def run_confirm_progress_tracker(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-    N_MICROBATCHES = 4
-    MICROBATCH_IDX = 0
-
-    schedules = get_gpipe_schedules(pipeline_parallel_size, N_MICROBATCHES)
-    PROGRESS = schedules_to_progress(schedules)
+    N_CLOCK_CYCLES = world_size
+    PROGRESS = generate_unfinished_tasks(N_CLOCK_CYCLES)
+    FINAL_PROGRESS = generate_finsihed_task(N_CLOCK_CYCLES)
     INITIAL_PROGRESS = deepcopy(PROGRESS)
 
     parallel_context = init_parallel_context(
@@ -96,28 +100,27 @@ def run_confirm_progress_tracker(rank, world_size, port, tensor_parallel_size, p
 
     if rank == tracker.master_rank:
         tracker.initiate(PROGRESS)
-        # NOTE: wait until all workers are confirmed
-        time.sleep(5)
-        assert tracker.is_all_confirmed(clock_idx=0) is True
-        assert tracker.is_all_confirmed(clock_idx=1) is False
 
-        # NOTE: after all workers are confirmed,
-        assert tracker.clock_idx == 1
-        assert tracker.progress != INITIAL_PROGRESS
-    else:
-        # NOTE: wait until the tracker is initiated
+    # NOTE: wait until the tracker is initiated
+    time.sleep(2)
+
+    for clock_idx in range(N_CLOCK_CYCLES):
+        tracker.confirm(rank)
+        assert tracker.is_confirmed(rank, clock_idx=clock_idx) is True
+
+        # NOTE: wait until all workers are confirmed
         time.sleep(2)
-        partition_idx = get_partition_idx(parallel_context)
-        task = get_task(MICROBATCH_IDX, partition_idx)
-        tracker.confirm(task)
-        assert tracker.is_confirmed(task, clock_idx=0) is True
+        assert tracker.is_all_confirmed(clock_idx=clock_idx) is True
 
-        # NOTE: wait until all workers are confirmed
-        time.sleep(5)
-        assert tracker.is_all_confirmed(clock_idx=0) is True
-        assert tracker.is_all_confirmed(clock_idx=1) is False
-        assert tracker.clock_idx == 1
+        if not (clock_idx == N_CLOCK_CYCLES - 1):
+            assert tracker.is_all_confirmed(clock_idx=clock_idx + 1) is False
+
+        assert tracker.clock_idx == clock_idx + 1
         assert tracker.progress != INITIAL_PROGRESS
+
+        time.sleep(0.1)
+
+    assert tracker.progress == FINAL_PROGRESS
 
     parallel_context.destroy()
 
@@ -136,42 +139,32 @@ def test_confirm_progress_tracker(tensor_parallel_size, pipeline_parallel_size, 
 
 
 def run_progress_tracker_callback(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-    N_MICROBATCHES = 4
-    MICROBATCH_IDX = 0
     QUEUE = []
 
     class TestCallback(Callback):
         def after_new_clock_cycle(self, progress: Dict, clock_idx: int):
             QUEUE.append(rank)
 
-    schedules = get_gpipe_schedules(pipeline_parallel_size, N_MICROBATCHES)
-    PROGRESS = schedules_to_progress(schedules)
+    PROGRESS = generate_unfinished_tasks(n=world_size)
 
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
+    tracker = ProgressTracker(
+        MASTER_RANK, callbacks=[TestCallback()], parallel_context=parallel_context, parallel_mode=ParallelMode.GLOBAL
+    )
 
     if rank == MASTER_RANK:
-        tracker = ProgressTracker(MASTER_RANK, parallel_context=parallel_context, parallel_mode=ParallelMode.GLOBAL)
         tracker.initiate(PROGRESS)
-        # NOTE: wait until all workers are confirmed
-        time.sleep(5)
-        assert tracker.is_all_confirmed(clock_idx=0) is True
-    else:
-        tracker = ProgressTracker(
-            MASTER_RANK, callbacks=[TestCallback()], parallel_context=parallel_context, parallel_mode=ParallelMode.GLOBAL
-        )
-        # NOTE: wait until the tracker is initiated
-        time.sleep(2)
-        partition_idx = get_partition_idx(parallel_context)
-        task = get_task(MICROBATCH_IDX, partition_idx)
 
-        tracker.confirm(task)
+    # NOTE: wait until the tracker is initiated
+    time.sleep(0.5)
+    tracker.confirm(rank)
 
-        # NOTE: wait until all workers are confirmed
-        time.sleep(5)
-        # TODO: QUEUE should be equal to [rank], fix the bug
-        assert QUEUE == [rank] or QUEUE == [rank, rank]
+    # NOTE: wait until all workers are confirmed
+    time.sleep(0.5)
+    # TODO: QUEUE should be equal to [rank], fix the bug
+    assert QUEUE == [rank] or QUEUE == [rank, rank]
 
     parallel_context.destroy()
 

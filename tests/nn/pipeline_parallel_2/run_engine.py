@@ -90,6 +90,9 @@ if __name__ == "__main__":
 
     WORLD_SIZE = PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE * TENSOR_PARALLEL_SIZE
 
+    # from hanging_threads import start_monitoring
+    # monitoring_thread = start_monitoring()
+
     spawn(
         run_pipeline_engine,
         world_size=WORLD_SIZE,

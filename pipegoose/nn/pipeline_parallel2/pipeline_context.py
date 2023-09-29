@@ -2,6 +2,7 @@ import threading
 from typing import List
 
 from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2._utils import get_partition_idx
 from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
 
@@ -56,6 +57,9 @@ class PipelineContext:
                 yield schedules
 
                 # NOTE: wait for the next clock cycle
+                print(
+                    f"waiting for the next clock cycle, clock_idx={self.clock_idx}, rank={self.parallel_context.get_local_rank(ParallelMode.GLOBAL)}"
+                )
                 self._wait_new_clock_cycle.wait()
 
     def get_schedule_from_partition(self, clock_idx: int, partition_idx: int):

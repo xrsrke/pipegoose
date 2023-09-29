@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractclassmethod
 from typing import Dict, List, NewType
 
@@ -113,6 +114,10 @@ class ProgressTracker(Handshake):
             worker_name = parallel_context.get_worker_name(global_dst)
             rpc.rpc_sync(to=worker_name, func=ProgressTracker._recv_tasks, args=(progress, clock_idx))
 
+        # NOTE: since we skip the master node, we need to manually run the callback
+        # TODO: refactor this
+        ProgressTracker._run_callback("after_new_clock_cycle", progress=progress, clock_idx=clock_idx)
+
     @staticmethod
     def _recv_tasks(progress: Progress, clock_idx: int):
         ProgressTracker.progress = progress
@@ -131,16 +136,22 @@ class ProgressTracker(Handshake):
         return all([progress[clock_idx][task] is True for task in progress[clock_idx]])
 
     def confirm(self, task: Task):
-        # TODO: only non-scheduler ranks should confirm
-        global_master_rank = self.parallel_context.get_global_rank_from_local_rank(self.master_rank, self.parallel_mode)
-        master_worker_name = self.parallel_context.get_worker_name(global_master_rank)
-        # rank = self.parallel_context.get_local_rank(self.parallel_mode)
-        rpc.rpc_sync(master_worker_name, func=ProgressTracker._recv_confirm_from_worker, args=(task,))
+        time.sleep(0.1)
 
-        # NOTE: if master node confirm itself, then no need rpc call
+        master_rank = self.parallel_context.get_global_rank_from_local_rank(self.master_rank, self.parallel_mode)
+        rank = self.parallel_context.get_global_rank()
 
-        # NOTE: a worker node should confirm itself
-        ProgressTracker._update_progress(task)
+        print("confirm", self.clock_idx, rank)
+
+        if rank == master_rank:
+            # NOTE: if master node confirm itself, then no need rpc call
+            ProgressTracker._recv_confirm_from_worker(task)
+        else:
+            # NOTE: after a worker node confirms, it should tell the master node
+            master_worker_name = self.parallel_context.get_worker_name(master_rank)
+            rpc.rpc_sync(master_worker_name, func=ProgressTracker._recv_confirm_from_worker, args=(task,))
+
+        time.sleep(0.1)
 
     @staticmethod
     def _update_progress(task: Task):

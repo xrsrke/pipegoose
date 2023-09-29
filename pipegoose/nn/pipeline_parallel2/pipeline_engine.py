@@ -59,6 +59,9 @@ class PipelineEngine:
     def run(self, inputs: torch.Tensor) -> torch.Tensor:
         MASTER_RANK = 0
 
+        # from hanging_threads import start_monitoring
+        # monitoring_thread = start_monitoring()
+
         self.worker_manager.spawn()
         n_microbatches = self.scheduler.n_microbatches
 
@@ -73,6 +76,8 @@ class PipelineEngine:
                 self.pipeline_context = pipeline_context
 
             def after_new_clock_cycle(self, progress, clock_idx):
+                parallel_context = self.pipeline_context.parallel_context
+                print(f"increase clock, clock_idx={clock_idx}, rank={parallel_context.get_local_rank(ParallelMode.GLOBAL)}")
                 self.pipeline_context.increase_a_clock_cycle()
 
         callbacks = [IncreasePipelineContextClockCycleCallback(self.pipeline_context)]
@@ -135,6 +140,7 @@ class PipelineEngine:
                     # print(f"created a job: {package.metadata}")
 
                     JobQueue.PENDING_JOBS.put(job)
+            time.sleep(2)
 
     # def _retrieve_package_from_received_package(self, microbatch_idx, partition_idx):
     #     # package = RECV_QUEUE[(microbatch_idx, partition_idx)]
