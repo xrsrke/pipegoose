@@ -1,4 +1,3 @@
-import time
 from dataclasses import dataclass
 
 import torch
@@ -43,9 +42,9 @@ class PipelineEngine:
         partition_func,
     ):
         assert isinstance(module, nn.Module), f"module must be an instance of nn.Module, got {type(module)}"
-        # assert isinstance(
-        #     parallel_context, ParallelContext
-        # ), f"parallel_context must be an instance of ParallelContext, got {type(parallel_context)}"
+        assert isinstance(
+            parallel_context, ParallelContext
+        ), f"parallel_context must be an instance of ParallelContext, got {type(parallel_context)}"
 
         self.module = module
         # self.partitioner = partitioner
@@ -59,9 +58,6 @@ class PipelineEngine:
 
     def run(self, inputs: torch.Tensor) -> torch.Tensor:
         MASTER_RANK = 0
-
-        # from hanging_threads import start_monitoring
-        # monitoring_thread = start_monitoring()
 
         self.worker_manager.spawn()
         n_microbatches = self.scheduler.n_microbatches
@@ -80,7 +76,6 @@ class PipelineEngine:
                 parallel_context = self.pipeline_context.parallel_context
                 print(f"increase clock, clock_idx={clock_idx}, rank={parallel_context.get_local_rank(ParallelMode.GLOBAL)}")
                 self.pipeline_context.increase_a_clock_cycle()
-                time.sleep(1)
 
         callbacks = [IncreasePipelineContextClockCycleCallback(self.pipeline_context)]
         progress_tracker = ProgressTracker(
@@ -88,7 +83,6 @@ class PipelineEngine:
         )
         # NOTE: wait for all ranks to be initiated
         dist.barrier()
-        time.sleep(1)
 
         # if self.parallel_context.is_first_rank(ParallelMode.PIPELINE):
         if self.parallel_context.get_global_rank() == 0:
@@ -101,19 +95,18 @@ class PipelineEngine:
             print(progress)
 
         dist.barrier()
-        time.sleep(5)
 
         set_progress_tracker(progress_tracker)
 
         dist.barrier()
-        time.sleep(2)
-
-        # from hanging_threads import start_monitoring
-        # monitoring_thread = start_monitoring()
 
         for tasks in self.pipeline_context.get_schedule():
-
             dist.barrier()
+
+            if self.pipeline_context.clock_idx == 9:
+                # TODO: remove this
+                # this is for breaking the loop once getting backward tasks
+                break
 
             rank = self.parallel_context.get_global_rank()
             partition_idx = self.pipeline_context.partition_idx
@@ -125,7 +118,6 @@ class PipelineEngine:
                 assert 1 == 1
 
             if len(tasks) > 0:
-                # print(f"[enter look] clock_idx={self.pipeline_context.clock_idx}, rank={rank}, partition_idx={partition_idx}")
                 for task in tasks:
                     microbatch_idx = task.microbatch_idx
                     partition_idx = task.partition_idx
@@ -136,23 +128,19 @@ class PipelineEngine:
                     else:
                         package = RECV_QUEUE.get()
 
-                    # print(
-                    #     f"[received a package]clock_idx={self.pipeline_context.clock_idx}, rank={rank}, partition_idx={partition_idx}",
-                    #     package.metadata,
-                    # )
-
                     job = create_job(self.partition_func, package, self.pipeline_context)
-
-                    # print(f"created a job: {package.metadata}")
-
                     JobQueue.PENDING_JOBS.put(job)
 
             dist.barrier()
 
-    # def _retrieve_package_from_received_package(self, microbatch_idx, partition_idx):
-    #     # package = RECV_QUEUE[(microbatch_idx, partition_idx)]
-    #     package = RECV_QUEUE.get()
-    #     return package
+        dist.barrier()
+
+        if self.pipeline_context.is_last_stage:
+            from pipegoose.nn.pipeline_parallel2.queue import _SAVED_ACTIVATIONS
+
+            outputs = [_SAVED_ACTIVATIONS[(microbatch_idx, partition_idx)] for microbatch_idx in range(n_microbatches)]
+            outputs = torch.cat(outputs, dim=0)
+            return outputs
 
     def _construct_first_package(self, microbatch_idx: int, input: torch.Tensor):
         """Construct the first forward package of a microbatch."""

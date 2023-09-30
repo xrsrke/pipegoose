@@ -14,3 +14,9 @@ def get_partition_idx(parallel_context: ParallelContext) -> int:
     # pipeline_stage_idx = rank // n_ranks_per_group
     # return pipeline_stage_idx
     return ranks_in_group.index(rank)
+
+
+def is_last_stage(parallel_context: ParallelContext) -> bool:
+    partition_idx = get_partition_idx(parallel_context)
+    n_stages = parallel_context.pipeline_parallel_size
+    return partition_idx == (n_stages - 1)
