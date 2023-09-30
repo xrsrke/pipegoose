@@ -11,21 +11,11 @@ from pipegoose.distributed.functional import (
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.testing.utils import init_parallel_context, spawn
 
-# @pytest.fixture
-# def parallel_modes():
-#     return [
-#         # ParallelMode.GLOBAL,
-#         # ParallelMode.TENSOR,
-#         # ParallelMode.PIPELINE,
-#         ParallelMode.DATA
-#     ]
-
-
-PARAMETRIZE = pytest.mark.parametrize(
+PARAMETRIZE_PARALLEL_SIZE = pytest.mark.parametrize(
     "world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 1, 1, 1), (8, 2, 2, 2)]
 )
 
-PARAMETRIZE_PARALLEL_MODES = pytest.mark.parametrize(
+PARAMETRIZE_PARALLEL_MODE = pytest.mark.parametrize(
     "parallel_mode", [ParallelMode.GLOBAL, ParallelMode.TENSOR, ParallelMode.PIPELINE, ParallelMode.DATA]
 )
 
@@ -37,7 +27,7 @@ def run_parallel_test(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
 
-    rank = parallel_context.get_local_rank(parallel_mode)
+    # rank = parallel_context.get_local_rank(parallel_mode)
     ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode)
     test_logic(rank, ranks_in_group, parallel_context, parallel_mode)
 
@@ -47,9 +37,12 @@ def run_parallel_test(
 def scatter_logic(rank, ranks_in_group, parallel_context, parallel_mode):
     if rank in ranks_in_group:
         DIM = -1
+
         world_size = parallel_context.get_world_size(parallel_mode)
+        local_rank = parallel_context.get_local_rank(parallel_mode)
+
         xs = torch.randn(2, world_size, dtype=torch.float32)
-        expected = torch.chunk(xs.clone(), world_size, dim=DIM)[rank]
+        expected = torch.chunk(xs.clone(), world_size, dim=DIM)[local_rank]
 
         x = scatter(
             xs,
@@ -65,8 +58,8 @@ def scatter_logic(rank, ranks_in_group, parallel_context, parallel_mode):
         assert x.requires_grad == expected.requires_grad
 
 
-@PARAMETRIZE
-@PARAMETRIZE_PARALLEL_MODES
+@PARAMETRIZE_PARALLEL_SIZE
+@PARAMETRIZE_PARALLEL_MODE
 def test_scatter(world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode):
     spawn(
         run_parallel_test,
@@ -100,8 +93,8 @@ def reduce_logic(rank, ranks_in_group, parallel_context, parallel_mode):
             assert x.requires_grad == expected_output.requires_grad
 
 
-@PARAMETRIZE
-@PARAMETRIZE_PARALLEL_MODES
+@PARAMETRIZE_PARALLEL_SIZE
+@PARAMETRIZE_PARALLEL_MODE
 def test_reduce(world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode):
     spawn(
         run_parallel_test,
@@ -114,14 +107,7 @@ def test_reduce(world_size, tensor_parallel_size, pipeline_parallel_size, data_p
     )
 
 
-def run_broadcast(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode):
-    parallel_context = init_parallel_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
-    )
-
-    rank = parallel_context.get_local_rank(parallel_mode)
-    ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode)
-
+def broadcast_logic(rank, ranks_in_group, parallel_context, parallel_mode):
     if rank == ranks_in_group:
         src = parallel_context.get_ranks_in_group(parallel_mode)[-1]
         if rank == src:
@@ -135,14 +121,13 @@ def run_broadcast(rank, world_size, port, tensor_parallel_size, pipeline_paralle
         assert x.dtype == torch.float32
         assert x.requires_grad is True
 
-    parallel_context.destroy()
 
-
-@PARAMETRIZE
-@PARAMETRIZE_PARALLEL_MODES
+@PARAMETRIZE_PARALLEL_SIZE
+@PARAMETRIZE_PARALLEL_MODE
 def test_broadcast(world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode):
     spawn(
-        run_broadcast,
+        run_parallel_test,
+        test_logic=broadcast_logic,
         world_size=world_size,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,
@@ -151,16 +136,8 @@ def test_broadcast(world_size, tensor_parallel_size, pipeline_parallel_size, dat
     )
 
 
-def run_all_gather(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode):
-    parallel_context = init_parallel_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
-    )
-
-    rank = parallel_context.get_local_rank(parallel_mode)
-    ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode)
-
+def all_gather_logic(rank, ranks_in_group, parallel_context, parallel_mode):
     if rank in ranks_in_group:
-        world_size = parallel_context.get_world_size(parallel_mode)
         tensor = torch.tensor(rank, dtype=torch.float32, requires_grad=True)
         expected_output = torch.tensor(ranks_in_group, dtype=torch.float32, requires_grad=True)
 
@@ -176,14 +153,13 @@ def run_all_gather(rank, world_size, port, tensor_parallel_size, pipeline_parall
         # TODO: do we need to check this?
         # assert output.requires_grad == expected_output.requires_grad
 
-    parallel_context.destroy()
 
-
-@PARAMETRIZE
-@PARAMETRIZE_PARALLEL_MODES
+@PARAMETRIZE_PARALLEL_SIZE
+@PARAMETRIZE_PARALLEL_MODE
 def test_all_gather(world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode):
     spawn(
-        run_all_gather,
+        run_parallel_test,
+        test_logic=all_gather_logic,
         world_size=world_size,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,
@@ -192,37 +168,7 @@ def test_all_gather(world_size, tensor_parallel_size, pipeline_parallel_size, da
     )
 
 
-# def run_all_reduce(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode):
-#     parallel_context = init_parallel_context(
-#         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
-#     )
-
-#     rank = parallel_context.get_local_rank(parallel_mode)
-#     ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode)
-
-#     if rank in ranks_in_group:
-#         x = torch.tensor(rank, dtype=torch.float32)
-#         temp = x.clone()
-
-#         all_reduce(
-#             tensor=x,
-#             parallel_context=parallel_context,
-#             parallel_mode=parallel_mode,
-#         )
-
-#         assert x == sum(ranks_in_group)
-#         assert x.dtype == temp.dtype
-#         assert x.requires_grad == temp.requires_grad
-
-#     parallel_context.destroy()
-
-
-@pytest.mark.skip(reason="not implemented")
-def test_reduce_scatter(parallel_context):
-    pass
-
-
-def run_all_reduce_logic(rank, ranks_in_group, parallel_context, parallel_mode):
+def all_reduce_logic(rank, ranks_in_group, parallel_context, parallel_mode):
     if rank in ranks_in_group:
         x = torch.tensor(rank, dtype=torch.float32)
         temp = x.clone()
@@ -238,15 +184,20 @@ def run_all_reduce_logic(rank, ranks_in_group, parallel_context, parallel_mode):
         assert x.requires_grad == temp.requires_grad
 
 
-@PARAMETRIZE
-@PARAMETRIZE_PARALLEL_MODES
+@PARAMETRIZE_PARALLEL_SIZE
+@PARAMETRIZE_PARALLEL_MODE
 def test_all_reduce(world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode):
     spawn(
         run_parallel_test,
-        test_logic=run_all_reduce_logic,
+        test_logic=all_reduce_logic,
         world_size=world_size,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=data_parallel_size,
         parallel_mode=parallel_mode,
     )
+
+
+@pytest.mark.skip(reason="not implemented")
+def test_reduce_scatter(parallel_context):
+    pass
