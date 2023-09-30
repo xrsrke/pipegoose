@@ -116,3 +116,6 @@ class ConfirmCompleteATaskToProgressTracker(Callback):
         # )
         key = (microbatch_idx, partition_idx)
         progress_tracker.confirm(key)
+        import time
+
+        time.sleep(3)

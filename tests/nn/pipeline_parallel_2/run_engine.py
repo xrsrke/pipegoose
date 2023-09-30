@@ -84,9 +84,9 @@ def run_pipeline_engine(rank, world_size, port, tensor_parallel_size, pipeline_p
 
 
 if __name__ == "__main__":
-    DATA_PARALLEL_SIZE = 1
     TENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 4
+    DATA_PARALLEL_SIZE = 1
 
     WORLD_SIZE = PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE * TENSOR_PARALLEL_SIZE
 

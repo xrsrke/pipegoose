@@ -22,7 +22,8 @@ DistributedBackend = Literal["gloo", "mpi", "nccl"]
 
 
 class ParallelContext:
-    """Inspired from OSLO's parallel context:
+    """
+    Inspired from OSLO's parallel context:
     https://github.com/EleutherAI/oslo/blob/f16c73bc5893cd6cefe65e70acf6d88428a324e1/oslo/torch/distributed/parallel_context.py#L53
     """
 
@@ -105,7 +106,6 @@ class ParallelContext:
             self.set_device()
 
         self.rpc_worker_map = {rank: WORKER_NAME.format(rank) for rank in self.get_ranks_in_group(ParallelMode.GLOBAL)}
-        # TODO: add initialize from torch launcher
         self.init_rpc_workers(host, port)
 
         # self.set_seed(seed)
@@ -199,7 +199,6 @@ class ParallelContext:
         self.add_local_rank(parallel_mode, local_rank)
         self.add_world_size(parallel_mode, local_world_size)
         self.add_group(parallel_mode, process_group)
-        # TODO: remove this
         self.add_ranks_in_group(parallel_mode, ranks_in_group)
 
     def set_device(self):
@@ -213,9 +212,8 @@ class ParallelContext:
         torch.manual_seed(seed)
 
         # TODO: set GPU seed
-        if torch.cuda.is_available():
-            # parallel_seed = seed
-            pass
+        # if torch.cuda.is_available():
+        #     pass
 
     def is_initialized(self, parallel_mode: ParallelMode) -> bool:
         """Check if the parallel mode is initialized.
@@ -261,7 +259,6 @@ class ParallelContext:
 
     def get_ranks_in_group(self, parallel_mode: ParallelMode) -> List[int]:
         """A list of global ranks in a given parallel mode of the local process."""
-        # return dist.get_process_group_ranks(self._groups[parallel_mode])
         return self._ranks_in_group[parallel_mode]
 
     def get_next_global_rank(self, parallel_mode: ParallelMode) -> int:

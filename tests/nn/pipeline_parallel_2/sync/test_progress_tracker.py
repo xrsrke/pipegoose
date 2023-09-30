@@ -1,8 +1,8 @@
-import time
 from copy import deepcopy
 from typing import Dict
 
 import pytest
+import torch.distributed as dist
 
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2.sync.callback import Callback
@@ -34,7 +34,8 @@ def run_init_progress_tracker(rank, world_size, port, tensor_parallel_size, pipe
         tracker.initiate(PROGRESS)
 
     # NOTE: wait until the tracker is initiated
-    time.sleep(0.1)
+    dist.barrier()
+
     assert tracker.is_initiated() is True
     assert tracker.clock_idx == 0
     assert tracker.is_all_confirmed(clock_idx=0) is False
@@ -73,14 +74,14 @@ def run_confirm_progress_tracker(rank, world_size, port, tensor_parallel_size, p
         tracker.initiate(PROGRESS)
 
     # NOTE: wait until the tracker is initiated
-    time.sleep(2)
+    dist.barrier()
 
     for clock_idx in range(N_CLOCK_CYCLES):
         tracker.confirm(rank)
         assert tracker.is_confirmed(rank, clock_idx=clock_idx) is True
 
         # NOTE: wait until all workers are confirmed
-        time.sleep(2)
+        dist.barrier()
         assert tracker.is_all_confirmed(clock_idx=clock_idx) is True
 
         if not (clock_idx == N_CLOCK_CYCLES - 1):
@@ -88,8 +89,6 @@ def run_confirm_progress_tracker(rank, world_size, port, tensor_parallel_size, p
 
         assert tracker.clock_idx == clock_idx + 1
         assert tracker.progress != INITIAL_PROGRESS
-
-        time.sleep(0.1)
 
     assert tracker.progress == FINAL_PROGRESS
 
@@ -129,15 +128,13 @@ def run_progress_tracker_callback(rank, world_size, port, tensor_parallel_size, 
         tracker.initiate(PROGRESS)
 
     # NOTE: wait until the tracker is initiated
-    time.sleep(0.5)
-    assert QUEUE == [rank]
-
+    dist.barrier()
     tracker.confirm(rank)
 
     # NOTE: wait until all workers are confirmed
     # callback should be called again after all workers are confirmed
-    time.sleep(0.5)
-    assert QUEUE == [rank, rank]
+    dist.barrier()
+    assert QUEUE == [rank]
 
     parallel_context.destroy()
 

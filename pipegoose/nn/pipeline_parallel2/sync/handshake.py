@@ -95,12 +95,12 @@ class ProgressTracker(Handshake):
 
     def initiate(self, progress: Progress):
         INITIAL_CLOCK_IDX = 0
-        ProgressTracker._broadcast_tasks(progress, clock_idx=INITIAL_CLOCK_IDX)
+        ProgressTracker._broadcast_tasks(progress, clock_idx=INITIAL_CLOCK_IDX, is_init=True)
         ProgressTracker.progress = progress
         ProgressTracker.clock_idx = INITIAL_CLOCK_IDX
 
     @staticmethod
-    def _broadcast_tasks(progress, clock_idx):
+    def _broadcast_tasks(progress, clock_idx, is_init=False):
         parallel_context = ProgressTracker.parallel_context
         parallel_mode = ProgressTracker.parallel_mode
 
@@ -108,24 +108,25 @@ class ProgressTracker(Handshake):
         local_world_size = parallel_context.get_world_size(parallel_mode)
 
         for local_dst in range(local_world_size):
-            if local_dst == local_rank:
+            if local_dst == local_rank and is_init is False:
                 # NOTE: since we skip the master node, we need to manually run the callback
                 ProgressTracker._run_callback("after_new_clock_cycle", progress=progress, clock_idx=clock_idx)
                 continue
 
             global_dst = parallel_context.get_global_rank_from_local_rank(local_dst, parallel_mode)
             worker_name = parallel_context.get_worker_name(global_dst)
-            rpc.rpc_sync(to=worker_name, func=ProgressTracker._recv_tasks, args=(progress, clock_idx))
+            rpc.rpc_sync(to=worker_name, func=ProgressTracker._recv_tasks, args=(progress, clock_idx, is_init))
 
     @staticmethod
-    def _recv_tasks(progress: Progress, clock_idx: int):
+    def _recv_tasks(progress: Progress, clock_idx: int, is_init):
         with ProgressTracker.update_progress_lock:
             ProgressTracker.progress = progress
             ProgressTracker.clock_idx = clock_idx
 
             # NOTE: don't increase a new clock cycle if just initializing it
             # NOTE: after a worker node receives the progress, it should run the callback
-            ProgressTracker._run_callback("after_new_clock_cycle", progress=progress, clock_idx=clock_idx)
+            if is_init is False:
+                ProgressTracker._run_callback("after_new_clock_cycle", progress=progress, clock_idx=clock_idx)
 
     def is_confirmed(self, task: Task, clock_idx: int) -> bool:
         return self.progress[clock_idx][task] is True
@@ -166,4 +167,4 @@ class ProgressTracker(Handshake):
         if ProgressTracker.is_all_confirmed(clock_idx) is True:
             NEXT_CLOCK_IDX = clock_idx + 1
             ProgressTracker.clock_idx = NEXT_CLOCK_IDX
-            ProgressTracker._broadcast_tasks(ProgressTracker.progress, clock_idx=NEXT_CLOCK_IDX)
+            ProgressTracker._broadcast_tasks(ProgressTracker.progress, clock_idx=NEXT_CLOCK_IDX, is_init=False)

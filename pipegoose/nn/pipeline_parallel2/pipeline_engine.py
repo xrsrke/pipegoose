@@ -2,6 +2,7 @@ import time
 from dataclasses import dataclass
 
 import torch
+import torch.distributed as dist
 from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
@@ -86,29 +87,35 @@ class PipelineEngine:
             MASTER_RANK, callbacks=callbacks, parallel_context=self.parallel_context, parallel_mode=ParallelMode.GLOBAL
         )
         # NOTE: wait for all ranks to be initiated
+        dist.barrier()
         time.sleep(1)
 
-        if self.parallel_context.is_first_rank(ParallelMode.PIPELINE):
+        # if self.parallel_context.is_first_rank(ParallelMode.PIPELINE):
+        if self.parallel_context.get_global_rank() == 0:
             schedules = self.pipeline_context.schedules
             progress = {
                 i: {(item.microbatch_idx, item.partition_idx): False for item in sublist}
                 for i, sublist in enumerate(schedules)
             }
             progress_tracker.initiate(progress)
+            print(progress)
 
-        time.sleep(1)
+        dist.barrier()
+        time.sleep(5)
 
         set_progress_tracker(progress_tracker)
 
-        time.sleep(1)
+        dist.barrier()
+        time.sleep(2)
 
         # from hanging_threads import start_monitoring
         # monitoring_thread = start_monitoring()
 
         for tasks in self.pipeline_context.get_schedule():
 
-            time.sleep(2)
-            rank = self.parallel_context.get_local_rank(ParallelMode.GLOBAL)
+            dist.barrier()
+
+            rank = self.parallel_context.get_global_rank()
             partition_idx = self.pipeline_context.partition_idx
 
             if rank == 0:
@@ -118,7 +125,7 @@ class PipelineEngine:
                 assert 1 == 1
 
             if len(tasks) > 0:
-                print(f"[enter look] clock_idx={self.pipeline_context.clock_idx}, rank={rank}, partition_idx={partition_idx}")
+                # print(f"[enter look] clock_idx={self.pipeline_context.clock_idx}, rank={rank}, partition_idx={partition_idx}")
                 for task in tasks:
                     microbatch_idx = task.microbatch_idx
                     partition_idx = task.partition_idx
@@ -129,17 +136,18 @@ class PipelineEngine:
                     else:
                         package = RECV_QUEUE.get()
 
-                    print(
-                        f"[received a package]clock_idx={self.pipeline_context.clock_idx}, rank={rank}, partition_idx={partition_idx}",
-                        package.metadata,
-                    )
+                    # print(
+                    #     f"[received a package]clock_idx={self.pipeline_context.clock_idx}, rank={rank}, partition_idx={partition_idx}",
+                    #     package.metadata,
+                    # )
 
                     job = create_job(self.partition_func, package, self.pipeline_context)
 
                     # print(f"created a job: {package.metadata}")
 
                     JobQueue.PENDING_JOBS.put(job)
-            time.sleep(2)
+
+            dist.barrier()
 
     # def _retrieve_package_from_received_package(self, microbatch_idx, partition_idx):
     #     # package = RECV_QUEUE[(microbatch_idx, partition_idx)]

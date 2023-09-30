@@ -199,5 +199,5 @@ def test_all_reduce(world_size, tensor_parallel_size, pipeline_parallel_size, da
 
 
 @pytest.mark.skip(reason="not implemented")
-def test_reduce_scatter(parallel_context):
+def test_reduce_scatter():
     pass
