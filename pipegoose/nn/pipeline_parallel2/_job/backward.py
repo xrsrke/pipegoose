@@ -3,6 +3,7 @@ import torch
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.job import Job
 from pipegoose.nn.pipeline_parallel2._package import Package
+from pipegoose.nn.pipeline_parallel2.queue import SavedActivation
 
 
 class CreateBackwardOutputPackageCallback(Callback):
@@ -26,15 +27,17 @@ class BackwardJob(Job):
     """Do backward pass."""
 
     def run_compute(self) -> torch.Tensor:
-        # key = self.job.key
-        # activations = get_saved_activations(key)
+        # print("doing backward job")
+        # return self.function(self.input.data)
 
-        # grad_output = self.input.data
+        microbatch_idx = self.input.metadata.microbatch_idx
+        partition_idx = self.input.metadata.partition_idx
+        key = SavedActivation.get_key(microbatch_idx, partition_idx)
+        outputs = SavedActivation.get_saved_activations(key)
+        inputs = self.input.data
 
-        # if activations.requires_grad:
-        #     with torch.enable_grad():
-        #         torch.autograd.backward(activations, grad_output)
+        if inputs.requires_grad:
+            with torch.enable_grad():
+                torch.autograd.backward(inputs, outputs)
 
-        # return activations.grad
-        print("doing backward job")
-        return self.function(self.input.data)
+        return inputs.grad

@@ -10,7 +10,7 @@ from pipegoose.nn.pipeline_parallel2._comm import set_pipeline_context
 from pipegoose.nn.pipeline_parallel2._job.backward import BackwardJob
 from pipegoose.nn.pipeline_parallel2._job.creator import schedule_backward_job
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-from pipegoose.nn.pipeline_parallel2.queue import JobQueue
+from pipegoose.nn.pipeline_parallel2.queue import JobQueue, SavedActivation
 from pipegoose.nn.pipeline_parallel2.scheduler import SchedulerType, get_scheduler
 from pipegoose.testing.utils import init_parallel_context, spawn
 
@@ -47,8 +47,6 @@ def run_create_a_backward_job_if_a_tensor_do_backprop(
 
     dist.barrier()
 
-    # NOTE: both the forward job and backward job of the same package
-    # execute on the same node
     if rank == DST:
         # NOTE: we enqueue the backward job in the destination rank
         ORIG_FORWARD_PACKAGE = deepcopy(forward_package)
@@ -94,10 +92,26 @@ def test_create_a_backward_job_if_a_tensor_do_backprop_in_the_same_node(request,
     )
 
 
+def test_execute_a_backward_job(backward_job):
+    # NOTE: save activations
+    MICROBATCH_IDX = backward_job.input.metadata.microbatch_idx
+    PARTITION_IDX = backward_job.input.metadata.partition_idx
+    INPUT = backward_job.input.data
+
+    key = SavedActivation.get_key(MICROBATCH_IDX, PARTITION_IDX)
+    output = torch.randn_like(INPUT)
+    SavedActivation.save_activations(key, output)
+
+    torch.autograd.backward(INPUT, output, retain_graph=True)
+    GROUND_GRADIENT = deepcopy(INPUT.grad)
+    INPUT.grad = None
+
+    grad_package = backward_job.compute()
+
+    assert grad_package.data.shape == INPUT.shape
+    assert torch.equal(grad_package.data, GROUND_GRADIENT)
+
+
 @pytest.mark.skip
 def test_execute_a_backward_job_and_send_the_output():
-    pass
-
-
-def test_execute_a_backward_job():
     pass
