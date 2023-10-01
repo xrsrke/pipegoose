@@ -43,16 +43,6 @@ class CreateForwardOutputPackageCallback(Callback):
         # so we hardcode and select that one
         # TODO: take into account that a pipeline stage can has more than one task
         # in a clock cycle, then find the correspond task to send the output to
-
-        # print("---------- _update_next_pipeline_stage -----------")
-        # print(f"rank: {self.job.pipeline_context.parallel_context.get_local_rank(ParallelMode.GLOBAL)}")
-        # print(f"clock_idx: {self.job.pipeline_context.clock_idx}")
-        # print(
-        #     f"schedules = {self.job.pipeline_context.get_schedule_from_microbatch(clock_idx=self.job.pipeline_context.clock_idx+1, microbatch_idx=microbatch_idx)}"
-        # )
-        # print(f"microbatch_idx: {microbatch_idx}")
-        # print(f"next_schedule: {next_schedule}")
-
         next_partition = next_schedule[0].partition_idx
         package.metadata.partition_idx = next_partition
 
@@ -109,13 +99,5 @@ class ConfirmCompleteATaskToProgressTracker(Callback):
         progress_tracker = get_progress_tracker()
         microbatch_idx = self.job.input.metadata.microbatch_idx
         partition_idx = self.job.input.metadata.partition_idx
-        # task = Task(
-        #     job_type=JobType.FORWARD,
-        #     microbatch_idx=microbatch_idx,
-        #     partition_idx=self.job.input.metadata.partition_idx,
-        # )
         key = (microbatch_idx, partition_idx)
         progress_tracker.confirm(key)
-        # import time
-
-        # time.sleep(3)
