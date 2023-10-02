@@ -81,8 +81,7 @@ def create_job(function: Callable, package: Package, pipeline_context: PipelineC
 def _create_backward_job_and_put_to_pending_queue(grad_input: torch.Tensor, metadata: Metadata):
     """Create a backward job and put it to pending queue."""
     # NOTE: construct backward package
-    data = torch.randn(2, 4)
-    package = Package(data, metadata)
+    package = Package(grad_input, metadata)
     package.metadata.job_type = JobType.BACKWARD
 
     # NOTE: construct backward job
@@ -90,9 +89,15 @@ def _create_backward_job_and_put_to_pending_queue(grad_input: torch.Tensor, meta
         pass
 
     # TODO: make parallel_context automatically set when it initialize
-    parallel_context = get_pipeline_context()
+    pipeline_context = get_pipeline_context()
+    parallel_context = pipeline_context.parallel_context
 
-    backward_job = create_job(backward_function, package, parallel_context)
+    rank = parallel_context.get_global_rank()
+    microbatch_idx = metadata.microbatch_idx
+
+    print(f"invoked create_backward_job_and_put_to_pending_queue, rank={rank}, microbatch_idx={microbatch_idx}")
+
+    backward_job = create_job(backward_function, package, pipeline_context)
 
     # NOTE : put the backward job to pending queue
     JobQueue.PENDING_JOBS.put(backward_job)
@@ -105,8 +110,8 @@ def schedule_backward_job(package: Package, pipeline_context: PipelineContext) -
         @staticmethod
         def forward(ctx, metadata: Metadata, pipeline_context: PipelineContext, input: torch.Tensor):
             # NOTE: can't assign metadata attribute to ctx
-            # AttributeError: attribute 'metadata' of 'torch._C._FunctionBase'
-            # objects is not writable
+            # "AttributeError: attribute 'metadata' of 'torch._C._FunctionBase'
+            # objects is not writable"
             rank = pipeline_context.parallel_context.get_global_rank()
             print(f"scheduled a backward job, rank={rank}, microbatch_idx={metadata.microbatch_idx}")
             ctx.package_meta = metadata
@@ -121,14 +126,16 @@ def schedule_backward_job(package: Package, pipeline_context: PipelineContext) -
 
             rank = parallel_context.get_global_rank()
             microbatch_idx = metadata.microbatch_idx
-            print(f"creating a backward job, rank={rank}, microbatch_idx={microbatch_idx}")
+
+            dst_worker_name = parallel_context.get_worker_name(metadata.dst)
+            print(f"creating a backward job, rank={rank}, microbatch_idx={microbatch_idx}, dst_worker_name={dst_worker_name}")
 
             # TODO: because forward job and backward job are in the same node
             # rpc isn't necessary
             rpc.rpc_sync(
                 # NOTE: the backward job create in the same node
                 # as the forward job
-                to=parallel_context.get_worker_name(metadata.src),
+                to=dst_worker_name,
                 func=_create_backward_job_and_put_to_pending_queue,
                 args=(grad_input, metadata),
             )

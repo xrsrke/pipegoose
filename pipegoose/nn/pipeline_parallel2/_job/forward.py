@@ -12,7 +12,8 @@ from pipegoose.nn.pipeline_parallel2.sync.handshake import get_progress_tracker
 
 class ForwardJob(Job):
     def run_compute(self) -> torch.Tensor:
-        return self.function(self.input.data)
+        with torch.set_grad_enabled(True):
+            return self.function(self.input.data)
 
 
 class CreateForwardOutputPackageCallback(Callback):
@@ -65,6 +66,7 @@ class SaveActivationIfTrainingCallback(Callback):
 
     def after_compute(self):
         is_training = self.job.input.metadata.training.is_training
+
         if is_training is True:
             from pipegoose.nn.pipeline_parallel2.queue import SavedActivation
 
@@ -73,6 +75,7 @@ class SaveActivationIfTrainingCallback(Callback):
             partition_idx = self.job.input.metadata.partition_idx
 
             key = SavedActivation.get_key(microbatch_idx, partition_idx)
+            print("saving activation, data.shape=", self.job.output.data.shape)
             SavedActivation.save_activations(key, self.job.output.data)
 
 

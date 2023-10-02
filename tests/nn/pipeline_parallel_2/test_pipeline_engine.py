@@ -37,10 +37,10 @@ def run_pipeline_engine(
 
     forward_timeline = []
 
-    scheduler = GPipeScheduler(n_microbatches, pipeline_parallel_size)
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
+    scheduler = GPipeScheduler(n_microbatches, pipeline_parallel_size)
     worker_manager = WorkerManager()
     partition_idx = get_partition_idx(parallel_context)
     partition_func = Function(partition_idx)
@@ -59,12 +59,14 @@ def run_pipeline_engine(
     if is_last_stage(parallel_context):
         assert torch.allclose(p_outputs, outputs)
         assert forward_timeline == EXPECTED_FORWARD_TIMELINE
+
+        # p_outputs.sum().backward()
     else:
         # NOTE: earlier stages should not return the final output
         assert p_outputs is None
 
 
-@pytest.mark.parametrize("tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 4, 1)])
+@pytest.mark.parametrize("tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 4, 1), (2, 4, 2)])
 def test_pipeline_engine(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     BATCH_SIZE = 32
     N_MICROBATCHES = 6
@@ -75,6 +77,8 @@ def test_pipeline_engine(tensor_parallel_size, pipeline_parallel_size, data_para
     inputs = torch.randn(BATCH_SIZE, SEQ_LEN, HIDDEN_DIM, requires_grad=False)
     model = nn.ModuleList([nn.Sequential(nn.Linear(HIDDEN_DIM, HIDDEN_DIM), nn.ReLU()) for _ in range(pipeline_parallel_size)])
     outputs = reduce(lambda inputs, layer: layer(inputs), model, inputs)
+
+    # outputs.sum().backward()
 
     spawn(
         run_pipeline_engine,

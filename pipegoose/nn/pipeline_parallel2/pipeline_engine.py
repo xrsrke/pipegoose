@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 
 import torch
@@ -7,7 +8,10 @@ from torch import nn
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2._comm import RECV_QUEUE
-from pipegoose.nn.pipeline_parallel2._job.creator import create_job
+from pipegoose.nn.pipeline_parallel2._job.creator import (
+    create_job,
+    schedule_backward_job,
+)
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
 from pipegoose.nn.pipeline_parallel2._worker import BaseWorkerManager
@@ -74,8 +78,16 @@ class PipelineEngine:
 
             def after_new_clock_cycle(self, progress, clock_idx):
                 parallel_context = self.pipeline_context.parallel_context
-                print(f"increase clock, clock_idx={clock_idx}, rank={parallel_context.get_local_rank(ParallelMode.GLOBAL)}")
-                self.pipeline_context.increase_a_clock_cycle()
+
+                # NOTE: suppose we have tensor_parallel_size = 3
+                # that means a pipeline stage is split into 3 slices
+                # we want only one slice to increase the clock
+                # here we choose the last slice to increase the clock
+                if parallel_context.is_last_rank(ParallelMode.TENSOR):
+                    print(
+                        f"increase clock, clock_idx={clock_idx}, rank={parallel_context.get_local_rank(ParallelMode.GLOBAL)}"
+                    )
+                    self.pipeline_context.increase_a_clock_cycle()
 
         callbacks = [IncreasePipelineContextClockCycleCallback(self.pipeline_context)]
         progress_tracker = ProgressTracker(
@@ -127,7 +139,7 @@ class PipelineEngine:
                             package = self._construct_first_package(microbatch_idx, input=batch)
                     else:
                         package = RECV_QUEUE.get()
-
+                    package = schedule_backward_job(package, self.pipeline_context)
                     job = create_job(self.partition_func, package, self.pipeline_context)
                     JobQueue.PENDING_JOBS.put(job)
 
@@ -136,11 +148,34 @@ class PipelineEngine:
         dist.barrier()
 
         if self.pipeline_context.is_last_stage:
-            from pipegoose.nn.pipeline_parallel2.queue import _SAVED_ACTIVATIONS
+            from pipegoose.nn.pipeline_parallel2.queue import (
+                _SAVED_ACTIVATIONS,
+                SavedActivation,
+            )
 
-            outputs = [_SAVED_ACTIVATIONS[(microbatch_idx, partition_idx)] for microbatch_idx in range(n_microbatches)]
-            outputs = torch.cat(outputs, dim=0)
-            return outputs
+            # TODO: use SavedActivation.get_key()
+            # outputs = [SavedActivation.get_saved_activations((microbatch_idx, partition_idx)) for microbatch_idx in range(n_microbatches)]
+            # outputs = torch.cat(outputs, dim=0)
+            # print(f"outputs.shape={outputs.shape}")
+
+            print("just run output.backward()")
+
+            # outputs.sum().backward()
+
+            # TODO: refactor this, this only take the last activations and trigger backward
+            key = SavedActivation.get_key(microbatch_idx=0, partition_idx=partition_idx)
+            output = _SAVED_ACTIVATIONS[key]
+
+            # SavedActivation.get_saved_activations((0, partition_idx)).sum().backward()
+            output.sum().backward()
+
+            time.sleep(100)
+            assert 1 == 1
+        else:
+            # NOTE: not terminate the worker, make it wait for processing further backward jobs
+            time.sleep(100)
+
+        dist.barrier()
 
     def _construct_first_package(self, microbatch_idx: int, input: torch.Tensor):
         """Construct the first forward package of a microbatch."""

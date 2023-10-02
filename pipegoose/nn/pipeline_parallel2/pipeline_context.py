@@ -3,7 +3,7 @@ from typing import List
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.pipeline_parallel2._utils import get_partition_idx
+from pipegoose.nn.pipeline_parallel2._utils import get_partition_idx, is_last_stage
 from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
 
 
@@ -100,5 +100,4 @@ class PipelineContext:
 
     @property
     def is_last_stage(self) -> bool:
-        n_pipeline_stages = self.parallel_context.pipeline_parallel_size
-        return self.partition_idx == n_pipeline_stages - 1
+        return is_last_stage(self.parallel_context)

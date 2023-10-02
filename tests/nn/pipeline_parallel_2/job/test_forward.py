@@ -13,6 +13,14 @@ from pipegoose.testing.utils import init_pipeline_context, spawn
 function = nn.Linear(2, 4)
 
 
+# OUTPUT_TO_SRC_DST_MAPPING = {
+#     0: (0, 1),
+#     1: (1, 1),
+#     2: (1, 2),
+#     3: (2, 3)
+# }
+
+
 def test_the_output_package_of_a_forward_job(forward_package, pipeline_context):
     # NOTE: (microbatch_idx, partition_idx) -> (microbatch_idx, next_partition_idx)
     OUTPUT_DESTINATION = {
@@ -26,6 +34,10 @@ def test_the_output_package_of_a_forward_job(forward_package, pipeline_context):
         (3, 1): (3, 2),
         (4, 0): (4, 1),
         (4, 1): (4, 2),
+    }
+
+    OUTPUT_SRC_DST_RANK_MAPPING = {
+        (0): (0, 1),
     }
 
     forward_job = create_job(function, forward_package, pipeline_context)
@@ -44,15 +56,14 @@ def test_the_output_package_of_a_forward_job(forward_package, pipeline_context):
         output.metadata.partition_idx,
     )
     for key in vars(output.metadata.training).keys():
-        # TODO: add test automatically switch to create new package
-        # for different mix precision training
         assert getattr(output.metadata.training, key) == getattr(forward_job.input.metadata.training, key)
 
     # NOTE: we expect the metadata of the output package to
-    # indicate which node executed it
-    # TODO: update source rank and destination rank based on pipeline context
-    assert isinstance(output.metadata.src, int)
-    assert isinstance(output.metadata.dst, int)
+    # indicate which node executed it, and the destination node
+    src, dst = output.metadata.src, output.metadata.dst
+    assert isinstance(src, int)
+    assert isinstance(dst, int)
+    assert (src, dst) == OUTPUT_SRC_DST_RANK_MAPPING[ORIG_MICROBATCH_IDX]
 
 
 def test_forward_job_save_activations_for_backward_pass(forward_package, pipeline_context):

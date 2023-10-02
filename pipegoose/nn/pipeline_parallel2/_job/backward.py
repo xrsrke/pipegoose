@@ -33,11 +33,14 @@ class BackwardJob(Job):
         microbatch_idx = self.input.metadata.microbatch_idx
         partition_idx = self.input.metadata.partition_idx
         key = SavedActivation.get_key(microbatch_idx, partition_idx)
-        outputs = SavedActivation.get_saved_activations(key)
-        inputs = self.input.data
+        output = SavedActivation.get_saved_activations(key)
+        prev_grad = self.input.data
 
-        if inputs.requires_grad:
-            with torch.enable_grad():
-                torch.autograd.backward(inputs, outputs)
+        rank = self.pipeline_context.parallel_context.get_global_rank()
 
-        return inputs.grad
+        print(f"executing backward job, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
+
+        with torch.enable_grad():
+            torch.autograd.backward(output, prev_grad)
+
+        return output.grad
