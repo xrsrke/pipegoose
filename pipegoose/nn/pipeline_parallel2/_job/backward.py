@@ -27,9 +27,6 @@ class BackwardJob(Job):
     """Do backward pass."""
 
     def run_compute(self) -> torch.Tensor:
-        # print("doing backward job")
-        # return self.function(self.input.data)
-
         microbatch_idx = self.input.metadata.microbatch_idx
         partition_idx = self.input.metadata.partition_idx
         key = SavedActivation.get_key(microbatch_idx, partition_idx)

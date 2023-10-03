@@ -98,28 +98,26 @@ def test_create_a_backward_job_if_a_tensor_do_backprop_in_the_same_node(request,
 def test_execute_a_backward_job(backward_job):
     MICROBATCH_IDX = backward_job.input.metadata.microbatch_idx
     PARTITION_IDX = backward_job.input.metadata.partition_idx
-    INPUT = backward_job.input.data
-    backward_job.input.data = torch.ones_like(INPUT)
 
-    linear = nn.Linear(INPUT.shape[1], INPUT.shape[0])
-    # output = linear(INPUT)
+    input = torch.randn_like(backward_job.input.data)
+    linear = nn.Linear(input.shape[1], input.shape[0])
+    output = linear(input).sum()
+    # NOTE: set initial gradients for the backward job
+    backward_job.input.data = torch.ones_like(output)
 
-    # NOTE: compute the ground truth gradient
-    output = torch.randn_like(INPUT)
-    with torch.set_grad_enabled(True):
-        output = linear(output)
-
-    output.sum().backward()
-    # GROUND_GRADIENT = deepcopy(INPUT.grad)
-    # INPUT.grad = None
+    output.backward(retain_graph=True)
+    GROUND_W_GRAD = deepcopy(linear.weight.grad)
+    GROUND_B_GRAD = deepcopy(linear.bias.grad)
+    linear.weight.grad.zero_()
+    linear.bias.grad.zero_()
 
     key = SavedActivation.get_key(MICROBATCH_IDX, PARTITION_IDX)
     SavedActivation.save_activations(key, output)
 
-    grad_package = backward_job.compute()
+    _ = backward_job.compute()
 
-    assert grad_package.data.shape == INPUT.shape
-    # assert torch.allclose(grad_package.data, GROUND_GRADIENT)
+    assert torch.equal(linear.weight.grad, GROUND_W_GRAD)
+    assert torch.equal(linear.bias.grad, GROUND_B_GRAD)
 
 
 @pytest.mark.skip
