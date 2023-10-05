@@ -69,6 +69,8 @@ def run_create_a_backward_job_if_a_tensor_do_backprop(
         backward_job = JobQueue.PENDING_JOBS.get()
         assert isinstance(backward_job, BackwardJob)
 
+        # backward_job.compute()
+
     # NOTE: wait for the backward job to be created
     dist.barrier()
     time.sleep(0.1)
@@ -96,28 +98,35 @@ def test_create_a_backward_job_if_a_tensor_do_backprop_in_the_same_node(request,
 
 
 def test_execute_a_backward_job(backward_job):
+    BATCH_SIZE = 2
+    SEQ_LEN = 5
+    HIDDEN_SIZE = 10
+    linear = nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE)
+
+    input = torch.randn(BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE, requires_grad=True)
+    INPUT = deepcopy(input)
+    LINEAR = deepcopy(linear)
+    OUTPUT = LINEAR(INPUT)
+    INITIAL_GRADS = torch.ones_like(OUTPUT)
+
+    OUTPUT.sum().backward()
+
     MICROBATCH_IDX = backward_job.input.metadata.microbatch_idx
     PARTITION_IDX = backward_job.input.metadata.partition_idx
 
-    input = torch.randn_like(backward_job.input.data)
-    linear = nn.Linear(input.shape[1], input.shape[0])
-    output = linear(input).sum()
-    # NOTE: set initial gradients for the backward job
-    backward_job.input.data = torch.ones_like(output)
+    backward_job.input.data = INITIAL_GRADS
 
-    output.backward(retain_graph=True)
-    GROUND_W_GRAD = deepcopy(linear.weight.grad)
-    GROUND_B_GRAD = deepcopy(linear.bias.grad)
-    linear.weight.grad.zero_()
-    linear.bias.grad.zero_()
-
+    # NOTE: stores the output activations that the backward job
+    # will use to compute the gradients
     key = SavedActivation.get_key(MICROBATCH_IDX, PARTITION_IDX)
+    output = linear(input)
     SavedActivation.save_activations(key, output)
 
     _ = backward_job.compute()
 
-    assert torch.equal(linear.weight.grad, GROUND_W_GRAD)
-    assert torch.equal(linear.bias.grad, GROUND_B_GRAD)
+    assert torch.equal(input.grad, INPUT.grad)
+    assert torch.equal(linear.weight.grad, LINEAR.weight.grad)
+    assert torch.equal(linear.bias.grad, LINEAR.bias.grad)
 
 
 @pytest.mark.skip

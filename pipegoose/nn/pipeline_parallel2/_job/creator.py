@@ -2,16 +2,13 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Union
 
 import torch
-import torch.distributed.rpc as rpc
 
 from pipegoose.nn.pipeline_parallel2._comm import (
     get_pipeline_context,
     set_pipeline_context,
 )
-from pipegoose.nn.pipeline_parallel2._job.backward import (
+from pipegoose.nn.pipeline_parallel2._job.backward import (  # CreateBackwardOutputPackageCallback,; SendBackwardPackageCallback,
     BackwardJob,
-    CreateBackwardOutputPackageCallback,
-    SendBackwardPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.forward import (
     ConfirmCompleteATaskToProgressTracker,
@@ -52,11 +49,11 @@ class _ForwardJobCreator(JobCreator):
 
 
 class _BackwardJobCreator(JobCreator):
-    CBS = [CreateBackwardOutputPackageCallback, SendBackwardPackageCallback]
+    # CBS = [CreateBackwardOutputPackageCallback, SendBackwardPackageCallback]
 
     @classmethod
     def create(cls, function: Callable, package: Package, pipeline_context: PipelineContext) -> BackwardJob:
-        job = BackwardJob(function, package, cbs=cls.CBS, pipeline_context=pipeline_context)
+        job = BackwardJob(function, package, pipeline_context=pipeline_context)
         return job
 
 
@@ -128,25 +125,26 @@ def schedule_backward_job(package: Package, pipeline_context: PipelineContext) -
             microbatch_idx = metadata.microbatch_idx
 
             dst_worker_name = parallel_context.get_worker_name(metadata.dst)
+            print(grad_input)
             print(f"creating a backward job, rank={rank}, microbatch_idx={microbatch_idx}, dst_worker_name={dst_worker_name}")
 
+            _create_backward_job_and_put_to_pending_queue(grad_input, metadata)
             # TODO: because forward job and backward job are in the same node
             # rpc isn't necessary
-            rpc.rpc_sync(
-                # NOTE: the backward job create in the same node
-                # as the forward job
-                to=dst_worker_name,
-                func=_create_backward_job_and_put_to_pending_queue,
-                args=(grad_input, metadata),
-            )
+            # rpc.rpc_sync(
+            #     # NOTE: the backward job create in the same node
+            #     # as the forward job
+            #     to=dst_worker_name,
+            #     func=_create_backward_job_and_put_to_pending_queue,
+            #     args=(grad_input, metadata),
+            # )
 
             return (None, None, None)
 
     set_pipeline_context(pipeline_context)
 
-    data = package.data
     metadata = package.metadata
-    data = _ScheduleBackwardJob.apply(metadata, pipeline_context, data)
+    data = _ScheduleBackwardJob.apply(metadata, pipeline_context, package.data)
     package.data = data
 
     return package
