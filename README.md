@@ -39,7 +39,7 @@ tokenizer = AutoTokenizer.from_pretrained("bloom")
 + model = PipelineParallel(model, parallel_context).parallelize()
 
 optimizer = torch.optim.Adam(model.parameters())
-+ optimizer = DistributedOptimizer(optimizer)
++ optimizer = DistributedOptimizer(optimizer, parallel_context)
 
 dataset = load_dataset('goose')
 dataloader = torch.utils.data.DataLoader(dataset, shuffle=True)
