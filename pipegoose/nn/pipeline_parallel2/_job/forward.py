@@ -13,7 +13,12 @@ from pipegoose.nn.pipeline_parallel2.sync.handshake import get_progress_tracker
 class ForwardJob(Job):
     def run_compute(self) -> torch.Tensor:
         with torch.set_grad_enabled(True):
-            return self.function(self.input.data)
+            # pipeline_context = self.pipeline_context
+            # if pipeline_context.partition_idx > 0:
+            #     assert 1 == 1
+            with torch.enable_grad():
+                output = self.function(self.input.data)
+            return output
 
 
 class CreateForwardOutputPackageCallback(Callback):

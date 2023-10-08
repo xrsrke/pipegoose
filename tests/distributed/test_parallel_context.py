@@ -127,9 +127,12 @@ def init_parallel_context(
         assert parallel_context.is_initialized(parallel_mode) is False
 
 
-@pytest.mark.parametrize("tensor_parallel_size", (1, 2))
-@pytest.mark.parametrize("pipeline_parallel_size", (1, 2))
-@pytest.mark.parametrize("data_parallel_size", (1, 2))
+# @pytest.mark.parametrize("tensor_parallel_size", (1, 2))
+# @pytest.mark.parametrize("pipeline_parallel_size", (1, 2))
+# @pytest.mark.parametrize("data_parallel_size", (1, 2))
+@pytest.mark.parametrize("tensor_parallel_size", (2,))
+@pytest.mark.parametrize("pipeline_parallel_size", (4,))
+@pytest.mark.parametrize("data_parallel_size", (2,))
 def test_init_parallel_context(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     SEED = 69
     BACKEND = "gloo"

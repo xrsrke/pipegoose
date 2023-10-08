@@ -17,6 +17,23 @@ from pipegoose.testing.utils import init_parallel_context, spawn
 # NOTE: use for creating a forward job
 function = nn.Linear(2, 4)
 
+BATCH_SIZE = 2
+SEQ_LEN = 5
+HIDDEN_SIZE = 10
+linear = nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE)
+
+input = torch.randn(BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE, requires_grad=True)
+INPUT = deepcopy(input)
+LINEAR = deepcopy(linear)
+OUTPUT = LINEAR(INPUT)
+INITIAL_GRADS = torch.ones_like(OUTPUT)
+OUTPUT.sum().backward()
+
+
+def save_output_activations(package):
+    key = SavedActivation.get_key(package.metadata.microbatch_idx, package.metadata.partition_idx)
+    SavedActivation.save_activations(key, package.data)
+
 
 @pytest.fixture
 def forward_package_in_different_nodes(forward_package):
@@ -50,14 +67,20 @@ def run_create_a_backward_job_if_a_tensor_do_backprop(
     if rank == DST:
         # NOTE: we enqueue the backward job in the destination rank
         ORIG_FORWARD_PACKAGE = deepcopy(forward_package)
+        forward_package.data
         forward_package = schedule_backward_job(forward_package, pipeline_context)
 
         # NOTE: make sure we aren't change the package
         assert torch.equal(forward_package.data, ORIG_FORWARD_PACKAGE.data)
         assert forward_package.metadata == ORIG_FORWARD_PACKAGE.metadata
 
-        data = forward_package.data
-        data.sum().backward()
+        forward_package.data = forward_package.data.exp()
+        # output = forward_package.data
+        save_output_activations(forward_package)
+        # key = SavedActivation.get_key(forward_package.metadata.microbatch_idx, forward_package.metadata.partition_idx)
+        # SavedActivation.save_activations(key, output)
+
+        forward_package.data.sum().backward()
 
         time.sleep(0.1)
 
@@ -69,7 +92,9 @@ def run_create_a_backward_job_if_a_tensor_do_backprop(
         backward_job = JobQueue.PENDING_JOBS.get()
         assert isinstance(backward_job, BackwardJob)
 
-        # backward_job.compute()
+        backward_job.compute()
+
+        assert 1 == 1
 
     # NOTE: wait for the backward job to be created
     dist.barrier()
@@ -98,19 +123,6 @@ def test_create_a_backward_job_if_a_tensor_do_backprop_in_the_same_node(request,
 
 
 def test_execute_a_backward_job(backward_job):
-    BATCH_SIZE = 2
-    SEQ_LEN = 5
-    HIDDEN_SIZE = 10
-    linear = nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE)
-
-    input = torch.randn(BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE, requires_grad=True)
-    INPUT = deepcopy(input)
-    LINEAR = deepcopy(linear)
-    OUTPUT = LINEAR(INPUT)
-    INITIAL_GRADS = torch.ones_like(OUTPUT)
-
-    OUTPUT.sum().backward()
-
     MICROBATCH_IDX = backward_job.input.metadata.microbatch_idx
     PARTITION_IDX = backward_job.input.metadata.partition_idx
 

@@ -100,7 +100,7 @@ def _create_backward_job_and_put_to_pending_queue(grad_input: torch.Tensor, meta
     JobQueue.PENDING_JOBS.put(backward_job)
 
 
-def schedule_backward_job(package: Package, pipeline_context: PipelineContext) -> Package:
+def schedule_backward_job(package: Package, pipeline_context: PipelineContext, input) -> Package:
     assert isinstance(package, Package), f"package must be an instance of Package, got {type(package)}"
 
     class _ScheduleBackwardJob(torch.autograd.Function):
@@ -113,20 +113,21 @@ def schedule_backward_job(package: Package, pipeline_context: PipelineContext) -
             print(f"scheduled a backward job, rank={rank}, microbatch_idx={metadata.microbatch_idx}")
             ctx.package_meta = metadata
             ctx.pipeline_context = pipeline_context
+            ctx.input = input
             return input
 
         @staticmethod
         def backward(ctx: Any, grad_input: torch.Tensor):
             metadata = ctx.package_meta
-            pipeline_context = ctx.pipeline_context
-            parallel_context = pipeline_context.parallel_context
+            # pipeline_context = ctx.pipeline_context
+            # parallel_context = pipeline_context.parallel_context
 
-            rank = parallel_context.get_global_rank()
-            microbatch_idx = metadata.microbatch_idx
+            # rank = parallel_context.get_global_rank()
+            # microbatch_idx = metadata.microbatch_idx
 
-            dst_worker_name = parallel_context.get_worker_name(metadata.dst)
-            print(grad_input)
-            print(f"creating a backward job, rank={rank}, microbatch_idx={microbatch_idx}, dst_worker_name={dst_worker_name}")
+            # dst_worker_name = parallel_context.get_worker_name(metadata.dst)
+            # print(grad_input)
+            # print(f"creating a backward job, rank={rank}, microbatch_idx={microbatch_idx}, dst_worker_name={dst_worker_name}")
 
             _create_backward_job_and_put_to_pending_queue(grad_input, metadata)
             # TODO: because forward job and backward job are in the same node
@@ -144,7 +145,6 @@ def schedule_backward_job(package: Package, pipeline_context: PipelineContext) -
     set_pipeline_context(pipeline_context)
 
     metadata = package.metadata
-    data = _ScheduleBackwardJob.apply(metadata, pipeline_context, package.data)
-    package.data = data
-
+    new_data = _ScheduleBackwardJob.apply(metadata, pipeline_context, package.data)
+    package.data = new_data
     return package
