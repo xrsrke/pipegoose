@@ -28,7 +28,7 @@ class BackwardJob(Job):
         partition_idx = self.input.metadata.partition_idx
         key = SavedActivation.get_key(microbatch_idx, partition_idx)
         output = SavedActivation.get_saved_activations(key)
-        detached_output = output.detach().requires_grad_(True)
+        # output = output.detach().requires_grad_(True)
         prev_grad = self.input.data
 
         rank = self.pipeline_context.parallel_context.get_global_rank()
@@ -36,8 +36,8 @@ class BackwardJob(Job):
         print(f"executing backward job, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
 
         # with torch.enable_grad():
-        torch.autograd.backward(detached_output, grad_tensors=prev_grad)
+        torch.autograd.backward(output, grad_tensors=prev_grad)
 
         # TODO: remove this, since the grads is stored in module's weights
         # and we do gradient accumulation, we don't need return grads or send to other stages
-        return torch.randn_like(detached_output)
+        return output.grad

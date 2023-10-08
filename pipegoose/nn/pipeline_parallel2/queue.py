@@ -34,8 +34,14 @@ class SavedActivation:
         # NOTE: because a partition can have multiple microbatches,
         return _SAVED_ACTIVATIONS.pop(key)
 
-    def save_activations(key: ActivationKey, data: torch.Tensor):
+    def save_activations(key: ActivationKey, data: torch.Tensor, is_by_schedule: bool = False):
         """Save forward job's activations for backward job."""
+        if is_by_schedule is True:
+            # TODO: why is this the case
+            # NOTE: if create a backward job by schedule,
+            # it requires the data to be detached
+            # but directly create backward job doesn't require
+            data = data.detach().requires_grad_(True)
         _SAVED_ACTIVATIONS[key] = data
 
 
