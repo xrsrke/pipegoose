@@ -4,16 +4,28 @@ from typing import Dict, List
 import torch
 
 from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.distributed.parallel_mode import ParallelMode
 
 
 class ParameterSharding:
-    def __init__(self, param_groups: List[Dict[str, torch.Tensor]], parallel_context: ParallelContext):
+    """
+    Shard optimizer parameters across parallelism dimension.
+
+    NOTE: Only shard the parameters in each param groups and keep the number of param groups the same.
+    """
+
+    def __init__(
+        self, param_groups: List[Dict[str, torch.Tensor]], parallel_context: ParallelContext, parallel_mode: ParallelMode
+    ):
         self.param_groups = param_groups
         self.parallel_context = parallel_context
+        self.parallel_mode = parallel_mode
 
     def shard(self) -> List[Dict[str, torch.Tensor]]:
-        world_size = self.parallel_context.get_world_size()
-
+        """
+        Credit: https://github.com/facebookresearch/fairscale/blob/164cc0f3170b4a3951dd84dda29c3e1504ac4d6e/fairscale/optim/oss.py#L173
+        """
+        world_size = self.parallel_context.get_world_size(self.parallel_mode)
         partition_parameters = [[] for _ in range(world_size)]
         sizes = [0 for _ in range(world_size)]
 
