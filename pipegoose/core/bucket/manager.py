@@ -1,0 +1,2 @@
+class BucketManager:
+    pass
