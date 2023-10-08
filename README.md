@@ -1,4 +1,4 @@
-# 🚧 PipeGoose: Training any 🤗 `transformers` in Megatron-LM 3D parallelism out of the box (write from scratch, actively under development)
+# 🚧 PipeGoose: Training any 🤗 `transformers` in Megatron-LM 3D parallelism out of the box (write from scratch)
 
 [<img src="https://img.shields.io/badge/license-MIT-blue">](https://github.com/xrsrke/pipegoose) [![tests](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml/badge.svg)](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml) [<img src="https://img.shields.io/discord/767863440248143916?label=discord">](https://discord.gg/s9ZS9VXZ3p) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [<img alt="Codecov" src="https://img.shields.io/codecov/c/github/xrsrke/pipegoose">](https://app.codecov.io/gh/xrsrke/pipegoose) [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/) [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/cloudposse.svg?style=social&label=Follow%20%40xariusrke)](https://twitter.com/xariusrke)
 
@@ -12,9 +12,11 @@
 
 Honk honk honk! This project is actively under development. Check out my learning progress [here](https://twitter.com/xariusrke/status/1667999818554413057).
 
+⚠️ **The project is actively under development and not ready for use.**
 ⚠️ **The APIs is still a work in progress and could change at any time. None of the public APIs are set in stone until we hit version 0.6.9.**
 
 ```diff
+import torch
 import torch.nn.functional as F
 from transformer import AutoModel, AutoTokenizer
 from datasets import load_dataset
@@ -24,12 +26,12 @@ from datasets import load_dataset
 model = AutoModel.from_pretrained("bloom")
 tokenizer = AutoTokenizer.from_pretrained("bloom")
 
-- device = 'cuda'
+- device = "cuda"
 - model = model.to(device)
 + parallel_context = ParallelContext(
-+    tensor_parallel_size = 2,
-+    data_parallel_size = 2,
-+    pipeline_parallel_size = 2
++    tensor_parallel_size=2,
++    data_parallel_size=2,
++    pipeline_parallel_size=2
 + )
 + model = DataParallel(model, parallel_context).parallelize()
 + model = TensorParallel(model, parallel_context).parallelize()
@@ -37,7 +39,6 @@ tokenizer = AutoTokenizer.from_pretrained("bloom")
 
 optimizer = torch.optim.Adam(model.parameters())
 + optimizer = DistributedOptimizer(optimizer)
-
 
 dataset = load_dataset('goose')
 data = torch.utils.data.DataLoader(dataset, shuffle=True)
@@ -48,7 +49,6 @@ for epoch in range(10):
 -         targets = targets.to(device)
 
         optimizer.zero_grad()
-
         output = model(source)
         loss = F.cross_entropy(output, targets)
 
