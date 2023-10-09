@@ -70,4 +70,6 @@ for epoch in range(69):
 
 **Appreciation**
 
-Big thanks to 🤗 [Hugging Face](https://huggingface.co/) for sponsoring this project with 8x A100 GPUs for testing! And [Zach Schrier](https://twitter.com/zach_schrier) for monthly twitch donations
+- Big thanks to 🤗 [Hugging Face](https://huggingface.co/) for sponsoring this project with 8x A100 GPUs for testing! And [Zach Schrier](https://twitter.com/zach_schrier) for monthly twitch donations
+
+- The project's APIs are greatly inspired by [OSLO](https://github.com/EleutherAI/oslo)'s and [ColossalAI](https://github.com/hpcaitech/ColossalAI)'s APIs.
