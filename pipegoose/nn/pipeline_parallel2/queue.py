@@ -61,3 +61,25 @@ class InputActivations:
     def save_activations(key: ActivationKey, data: torch.Tensor):
         """Save forward job's activations for backward job."""
         _INPUT_ACTIVATIONS[key] = data
+
+
+def save_input_activations(input: torch.Tensor, microbatch_idx: int, partition_idx: int):
+    input.requires_grad = True
+    key = InputActivations.get_key(microbatch_idx, partition_idx)
+    InputActivations.save_activations(key, input)
+
+
+def get_input_activations(microbatch_idx: int, partition_idx: int) -> torch.Tensor:
+    key = InputActivations.get_key(microbatch_idx, partition_idx)
+    return InputActivations.get_saved_activations(key)
+
+
+def save_output_activations(output: torch.Tensor, microbatch_idx: int, partition_idx: int):
+    key = SavedActivation.get_key(microbatch_idx, partition_idx)
+    SavedActivation.save_activations(key, output)
+
+
+def get_output_activations(microbatch_idx: int, partition_idx: int) -> torch.Tensor:
+    key = SavedActivation.get_key(microbatch_idx, partition_idx)
+    output = SavedActivation.get_saved_activations(key)
+    return output.detach().requires_grad_(True)

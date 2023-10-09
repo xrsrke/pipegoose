@@ -13,16 +13,13 @@ from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
 from pipegoose.nn.pipeline_parallel2._worker import BaseWorkerManager
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-from pipegoose.nn.pipeline_parallel2.queue import JobQueue
+from pipegoose.nn.pipeline_parallel2.queue import JobQueue, save_input_activations
 from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
 from pipegoose.nn.pipeline_parallel2.sync.callback import Callback
 from pipegoose.nn.pipeline_parallel2.sync.handshake import (
     ProgressTracker,
     set_progress_tracker,
 )
-
-_SAVED_MODULE = None
-_SAVE_INPUT = {}
 
 
 @dataclass
@@ -124,8 +121,6 @@ class PipelineEngine:
                 # this is for breaking the loop once getting backward tasks
                 break
 
-            partition_idx = self.pipeline_context.partition_idx
-
             if len(tasks) > 0:
                 for task in tasks:
                     microbatch_idx = task.microbatch_idx
@@ -136,24 +131,8 @@ class PipelineEngine:
                             package = self._construct_first_package(microbatch_idx, input=batch)
                     else:
                         package = RECV_QUEUE.get()
-                    # TODO: refactor
-                    from pipegoose.nn.pipeline_parallel2.queue import InputActivations
 
-                    key = InputActivations.get_key(package.metadata.microbatch_idx, package.metadata.partition_idx)
-                    from copy import deepcopy
-
-                    new_data = deepcopy(package.data.detach().clone())
-                    _SAVE_INPUT[(key, "before_before")] = new_data
-                    new_data.requires_grad = True
-                    InputActivations.save_activations(key, new_data)
-
-                    # NOTE: grads can follow to original here
-                    package.data = new_data
-                    _SAVE_INPUT[(key, "before_schedule")] = new_data
-
-                    # package = schedule_backward_job(package, self.pipeline_context)
-
-                    _SAVE_INPUT[(key, "after_schedule")] = package.data
+                    save_input_activations(package.data, microbatch_idx=microbatch_idx, partition_idx=partition_idx)
 
                     job = create_job(self.partition_func, package, self.pipeline_context)
                     JobQueue.PENDING_JOBS.put(job)
@@ -168,9 +147,6 @@ class PipelineEngine:
                 SavedActivation,
             )
 
-            global _SAVED_MODULE
-            _SAVED_MODULE = self.partition_func
-
             # TODO: use SavedActivation.get_key()
             partition_idx = self.pipeline_context.partition_idx
             outputs = []
@@ -182,21 +158,6 @@ class PipelineEngine:
             # outputs = [SavedActivation.get_saved_activations((microbatch_idx, partition_idx)) for microbatch_idx in range(n_microbatches)]
             outputs = torch.cat(outputs, dim=0)
             return outputs
-            # print(f"outputs.shape={outputs.shape}")
-
-            # print("just run output.backward()")
-
-            # # outputs.sum().backward()
-
-            # # TODO: refactor this, this only take the last activations and trigger backward
-            # key = SavedActivation.get_key(microbatch_idx=0, partition_idx=partition_idx)
-            # output = _SAVED_ACTIVATIONS[key]
-
-            # # SavedActivation.get_saved_activations((0, partition_idx)).sum().backward()
-            # output.sum().backward(retain_graph=True)
-
-            # time.sleep(100)
-            # assert 1 == 1
         else:
             # NOTE: not terminate the worker, make it wait for processing further backward jobs
             time.sleep(100)
