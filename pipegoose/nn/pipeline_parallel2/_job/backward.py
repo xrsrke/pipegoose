@@ -1,6 +1,7 @@
 import torch
 
 from pipegoose.nn.pipeline_parallel2._job.job import Job
+from pipegoose.nn.pipeline_parallel2.exception import PipelineGradientFlowError
 from pipegoose.nn.pipeline_parallel2.queue import SavedActivation
 
 # class CreateBackwardOutputPackageCallback(Callback):
@@ -28,16 +29,24 @@ class BackwardJob(Job):
         partition_idx = self.input.metadata.partition_idx
         key = SavedActivation.get_key(microbatch_idx, partition_idx)
         output = SavedActivation.get_saved_activations(key)
-        # output = output.detach().requires_grad_(True)
         prev_grad = self.input.data
 
         rank = self.pipeline_context.parallel_context.get_global_rank()
+
+        # NOTE: just for testing the pipeline engine, exepct to refactor this out
+        output = output.detach().requires_grad_(True)
+        from pipegoose.nn.pipeline_parallel2.queue import _INPUT_ACTIVATIONS
+
+        input = _INPUT_ACTIVATIONS[key]
 
         print(f"executing backward job, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
 
         # with torch.enable_grad():
         torch.autograd.backward(output, grad_tensors=prev_grad)
 
+        if input.grad is None:
+            raise PipelineGradientFlowError("Gradients can't flow back to the input of the pipeline stage")
+
         # TODO: remove this, since the grads is stored in module's weights
         # and we do gradient accumulation, we don't need return grads or send to other stages
-        return output.grad
+        return input.grad

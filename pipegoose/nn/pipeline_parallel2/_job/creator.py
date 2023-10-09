@@ -10,6 +10,7 @@ from pipegoose.nn.pipeline_parallel2._comm import (
 from pipegoose.nn.pipeline_parallel2._job.backward import (  # CreateBackwardOutputPackageCallback,; SendBackwardPackageCallback,
     BackwardJob,
 )
+from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.forward import (
     ConfirmCompleteATaskToProgressTracker,
     CreateForwardOutputPackageCallback,
@@ -32,12 +33,22 @@ class JobCreator(ABC):
         raise NotImplementedError("not implemented")
 
 
+class ScheduleBackwardJobCallback(Callback):
+    order = 1
+
+    def after_compute(self):
+        package = self.job.output
+        new_package = schedule_backward_job(package, self.job.pipeline_context)
+        self.job.output = new_package
+
+
 class _ForwardJobCreator(JobCreator):
     """Put a forward job into job queue for a worker to execute."""
 
     CBS = [
         CreateForwardOutputPackageCallback,
         SaveActivationIfTrainingCallback,
+        ScheduleBackwardJobCallback,
         SendForwardPackageCallback,
         ConfirmCompleteATaskToProgressTracker,
     ]

@@ -8,10 +8,7 @@ from torch import nn
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2._comm import RECV_QUEUE
-from pipegoose.nn.pipeline_parallel2._job.creator import (
-    create_job,
-    schedule_backward_job,
-)
+from pipegoose.nn.pipeline_parallel2._job.creator import create_job
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
 from pipegoose.nn.pipeline_parallel2._worker import BaseWorkerManager
@@ -127,14 +124,7 @@ class PipelineEngine:
                 # this is for breaking the loop once getting backward tasks
                 break
 
-            rank = self.parallel_context.get_global_rank()
             partition_idx = self.pipeline_context.partition_idx
-
-            if rank == 0:
-                assert 1 == 1
-
-            if self.pipeline_context.clock_idx == 1:
-                assert 1 == 1
 
             if len(tasks) > 0:
                 for task in tasks:
@@ -161,7 +151,7 @@ class PipelineEngine:
                     package.data = new_data
                     _SAVE_INPUT[(key, "before_schedule")] = new_data
 
-                    package = schedule_backward_job(package, self.pipeline_context)
+                    # package = schedule_backward_job(package, self.pipeline_context)
 
                     _SAVE_INPUT[(key, "after_schedule")] = package.data
 

@@ -116,7 +116,6 @@ def run_execute_scheduled_backward_job(
     def function(input, linear):
         return linear(input).sum()
 
-    # BATCH_SIZE = 2
     HIDDEN_SIZE = forward_package.data.shape[-1]
 
     linear = nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE)
@@ -209,6 +208,64 @@ def test_execute_a_backward_job(backward_job):
     assert torch.equal(linear.bias.grad, LINEAR.bias.grad)
 
 
-@pytest.mark.skip
-def test_execute_a_backward_job_and_send_the_output():
-    pass
+def run_execute_a_backward_job_and_send_the_output(
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, forward_package
+):
+    def function(input, linear):
+        return linear(input).sum()
+
+    HIDDEN_SIZE = forward_package.data.shape[-1]
+
+    linear = nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE)
+    INPUT = deepcopy(forward_package.data)
+    LINEAR = deepcopy(linear)
+    OUTPUT = function(INPUT, LINEAR)
+    OUTPUT.backward()
+
+    DST = 1
+    N_PARTITIONS = 3
+    N_MICROBATCHES = 5
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
+
+    scheduler = get_scheduler(SchedulerType.GPIPE)(N_MICROBATCHES, N_PARTITIONS)
+    pipeline_context = PipelineContext(scheduler, parallel_context)
+    set_pipeline_context(pipeline_context)
+    rank = parallel_context.get_global_rank()
+
+    dist.barrier()
+
+    if rank == DST:
+        leaf_tensor = forward_package.data
+        forward_package.data = function(forward_package.data, linear)
+        forward_package = schedule_backward_job(forward_package, pipeline_context)
+        key = SavedActivation.get_key(forward_package.metadata.microbatch_idx, forward_package.metadata.partition_idx)
+        SavedActivation.save_activations(key, is_by_schedule=True, data=forward_package.data)
+
+        forward_package.data.backward()
+
+        time.sleep(0.1)
+
+        backward_job = JobQueue.PENDING_JOBS.get()
+        backward_job.compute()
+
+        assert torch.equal(leaf_tensor.grad, INPUT.grad)
+
+
+@pytest.mark.parametrize("pipeline_parallel_size", [2, 5])
+@pytest.mark.parametrize("package", ["forward_package_in_same_node", "forward_package_in_different_nodes"])
+def test_execute_a_backward_job_and_send_the_output(request, package, pipeline_parallel_size):
+    TENSOR_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+
+    forward_package = request.getfixturevalue(package)
+
+    spawn(
+        run_execute_a_backward_job_and_send_the_output,
+        world_size=pipeline_parallel_size,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=DATA_PARALLEL_SIZE,
+        forward_package=forward_package,
+    )
