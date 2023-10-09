@@ -8,7 +8,15 @@ class Bucket:
     """Store tensors in a contiguous memory space."""
 
     def __init__(self, size: int, dtype: torch.dtype, parallel_context: ParallelContext):
+        """Create a bucket that stores tensors in a contiguous memory space.
+
+        Args:
+            size (int): the number of elements in the bucket
+            dtype (torch.dtype): the data type of an element in the bucket
+            parallel_context (ParallelContext): parallel context
+        """
         assert size > 0, "Bucket size must be greater than 0."
+        assert isinstance(dtype, torch.dtype), "Data type must be a torch.dtype."
         # assert parallel_context is not None, "Parallel context must not be None."
 
         self.size = size
@@ -22,13 +30,16 @@ class Bucket:
 
     @property
     def is_full(self) -> bool:
+        """Whether the bucket is full."""
         return self._buffer.storage().size() == self._offset
 
     @property
     def available_size(self) -> int:
+        """The number of elements that can be added to the bucket."""
         return self._buffer.storage().size() - self._offset
 
     def add_tensor(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Add a tensor to the bucket."""
         assert isinstance(tensor, torch.Tensor), "Input must be a tensor."
         assert tensor.dtype == self._buffer.dtype, "Input tensor must have the same dtype as the bucket."
 
@@ -43,7 +54,7 @@ class Bucket:
             raise BucketFullError("Bucket does not have enough space.")
 
         self._buffer[self._offset : self._offset + numel].copy_(tensor.flatten())
-        # NOTE: set the tensor's storage to its corresponding location in the bucket
+        # NOTE: set the tensor's storage to its corresponding storage portion in the bucket
         tensor.data = self._buffer[self._offset : self._offset + numel].view_as(tensor)
         self._offset += numel
         self._num_tensors += 1
@@ -52,9 +63,11 @@ class Bucket:
 
     @property
     def is_closed(self) -> bool:
+        """Whether the bucket is closed."""
         return self._is_closed
 
     def storage(self) -> torch.Storage:
+        """Return the bucket's storage."""
         return self._buffer.storage()
 
     def close(self):
