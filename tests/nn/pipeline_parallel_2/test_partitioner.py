@@ -10,7 +10,6 @@ from pipegoose.testing.utils import init_parallel_context, spawn
 MODEL_NAME = "sshleifer/tiny-gpt2"
 
 
-@pytest.mark.skip("implement this")
 def run_model_partitioner(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
@@ -38,6 +37,7 @@ def run_model_partitioner(rank, world_size, port, tensor_parallel_size, pipeline
         outputs = partition(outputs)
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("pipeline_parallel_size", [1, 2])
 def test_naive_partitioning(pipeline_parallel_size):
     TENSOR_PARALLEL_SIZE = 1

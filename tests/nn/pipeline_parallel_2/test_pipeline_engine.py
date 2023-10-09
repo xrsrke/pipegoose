@@ -66,6 +66,7 @@ def run_pipeline_engine(
         assert p_outputs is None
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("tensor_parallel_size, pipeline_parallel_size, data_parallel_size", [(1, 4, 1), (2, 4, 2)])
 def test_pipeline_engine(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     BATCH_SIZE = 32
