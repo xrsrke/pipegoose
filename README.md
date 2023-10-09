@@ -42,17 +42,17 @@ optimizer = torch.optim.Adam(model.parameters())
 + optimizer = DistributedOptimizer(optimizer, parallel_context)
 
 dataset = load_dataset('goose')
-dataloader = torch.utils.data.DataLoader(dataset, shuffle=True)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=42)
 
-for epoch in range(10):
-    for source, targets in dataloader:
--         source = source.to(device)
+for epoch in range(69):
+    for inputs, targets in dataloader:
+-         inputs = source.to(device)
 -         targets = targets.to(device)
 
-        optimizer.zero_grad()
-        output = model(source)
+        output = model(inputs)
         loss = F.cross_entropy(output, targets)
 
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 ```
