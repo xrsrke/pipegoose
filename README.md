@@ -46,7 +46,7 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=42)
 
 for epoch in range(69):
     for inputs, targets in dataloader:
--         inputs = source.to(device)
+-         inputs = inputs.to(device)
 -         targets = targets.to(device)
 
         output = model(inputs)
