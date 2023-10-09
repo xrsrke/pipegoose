@@ -1,3 +1,9 @@
+"""
+Inspired from OSLO's APIs.
+https://github.com/EleutherAI/oslo/blob/d7c4e32e766a99cc9d56533bc090570360dc8b2a/oslo/torch/distributed/nn/functional.py#L13
+"""
+
+
 from typing import Any, Optional
 
 import torch

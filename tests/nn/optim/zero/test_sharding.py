@@ -15,16 +15,16 @@ def run_optimizer_states_sharding(
 ):
     def calculate_total_sharded_elements(sharded_params):
         total = 0
-        num_param_per_partition = []
+        num_params_per_partition = []
         for param_groups in sharded_params:
             local_total = 0
             for param_group in param_groups:
                 for param in param_group["params"]:
                     local_total += param.numel()
 
-            num_param_per_partition.append(local_total)
+            num_params_per_partition.append(local_total)
             total += local_total
-        return total, num_param_per_partition
+        return total, num_params_per_partition
 
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
