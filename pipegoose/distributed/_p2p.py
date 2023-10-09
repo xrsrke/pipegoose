@@ -23,6 +23,13 @@ DTYPE_TO_ID = {dtype: idx for idx, dtype in enumerate(ID_TO_DTYPE)}
 
 
 class _P2P:
+    """
+    P2P Communication
+
+    NOTE: Inspired from OSLO's P2P APIs
+    https://github.com/EleutherAI/oslo/blob/d7c4e32e766a99cc9d56533bc090570360dc8b2a/oslo/torch/distributed/nn/_p2p.py#L62
+    """
+
     def __init__(self):
         self._INSTRUCTIONS = {
             torch.Tensor: {"send": self._send_tensor, "recv": self._recv_tensor},

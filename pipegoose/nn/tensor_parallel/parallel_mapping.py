@@ -20,6 +20,10 @@ class LMHead(TensorParallelInformation):
 
 
 class ParallelMapping:
+    """
+    NOTE: Inspired from OSLO's Parallel Mapping
+    https://github.com/EleutherAI/oslo/blob/d7c4e32e766a99cc9d56533bc090570360dc8b2a/oslo/torch/nn/parallel/tensor_parallel/mapping.py#L43
+    """
 
     # TODO: make this extendable
     # so user can define their own mapping

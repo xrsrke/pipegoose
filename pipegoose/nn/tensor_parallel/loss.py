@@ -66,6 +66,9 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor) -> Tuple[torch.Tensor, None, None]:
+        """
+        Source: https://github.com/NVIDIA/Megatron-LM/blob/f7727433293427bef04858f67b2889fe9b177d88/megatron/core/tensor_parallel/cross_entropy.py#L98C5-L98C5
+        """
         # Retrieve tensors from the forward path.
         softmax, target_mask, masked_target_1d = ctx.saved_tensors
 
