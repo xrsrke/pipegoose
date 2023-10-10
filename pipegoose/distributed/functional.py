@@ -156,3 +156,9 @@ def recv(
 ) -> Optional[Any]:
     if dst == parallel_context.get_local_rank(parallel_mode):
         return _P2P().recv(src, parallel_context, parallel_mode)
+
+
+def barrier(parallel_context: ParallelContext, parallel_mode: ParallelMode):
+    """Wait until all processes in the parallel mode reach this barrier."""
+    process_group = parallel_context.get_group(parallel_mode)
+    dist.barrier(group=process_group)

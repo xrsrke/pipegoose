@@ -1,6 +1,8 @@
+import random
+import time
+
 import pytest
 import torch
-import torch.distributed as dist
 
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2.sync.handshake import ParallelGroupHandshake
@@ -10,17 +12,25 @@ from pipegoose.testing.utils import init_parallel_context, spawn
 def run_parallel_group_handshake(
     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode, shared_counter
 ):
+    def do_random_delay():
+        rand_time = random.uniform(0, 3)
+        time.sleep(rand_time)
+
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
+
+    # NOTE: simulate some random delay in different ranks
+    # before the handshake
+    do_random_delay()
 
     handshake = ParallelGroupHandshake(
         parallel_context,
         parallel_mode=parallel_mode,
     )
     handshake.initiate()
-    dist.barrier()
 
+    do_random_delay()
     handshake.confirm()
     shared_counter.add_(rank)
 

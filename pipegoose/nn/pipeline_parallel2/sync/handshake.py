@@ -7,6 +7,7 @@ from typing import Dict, List, NewType
 
 import torch.distributed.rpc as rpc
 
+from pipegoose.distributed.functional import barrier
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2.sync.callback import Callback
@@ -183,13 +184,16 @@ class ParallelGroupHandshake(Handshake):
     def __init__(self, parallel_context: ParallelContext, parallel_mode: ParallelMode):
         self.parallel_context = parallel_context
         self.parallel_mode = parallel_mode
-
-        ParallelGroupHandshake.CONFIRMED_QUEUE[parallel_mode] = []
-        ParallelGroupHandshake.CONTINUE_QUEUE[parallel_mode] = Queue()
-        ParallelGroupHandshake.PARALLEL_CONTEXT = parallel_context
+        ParallelGroupHandshake.PARALLEL_CONTEXT = self.parallel_context
 
     def initiate(self):
-        pass
+        """Initiate the handshake."""
+        ParallelGroupHandshake.CONFIRMED_QUEUE[self.parallel_mode] = []
+        ParallelGroupHandshake.CONTINUE_QUEUE[self.parallel_mode] = Queue()
+
+        # NOTE: make sure all ranks in the parallel mode are initiated
+        # before continuing
+        barrier(self.parallel_context, self.parallel_mode)
 
     def is_initiated(self):
         pass
