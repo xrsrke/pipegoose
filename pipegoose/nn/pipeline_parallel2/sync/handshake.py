@@ -1,6 +1,8 @@
 import threading
 import time
 from abc import ABC, abstractclassmethod
+from queue import Queue
+from time import sleep
 from typing import Dict, List, NewType
 
 import torch.distributed.rpc as rpc
@@ -168,3 +170,84 @@ class ProgressTracker(Handshake):
             NEXT_CLOCK_IDX = clock_idx + 1
             ProgressTracker.clock_idx = NEXT_CLOCK_IDX
             ProgressTracker._broadcast_tasks(ProgressTracker.progress, clock_idx=NEXT_CLOCK_IDX, is_init=False)
+
+
+class ParallelGroupHandshake(Handshake):
+    # NOTE: create a queue for storing confirmed ranks
+    CONFIRMED_QUEUE: Dict[ParallelMode, List[int]] = {}
+    # NOTE: wait until all ranks confirm
+    CONTINUE_QUEUE: Dict[ParallelMode, Queue] = {}
+
+    PARALLEL_CONTEXT: ParallelContext = None
+
+    def __init__(self, parallel_context: ParallelContext, parallel_mode: ParallelMode):
+        self.parallel_context = parallel_context
+        self.parallel_mode = parallel_mode
+
+        ParallelGroupHandshake.CONFIRMED_QUEUE[parallel_mode] = []
+        ParallelGroupHandshake.CONTINUE_QUEUE[parallel_mode] = Queue()
+        ParallelGroupHandshake.PARALLEL_CONTEXT = parallel_context
+
+    def initiate(self):
+        pass
+
+    def is_initiated(self):
+        pass
+
+    def is_confirmed(self):
+        pass
+
+    def is_all_confirmed(self):
+        pass
+
+    def confirm(self):
+        master_rank = self._get_master_rank(self.parallel_mode)
+        master_worker_name = self.parallel_context.get_worker_name(master_rank)
+        rank = self.parallel_context.get_local_rank(self.parallel_mode)
+
+        rpc.rpc_sync(
+            to=master_worker_name,
+            func=ParallelGroupHandshake._recv_confirm_from_worker_rank,
+            args=(rank, self.parallel_mode),
+        )
+
+        print(f"rank={rank} confirm")
+
+    @staticmethod
+    def _recv_confirm_from_worker_rank(rank: int, parallel_mode: ParallelMode):
+        confirmed_queue = ParallelGroupHandshake.CONFIRMED_QUEUE[parallel_mode]
+        confirmed_queue.append(rank)
+
+        print(f"master received confirm from {rank}")
+
+        local_world_size = ParallelGroupHandshake.PARALLEL_CONTEXT.get_world_size(parallel_mode)
+        num_worker_ranks = local_world_size
+        if len(confirmed_queue) == num_worker_ranks:
+            ParallelGroupHandshake.send_continue_to_worker_all_ranks(parallel_mode)
+
+    @staticmethod
+    def send_continue_to_worker_all_ranks(parallel_mode: ParallelMode):
+        parallel_context = ParallelGroupHandshake.PARALLEL_CONTEXT
+        ranks_in_group = parallel_context.get_ranks_in_group(parallel_mode)
+        for other_rank in ranks_in_group:
+            other_worker_name = parallel_context.get_worker_name(other_rank)
+            rpc.rpc_sync(
+                to=other_worker_name,
+                func=ParallelGroupHandshake._recv_continue_from_master_rank,
+                args=(parallel_mode,),
+            )
+
+    @staticmethod
+    def _recv_continue_from_master_rank(parallel_mode):
+        ParallelGroupHandshake.CONTINUE_QUEUE[parallel_mode].put(True)
+
+    def _get_master_rank(self, parallel_mode: ParallelMode):
+        # NOTE: the master rank is the first rank in the group
+        ranks_in_group = self.parallel_context.get_ranks_in_group(parallel_mode)
+        return ranks_in_group[0]
+
+    def barrier(self):
+        while self.CONTINUE_QUEUE[self.parallel_mode].empty():
+            sleep(0.5)
+
+        _ = self.CONTINUE_QUEUE[self.parallel_mode].get()
