@@ -5,12 +5,9 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 
-def run_p2p(rank, world_size, port, pipeline_parallel_size):
-    TENSOR_PARALLEL_SIZE = 1
-    DATA_PARALLEL_SIZE = 1
-
+def run_p2p(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     parallel_context = init_parallel_context(
-        rank, world_size, port, TENSOR_PARALLEL_SIZE, pipeline_parallel_size, DATA_PARALLEL_SIZE
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
     rank = parallel_context.get_local_rank(parallel_mode=ParallelMode.PIPELINE)
 
@@ -28,8 +25,16 @@ def run_p2p(rank, world_size, port, pipeline_parallel_size):
 
 
 def test_send_recv_p2p():
+    TENSOR_PARALLEL_SIZE = 1
+    PIPELINE_PARALLEL_SIZE = 2
+    DATA_PARALLEL_SIZE = 1
+
+    WORLD_SIZE = TENSOR_PARALLEL_SIZE * DATA_PARALLEL_SIZE * PIPELINE_PARALLEL_SIZE
+
     spawn(
         run_p2p,
-        world_size=2,
-        pipeline_parallel_size=2,
+        world_size=WORLD_SIZE,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
     )

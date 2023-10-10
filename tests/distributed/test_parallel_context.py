@@ -182,7 +182,7 @@ def run_send_rcv_rpc(
 
     assert isinstance(parallel_context.get_worker_name(rank), str)
 
-    if pipeline_parallel_size > 1:
+    if world_size > 1:
         assert rpc._is_current_rpc_agent_set() is True
 
     if rank == 0:
@@ -203,7 +203,7 @@ def run_send_rcv_rpc(
 
     parallel_context.destroy()
 
-    if pipeline_parallel_size > 1:
+    if world_size > 1:
         assert rpc._is_current_rpc_agent_set() is False
 
 

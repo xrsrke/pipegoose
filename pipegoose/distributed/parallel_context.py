@@ -163,7 +163,8 @@ class ParallelContext:
             self._register_dist(**result)
 
     def init_rpc_workers(self, host: str, port: int):
-        if self.pipeline_parallel_size > 1:
+        if self.get_world_size(ParallelMode.GLOBAL) > 1:
+            # NOTE: we actually only need to initialize RPC workers for pipeline parallel
             init_method = f"tcp://{host}:{port}"
             options = rpc.TensorPipeRpcBackendOptions(
                 init_method=init_method,
@@ -328,8 +329,6 @@ class ParallelContext:
 
         dist.barrier()
         dist.destroy_process_group()
-
-        if self.pipeline_parallel_size > 1:
-            rpc.shutdown()
+        rpc.shutdown()
 
         self._groups.clear()
