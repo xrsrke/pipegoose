@@ -4,6 +4,7 @@ import torch
 from pipegoose.distributed.functional import (
     all_gather,
     all_reduce,
+    barrier,
     broadcast,
     reduce,
     scatter,
@@ -201,3 +202,27 @@ def test_all_reduce(world_size, tensor_parallel_size, pipeline_parallel_size, da
 @pytest.mark.skip(reason="not implemented")
 def test_reduce_scatter():
     pass
+
+
+def barrier_logic(rank, ranks_in_group, parallel_context, parallel_mode):
+    if rank == ranks_in_group:
+        # NOTE: write a better test for barrier
+        assert rank in ranks_in_group
+
+        barrier(parallel_context, parallel_mode)
+
+        assert rank in ranks_in_group
+
+
+@PARAMETRIZE_PARALLEL_SIZE
+@PARAMETRIZE_PARALLEL_MODE
+def test_barrier(world_size, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, parallel_mode):
+    spawn(
+        run_parallel_test,
+        test_logic=barrier_logic,
+        world_size=world_size,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=data_parallel_size,
+        parallel_mode=parallel_mode,
+    )

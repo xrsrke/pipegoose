@@ -163,15 +163,18 @@ class ParallelContext:
             self._register_dist(**result)
 
     def init_rpc_workers(self, host: str, port: int):
-        if self.get_world_size(ParallelMode.GLOBAL) > 1:
-            # NOTE: we actually only need to initialize RPC workers for pipeline parallel
+        world_size = self.get_world_size(ParallelMode.GLOBAL)
+        if world_size > 1:
+            # NOTE: we actually only need to initialize RPC workers for
+            # pipeline parallelism, but we also do so for testing all
+            # the general modules that use RPC calls and work
+            # in all parallel modes
             init_method = f"tcp://{host}:{port}"
             options = rpc.TensorPipeRpcBackendOptions(
                 init_method=init_method,
             )
 
             rank = self.get_global_rank()
-            world_size = self.get_world_size(ParallelMode.GLOBAL)
             worker_name = self.get_worker_name(rank)
 
             # NOTE: we only do device mapping for multi-gpu
@@ -324,7 +327,10 @@ class ParallelContext:
         for mode, group in self._groups.items():
             assert self.is_initialized(mode), f"{mode} group must be initialized before destroying."
             if mode is not ParallelMode.GLOBAL:
-                dist.barrier()
+                # NOTE: only ranks in the parallel group need to synchronize
+                # before destroying the group
+                process_group = self.get_group(mode)
+                dist.barrier(group=process_group)
                 dist.destroy_process_group(group)
 
         dist.barrier()

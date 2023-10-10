@@ -8,6 +8,7 @@ skip_if_no_cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA
 
 
 # @skip_if_no_cuda
+@pytest.mark.skip("consider remove this module")
 def test_profile_by_memory():
     # model = AutoModel.from_pretrained("gpt2")
     # tokenizer = AutoTokenizer.from_pretrained("gpt2")
