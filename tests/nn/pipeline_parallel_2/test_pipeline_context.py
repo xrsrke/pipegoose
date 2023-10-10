@@ -7,6 +7,17 @@ from pipegoose.nn.pipeline_parallel2.scheduler import SchedulerType, get_schedul
 from pipegoose.nn.pipeline_parallel2.task import Task
 from pipegoose.testing.utils import init_parallel_context, spawn
 
+EXPECTED_SCHEDULES = [
+    [(0, 0)],
+    [(1, 0), (0, 1)],
+    [(2, 0), (1, 1), (0, 2)],
+    [(3, 0), (2, 1), (1, 2), (0, 3)],
+    [(3, 1), (2, 2), (1, 3), (0, 4)],
+    [(3, 2), (2, 3), (1, 4)],
+    [(3, 3), (2, 4)],
+    [(3, 4)],
+]
+
 
 def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     N_PARTITIONS = 5
@@ -30,10 +41,12 @@ def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_
     next_schedules = pipeline_context.get_next_schedule_from_microbatch(microbatch_idx=0)
     assert isinstance(next_schedules, list)
 
-    for task in next_schedules:
-        # NOTE: expect all the tasks that being processed in the current clock cycle
-        # to be send to the next partition in the next clock cycle
-        assert task.partition_idx == pipeline_context.partition_idx + 1
+    # NOTE: x is (microbatch_idx, partition_idx)
+    # x[0] means microbatch_idx of the task
+    EXPECTED_NEXT_SCHEDULE = [x for x in EXPECTED_SCHEDULES[pipeline_context.clock_idx + 1] if x[0] == 0]
+    assert len(next_schedules) == len(EXPECTED_NEXT_SCHEDULE)
+    for task, (_, partition_idx) in zip(next_schedules, EXPECTED_NEXT_SCHEDULE):
+        assert task.partition_idx == partition_idx
 
     CURRENT_CLOCK_IDX = pipeline_context.clock_idx
     pipeline_context.increase_a_clock_cycle()
@@ -41,7 +54,7 @@ def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_
     assert pipeline_context.clock_idx == CURRENT_CLOCK_IDX + 1
 
 
-@pytest.mark.parametrize("pipeline_parallel_size", [1, 2])
+@pytest.mark.parametrize("pipeline_parallel_size", [1, 2, 4])
 def test_run_pipeline_context(pipeline_parallel_size):
     TENSOR_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
