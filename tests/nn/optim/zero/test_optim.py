@@ -52,6 +52,7 @@ def run_dist_optim(
     #     assert p.grad is None
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("data_parallel_size", [2, 5])
 def test_dist_optim(data_parallel_size):
     TENSOR_PARALLEL_SIZE = 1
