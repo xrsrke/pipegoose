@@ -247,7 +247,9 @@ class ParallelGroupHandshake(Handshake):
         return ranks_in_group[0]
 
     def barrier(self):
+        """Wait until all ranks in the parallel mode confirm."""
         while self.CONTINUE_QUEUE[self.parallel_mode].empty():
             sleep(0.5)
 
+        # NOTE: block CPU execution until all ranks confirm
         _ = self.CONTINUE_QUEUE[self.parallel_mode].get()
