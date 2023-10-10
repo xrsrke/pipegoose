@@ -329,6 +329,8 @@ class ParallelContext:
 
         dist.barrier()
         dist.destroy_process_group()
-        rpc.shutdown()
+
+        if self.get_world_size(ParallelMode.GLOBAL) > 1:
+            rpc.shutdown()
 
         self._groups.clear()
