@@ -39,42 +39,43 @@ class GPipeScheduler(BaseScheduler):
         self.n_partitions = n_partitions
 
     def get_schedules(self) -> List[List[Task]]:
-        def generate_forward_schedule(n_microbatches, n_partitions):
-            schedules = []
-            n_clock_cycles = n_partitions + n_microbatches - 1
-            for clock_idx in range(n_clock_cycles):
-                start_partrition = max(clock_idx + 1 - n_microbatches, 0)
-                end_partition = min(clock_idx + 1, n_partitions)
-
-                tasks = []
-                for partition_idx in range(start_partrition, end_partition):
-                    microbatch_idx = clock_idx - partition_idx
-                    task = Task(JobType.FORWARD, microbatch_idx, partition_idx)
-                    tasks.append(task)
-
-                schedules.append(tasks)
-            return schedules
-
-        def generate_backward_schedule(forward_schedule):
-            from copy import deepcopy
-
-            n_clock_cycles = len(forward_schedule)
-            backward_schedule = deepcopy(forward_schedule)
-            backward_schedule.reverse()
-
-            for clock_idx in range(n_clock_cycles):
-                for task in backward_schedule[clock_idx]:
-                    task.job_type = JobType.BACKWARD
-
-            return backward_schedule
-
-        forward_schedule = generate_forward_schedule(self.n_microbatches, self.n_partitions)
-        backward_schedule = generate_backward_schedule(forward_schedule)
+        forward_schedules = self.get_forward_schedules()
+        backward_schedules = self.get_backward_schedules()
 
         # NOTE: combine forward and backward schedule into a full schedule
-        forward_schedule.extend(backward_schedule)
+        forward_schedules.extend(backward_schedules)
 
-        return forward_schedule
+        return forward_schedules
+
+    def get_forward_schedules(self) -> List[List[Task]]:
+        schedules = []
+        n_clock_cycles = self.n_partitions + self.n_microbatches - 1
+        for clock_idx in range(n_clock_cycles):
+            start_partrition = max(clock_idx + 1 - self.n_microbatches, 0)
+            end_partition = min(clock_idx + 1, self.n_partitions)
+
+            tasks = []
+            for partition_idx in range(start_partrition, end_partition):
+                microbatch_idx = clock_idx - partition_idx
+                task = Task(JobType.FORWARD, microbatch_idx, partition_idx)
+                tasks.append(task)
+
+            schedules.append(tasks)
+        return schedules
+
+    def get_backward_schedules(self) -> List[List[Task]]:
+        from copy import deepcopy
+
+        forward_schedules = self.get_forward_schedules()
+        n_clock_cycles = len(forward_schedules)
+        backward_schedules = deepcopy(forward_schedules)
+        backward_schedules.reverse()
+
+        for clock_idx in range(n_clock_cycles):
+            for task in backward_schedules[clock_idx]:
+                task.job_type = JobType.BACKWARD
+
+        return backward_schedules
 
     @property
     def total_clock_cycles(self) -> int:
