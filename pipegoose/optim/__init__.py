@@ -1,7 +1,17 @@
 from abc import ABC, abstractclassmethod
 
 
-class DistributedOptimizer(ABC):
+class BaseDistributedOptimizer(ABC):
+    """A base class for distributed optimizer."""
+
+    @abstractclassmethod
+    def defaults(self):
+        raise NotImplementedError("defaults is not implemented")
+
+    @abstractclassmethod
+    def param_groups(self):
+        raise NotImplementedError("param_groups is not implemented")
+
     @abstractclassmethod
     def add_param_group(self):
         raise NotImplementedError("add_param_group is not implemented")
