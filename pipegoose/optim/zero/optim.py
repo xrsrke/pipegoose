@@ -15,24 +15,19 @@ class DistributedOptimizer(BaseDistributedOptimizer):
         self.optim = optim
         self.parallel_context = parallel_context
 
-        self._master_params = {}
         self._setup_local_optim()
 
     def _setup_local_optim(self):
         """Setup local optimizer."""
-
-        # NOTE: shard and assign the corresponding local parameters to the local optimizer
-        for i, param_groups in enumerate(self.optim.param_groups):
-            self._master_params[i] = param_groups["params"]
-
         sharded_param_groups = OptimizerStateSharding(
             self.optim.param_groups, self.parallel_context, ParallelMode.DATA
         ).shard()
         ranks_in_group = self.parallel_context.get_ranks_in_group(ParallelMode.DATA)
         self._rank_to_param_groups = {rank: params for rank, params in zip(ranks_in_group, sharded_param_groups)}
 
-        local_rank = self.parallel_context.get_local_rank(ParallelMode.DATA)
-        self.optim.param_groups = self._rank_to_param_groups[local_rank]
+        dp_local_rank = self.parallel_context.get_local_rank(ParallelMode.DATA)
+        dp_global_rank = self.parallel_context.get_global_rank_from_local_rank(dp_local_rank, ParallelMode.DATA)
+        self.optim.param_groups = self._rank_to_param_groups[dp_global_rank]
 
     @property
     def defaults(self):

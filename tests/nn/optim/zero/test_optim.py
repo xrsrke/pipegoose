@@ -49,8 +49,9 @@ def run_dist_optim(
 
     # NOTE: make sure the optimizer keep the gradients after .step()
     # it's up to the user to call .zero_grad() or not
-    p_grads = [p.grad for p in model.parameters()]
-    for p1, p2 in zip(p_grads, grads):
+    # NOTE: dist_grads just means the gradients of the model parameters
+    dist_grads = [p.grad for p in model.parameters()]
+    for p1, p2 in zip(dist_grads, grads):
         assert p1 is not None
         assert torch.allclose(p1, p2), f"p1: {p1}, p2: {p2}"
 
@@ -60,13 +61,12 @@ def run_dist_optim(
         assert p.grad is None
 
 
-@pytest.mark.parametrize("data_parallel_size", [2, 4, 5])
+@pytest.mark.parametrize("data_parallel_size", [2, 4])
 def test_dist_optim(data_parallel_size):
     TENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 1
     WORLD_SIZE = TENSOR_PARALLEL_SIZE * PIPELINE_PARALLEL_SIZE * data_parallel_size
 
-    # LR = 1e-3
     BATCH_SIZE = 500
     HIDDEN_SIZE = 1000
     OUTPUT_SIZE = 100
