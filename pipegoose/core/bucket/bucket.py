@@ -1,27 +1,23 @@
 import torch
 
 from pipegoose.core.bucket.exception import BucketClosedError, BucketFullError
-from pipegoose.distributed.parallel_context import ParallelContext
 
 
 class Bucket:
     """Store tensors in a contiguous memory space."""
 
-    def __init__(self, size: int, dtype: torch.dtype, parallel_context: ParallelContext):
+    def __init__(self, size: int, dtype: torch.dtype):
         """Create a bucket that stores tensors in a contiguous memory space.
 
         Args:
             size (int): the number of elements in the bucket
             dtype (torch.dtype): the data type of an element in the bucket
-            parallel_context (ParallelContext): parallel context
         """
         assert size > 0, "Bucket size must be greater than 0."
         assert isinstance(dtype, torch.dtype), "Data type must be a torch.dtype."
-        # assert parallel_context is not None, "Parallel context must not be None."
 
         self.size = size
         self.dtype = dtype
-        self.parallel_context = parallel_context
 
         self._buffer = torch.zeros(size, dtype=dtype)
         self._offset = 0
@@ -66,6 +62,11 @@ class Bucket:
         """Whether the bucket is closed."""
         return self._is_closed
 
+    @property
+    def is_free(self) -> bool:
+        """Whether the bucket is free."""
+        return self.storage().size() == 0
+
     def storage(self) -> torch.Storage:
         """Return the bucket's storage."""
         return self._buffer.storage()
@@ -75,9 +76,12 @@ class Bucket:
         assert self.is_closed is False, "Bucket is already closed."
         self._is_closed = True
 
-    def free(self):
-        """Delete all data in the bucket."""
+    def clear(self):
+        """Clear all data in the bucket."""
         assert self._offset != 0, "Bucket is empty, so no need to free memory."
+        self._offset = 0
+        self._num_tensors = 0
+        self._buffer.zero_()
 
     def __len__(self) -> int:
         """Return the number of tensors in the bucket."""

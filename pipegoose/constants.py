@@ -1,6 +1,9 @@
 CHECKPOINT_WEIGHTS_NAME = "pytorch_model_tp_{}_pp_{}.bin"
 CHECKPOINT_PATH_NAME = "./"
 
+# NOTE: no single bucket size is optimal for all models
+BUCKET_SIZE_MB = 25
+
 
 # ==================================================
 #               Distributed Communication

@@ -5,26 +5,20 @@ from pipegoose.core.bucket.bucket import Bucket
 from pipegoose.core.bucket.exception import BucketClosedError, BucketFullError
 
 
-class FakeParallelContext:
-    pass
-
-
-def test_bucket():
+def test_add_a_tensor_to_bucket():
     BUCKET_SIZE = 1024
     DTYPE = torch.float32
 
     tensor = torch.randn(2, 4, dtype=DTYPE)
     TENSOR_STORAGE = tensor.storage()
 
-    parallel_context = FakeParallelContext()
-    bucket = Bucket(BUCKET_SIZE, DTYPE, parallel_context)
+    bucket = Bucket(BUCKET_SIZE, DTYPE)
 
     assert bucket.size == BUCKET_SIZE
     assert bucket.dtype == DTYPE
     assert bucket.available_size == BUCKET_SIZE
     assert len(bucket) == 0
     assert bucket.is_full is False
-    assert bucket.is_closed is False
 
     new_tensor = bucket.add_tensor(tensor)
 
@@ -38,23 +32,13 @@ def test_bucket():
     # since it's stored in the bucket
     assert new_tensor.storage().data_ptr() != TENSOR_STORAGE.data_ptr()
 
-    # bucket.clear()
-
-    # assert bucket.available_size == BUCKET_SIZE
-    # assert len(bucket) == 0
-
-    bucket.close()
-
-    assert bucket.is_closed is True
-
 
 def test_add_tensor_that_larger_than_bucket_size():
     BUCKET_SIZE = 1024
     DTYPE = torch.float32
     tensor = torch.randn(2, BUCKET_SIZE, dtype=DTYPE)
 
-    parallel_context = FakeParallelContext()
-    bucket = Bucket(BUCKET_SIZE, DTYPE, parallel_context)
+    bucket = Bucket(BUCKET_SIZE, DTYPE)
 
     with pytest.raises(Exception):
         bucket.add_tensor(tensor)
@@ -66,8 +50,7 @@ def test_add_tensor_that_larger_than_available_space():
     tensor = torch.randn(BUCKET_SIZE - 1)
     redundant_tensor = torch.randn(BUCKET_SIZE, dtype=DTYPE)
 
-    parallel_context = FakeParallelContext()
-    bucket = Bucket(BUCKET_SIZE, DTYPE, parallel_context)
+    bucket = Bucket(BUCKET_SIZE, DTYPE)
 
     bucket.add_tensor(tensor)
 
@@ -78,15 +61,17 @@ def test_add_tensor_that_larger_than_available_space():
 def test_add_a_tensor_to_a_closed_bucket():
     BUCKET_SIZE = 1024
     DTYPE = torch.float32
-    tensor = torch.randn(BUCKET_SIZE - 1)
+    tensor = torch.randn(100)
 
-    parallel_context = FakeParallelContext()
-    bucket = Bucket(BUCKET_SIZE, DTYPE, parallel_context)
+    bucket = Bucket(BUCKET_SIZE, DTYPE)
+    assert bucket.is_closed is False
 
     bucket.close()
 
     with pytest.raises(BucketClosedError):
         bucket.add_tensor(tensor)
+
+    assert bucket.is_closed is True
 
 
 def test_add_a_tensor_with_different_dtype_to_a_bucket():
@@ -94,10 +79,29 @@ def test_add_a_tensor_with_different_dtype_to_a_bucket():
     DTYPE = torch.float32
     tensor = torch.randn(10, dtype=torch.float16)
 
-    parallel_context = FakeParallelContext()
-    bucket = Bucket(BUCKET_SIZE, DTYPE, parallel_context)
-
-    bucket.close()
+    bucket = Bucket(BUCKET_SIZE, DTYPE)
 
     with pytest.raises(Exception):
         bucket.add_tensor(tensor)
+
+
+def test_flush_all_tensors_in_bucket():
+    BUCKET_SIZE = 1024
+    DTYPE = torch.float32
+    x1 = torch.randn(10, dtype=DTYPE)
+    x2 = torch.randn(20, dtype=DTYPE)
+
+    bucket = Bucket(BUCKET_SIZE, DTYPE)
+    bucket.add_tensor(x1)
+    bucket.add_tensor(x2)
+    bucket.clear()
+
+    assert bucket.available_size == BUCKET_SIZE
+    assert len(bucket) == 0
+    # NOTE: how to test whether the bucket storage is deleted?
+    # assert get_tensor_storage_mem_loc(x1) != bucket.storage().data_ptr()
+    # assert get_tensor_storage_mem_loc(x2) != bucket.storage().data_ptr()
+
+
+def test_delete_bucket_memory_storage():
+    pass

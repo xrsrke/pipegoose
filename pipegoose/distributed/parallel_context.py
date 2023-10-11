@@ -163,6 +163,7 @@ class ParallelContext:
             self._register_dist(**result)
 
     def init_rpc_workers(self, host: str, port: int):
+        """Initialize RPC workers for P2P communication."""
         world_size = self.get_world_size(ParallelMode.GLOBAL)
         if world_size > 1:
             # NOTE: we actually only need to initialize RPC workers for

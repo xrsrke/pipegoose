@@ -19,8 +19,8 @@ def find_free_port(min_port: int = 2000, max_port: int = 65000) -> int:
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 sock.bind(("localhost", port))
                 return port
-        except OSError:
-            continue
+        except OSError as e:
+            raise e
 
 
 def spawn(func: Callable, world_size: int = 1, **kwargs):
