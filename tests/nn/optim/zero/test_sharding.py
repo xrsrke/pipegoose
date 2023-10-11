@@ -6,7 +6,7 @@ from torch.optim import SGD
 from transformers import AutoModel
 
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.optim.zero.sharding import ParameterSharding
+from pipegoose.optim.zero.sharding import OptimizerStateSharding
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 
@@ -35,7 +35,7 @@ def run_optimizer_states_sharding(
     optim = SGD(model.parameters(), lr=0.01)
     param_groups = optim.param_groups
 
-    sharder = ParameterSharding(param_groups, parallel_context, ParallelMode.DATA)
+    sharder = OptimizerStateSharding(param_groups, parallel_context, ParallelMode.DATA)
     sharded_params = sharder.shard()
 
     assert len(sharded_params) == world_size
