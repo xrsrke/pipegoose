@@ -22,6 +22,7 @@ def run_dist_optim(
     input,
     model,
     updated_model,
+    grads,
     optimizer,
 ):
     parallel_context = init_parallel_context(
@@ -46,22 +47,29 @@ def run_dist_optim(
     for p1, p2 in zip(model.parameters(), ORIG_UPDATED_MODEL.parameters()):
         assert torch.allclose(p1, p2), f"p1: {p1}, p2: {p2}"
 
-    # dist_optimizer.zero_grad()
+    # NOTE: make sure the optimizer keep the gradients after .step()
+    # it's up to the user to call .zero_grad() or not
+    p_grads = [p.grad for p in model.parameters()]
+    for p1, p2 in zip(p_grads, grads):
+        assert p1 is not None
+        assert torch.allclose(p1, p2), f"p1: {p1}, p2: {p2}"
 
-    # for p in model.parameters():
-    #     assert p.grad is None
+    dist_optimizer.zero_grad()
+
+    for p in model.parameters():
+        assert p.grad is None
 
 
-@pytest.mark.parametrize("data_parallel_size", [2, 5])
+@pytest.mark.parametrize("data_parallel_size", [2, 4, 5])
 def test_dist_optim(data_parallel_size):
     TENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 1
     WORLD_SIZE = TENSOR_PARALLEL_SIZE * PIPELINE_PARALLEL_SIZE * data_parallel_size
 
     # LR = 1e-3
-    BATCH_SIZE = 5
-    HIDDEN_SIZE = 10
-    OUTPUT_SIZE = 2
+    BATCH_SIZE = 500
+    HIDDEN_SIZE = 1000
+    OUTPUT_SIZE = 100
 
     input = torch.randn(BATCH_SIZE, HIDDEN_SIZE)
     model = nn.Sequential(nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE), nn.ReLU(), nn.Linear(HIDDEN_SIZE, OUTPUT_SIZE))
@@ -72,6 +80,7 @@ def test_dist_optim(data_parallel_size):
 
     model(input).sum().backward()
     optimizer.step()
+    GRADS = [p.grad for p in model.parameters()]
 
     spawn(
         run_dist_optim,
@@ -82,5 +91,6 @@ def test_dist_optim(data_parallel_size):
         input=ORIG_INPUT,
         model=ORIG_MODEL,
         updated_model=model,
+        grads=GRADS,
         optimizer=optimizer,
     )

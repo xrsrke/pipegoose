@@ -40,8 +40,16 @@ def run_optimizer_states_sharding(
 
     assert len(sharded_params) == world_size
 
-    for shard in sharded_params:
+    for rank, shard in enumerate(sharded_params):
+        if rank == 4:
+            assert 1 == 1
+
         assert isinstance(shard, list)
+        for param_group in shard:
+            assert len(param_group["params"]) > 0
+            for param in param_group["params"]:
+                assert isinstance(param, nn.Parameter)
+
         # NOTE: each rank, expect to have the same number of parameter groups
         assert len(shard) == len(optim.param_groups)
 
