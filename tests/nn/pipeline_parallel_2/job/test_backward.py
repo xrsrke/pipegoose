@@ -269,3 +269,7 @@ def test_execute_a_backward_job_and_send_the_output(request, package, pipeline_p
         data_parallel_size=DATA_PARALLEL_SIZE,
         forward_package=forward_package,
     )
+
+
+def test():
+    create_backward_job()

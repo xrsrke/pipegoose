@@ -174,6 +174,8 @@ class ProgressTracker(Handshake):
 
 
 class ParallelGroupHandshake(Handshake):
+    """Synchronize all ranks in a parallel mode."""
+
     # NOTE: create a queue for storing confirmed ranks
     CONFIRMED_QUEUE: Dict[ParallelMode, List[int]] = {}
     # NOTE: wait until all ranks confirm

@@ -1,4 +1,3 @@
-import time
 from dataclasses import dataclass
 
 import torch
@@ -13,7 +12,11 @@ from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
 from pipegoose.nn.pipeline_parallel2._worker import BaseWorkerManager
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-from pipegoose.nn.pipeline_parallel2.queue import JobQueue, save_input_activations
+from pipegoose.nn.pipeline_parallel2.queue import (
+    JobQueue,
+    get_output_activations,
+    save_input_activations,
+)
 from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
 from pipegoose.nn.pipeline_parallel2.sync.callback import Callback
 from pipegoose.nn.pipeline_parallel2.sync.handshake import (
@@ -142,27 +145,23 @@ class PipelineEngine:
         dist.barrier()
 
         if self.pipeline_context.is_last_stage:
-            from pipegoose.nn.pipeline_parallel2.queue import (
-                _SAVED_ACTIVATIONS,
-                SavedActivation,
-            )
 
             # TODO: use SavedActivation.get_key()
             partition_idx = self.pipeline_context.partition_idx
             outputs = []
-
             for microbatch_idx in range(n_microbatches):
-                key = SavedActivation.get_key(microbatch_idx=microbatch_idx, partition_idx=partition_idx)
-                outputs.append(_SAVED_ACTIVATIONS[key])
+                # key = SavedActivation.get_key(microbatch_idx=microbatch_idx, partition_idx=partition_idx)
+                # outputs.append(_SAVED_ACTIVATIONS[key])
+                outputs.append(get_output_activations(microbatch_idx, partition_idx))
 
             # outputs = [SavedActivation.get_saved_activations((microbatch_idx, partition_idx)) for microbatch_idx in range(n_microbatches)]
-            outputs = torch.cat(outputs, dim=0)
+            # outputs = torch.cat(outputs, dim=0)
             return outputs
-        else:
-            # NOTE: not terminate the worker, make it wait for processing further backward jobs
-            time.sleep(100)
+        # else:
+        #     # NOTE: not terminate the worker, make it wait for processing further backward jobs
+        #     time.sleep(100)
 
-        dist.barrier()
+        # dist.barrier()
 
     def _construct_first_package(self, microbatch_idx: int, input: torch.Tensor):
         """Construct the first forward package of a microbatch."""

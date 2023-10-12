@@ -18,9 +18,10 @@ class BackwardJob(Job):
 
         output = get_output_activations(microbatch_idx, partition_idx)
         input = get_input_activations(microbatch_idx, partition_idx)
+
         torch.autograd.backward(output, grad_tensors=prev_grad)
 
-        if input.grad is None:
+        if input.requires_grad is False:
             raise PipelineGradientFlowError("Gradients can't flow back to the input of the pipeline stage")
 
         # TODO: remove this, since the grads is stored in module's weights
@@ -30,5 +31,8 @@ class BackwardJob(Job):
         rank = self.pipeline_context.parallel_context.get_global_rank()
         print(f"executing backward job, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
         print(f"yay! gradients: {input.grad.shape}")
+
+        if input.grad is None:
+            raise PipelineGradientFlowError("Gradients can't flow back to the input of the pipeline stage")
 
         return input.grad

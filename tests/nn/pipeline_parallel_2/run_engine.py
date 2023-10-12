@@ -63,8 +63,11 @@ def run_pipeline_engine(
     p_outputs = pipeline_engine.run(inputs)
 
     if is_last_stage(parallel_context):
-        assert torch.allclose(p_outputs, outputs)
+        assert isinstance(p_outputs, list)
         assert forward_timeline == EXPECTED_FORWARD_TIMELINE
+
+        p_outputs = torch.cat(p_outputs, dim=0)
+        assert torch.allclose(p_outputs, outputs)
 
         from pipegoose.nn.pipeline_parallel2.queue import (
             _SAVED_ACTIVATIONS,
@@ -75,7 +78,7 @@ def run_pipeline_engine(
         saved_output = _SAVED_ACTIVATIONS[key]
 
         print(f"do backward from run_engine.py")
-        saved_output.sum().backward(retain_graph=True)
+        saved_output.sum().backward()
 
         import time
 

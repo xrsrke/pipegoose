@@ -4,6 +4,11 @@ from typing import Dict, NewType, Tuple
 
 import torch
 
+from pipegoose.nn.pipeline_parallel2.exception import (
+    PipelineNoSavedActivationError,
+    PipelineNoSavedInput,
+)
+
 ActivationKey = NewType("ActivationKey", Tuple[int, int])
 
 # NOTE: the activations that received from earlier stages
@@ -19,6 +24,7 @@ class JobQueue:
 
     PENDING_JOBS = Queue()
     SELECTED_JOBS = Queue()
+    FINISHED_JOBS = Queue()
 
 
 class SavedActivation:
@@ -71,7 +77,13 @@ def save_input_activations(input: torch.Tensor, microbatch_idx: int, partition_i
 
 def get_input_activations(microbatch_idx: int, partition_idx: int) -> torch.Tensor:
     key = InputActivations.get_key(microbatch_idx, partition_idx)
-    return InputActivations.get_saved_activations(key)
+    try:
+        return InputActivations.get_saved_activations(key)
+    except KeyError:
+        raise PipelineNoSavedInput(
+            f"Can't find the input activations to return the gradients for \
+            microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
+        )
 
 
 def save_output_activations(output: torch.Tensor, microbatch_idx: int, partition_idx: int):
@@ -81,5 +93,12 @@ def save_output_activations(output: torch.Tensor, microbatch_idx: int, partition
 
 def get_output_activations(microbatch_idx: int, partition_idx: int) -> torch.Tensor:
     key = SavedActivation.get_key(microbatch_idx, partition_idx)
-    output = SavedActivation.get_saved_activations(key)
-    return output.detach().requires_grad_(True)
+    # output = SavedActivation.get_saved_activations(key)
+    try:
+        output = _SAVED_ACTIVATIONS[key]
+        return output.detach().requires_grad_(True)
+    except KeyError:
+        raise PipelineNoSavedActivationError(
+            f"Can't find saved activations to do backpropogation for \
+            microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
+        )
