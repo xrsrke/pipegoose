@@ -7,9 +7,7 @@ from pipegoose.nn.pipeline_parallel2._comm import (
     get_pipeline_context,
     set_pipeline_context,
 )
-from pipegoose.nn.pipeline_parallel2._job.backward import (  # CreateBackwardOutputPackageCallback,; SendBackwardPackageCallback,
-    BackwardJob,
-)
+from pipegoose.nn.pipeline_parallel2._job.backward import BackwardJob
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.forward import (
     ConfirmCompleteATaskToProgressTracker,

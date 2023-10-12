@@ -3,11 +3,9 @@ from copy import deepcopy
 import torch
 
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.pipeline_parallel2._comm import send_package
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.job import Job
 from pipegoose.nn.pipeline_parallel2._package import Package
-from pipegoose.nn.pipeline_parallel2.sync.handshake import get_progress_tracker
 
 
 class ForwardJob(Job):
@@ -64,6 +62,20 @@ class CreateForwardOutputPackageCallback(Callback):
         return package
 
 
+class SaveInputActivationsCallback(Callback):
+    """Save the input activations for backward pass."""
+
+    order = 1
+
+    def after_compute(self):
+        from pipegoose.nn.pipeline_parallel2.queue import save_input_activations
+
+        data = self.job.input.data
+        microbatch_idx = self.job.input.metadata.microbatch_idx
+        partition_idx = self.job.input.metadata.partition_idx
+        save_input_activations(data, microbatch_idx, partition_idx)
+
+
 class SaveActivationIfTrainingCallback(Callback):
     """Save the activation of a forward job for backward pass if training."""
 
@@ -90,8 +102,9 @@ class SendForwardPackageCallback(Callback):
     order = 5
 
     def after_compute(self):
-        parallel_context = self.job.pipeline_context.parallel_context
+        from pipegoose.nn.pipeline_parallel2._comm import send_package
 
+        parallel_context = self.job.pipeline_context.parallel_context
         if parallel_context.pipeline_parallel_size > 1:
             output = self.job.output
             assert isinstance(output, Package), f"output must be an instance of Package, got {type(output)}"
@@ -104,6 +117,8 @@ class ConfirmCompleteATaskToProgressTracker(Callback):
     order = 6
 
     def after_compute(self):
+        from pipegoose.nn.pipeline_parallel2.sync.handshake import get_progress_tracker
+
         progress_tracker = get_progress_tracker()
         microbatch_idx = self.job.input.metadata.microbatch_idx
         partition_idx = self.job.input.metadata.partition_idx
