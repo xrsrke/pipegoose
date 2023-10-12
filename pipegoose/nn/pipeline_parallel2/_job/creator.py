@@ -64,6 +64,23 @@ class _BackwardJobCreator(JobCreator):
 
     @classmethod
     def create(cls, function: Callable, package: Package, pipeline_context: PipelineContext) -> BackwardJob:
+        from pipegoose.nn.pipeline_parallel2.queue import (
+            InputActivations,
+            SavedActivation,
+        )
+
+        microbatch_idx = package.metadata.microbatch_idx
+        partition_idx = package.metadata.partition_idx
+
+        assert (
+            SavedActivation.is_saved(microbatch_idx, partition_idx) is True
+        ), f"No saved activations for \
+            microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
+        assert (
+            InputActivations.is_saved(microbatch_idx, partition_idx) is True
+        ), f"No saved input activations for \
+            microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
+
         job = BackwardJob(function, package, pipeline_context=pipeline_context)
         return job
 

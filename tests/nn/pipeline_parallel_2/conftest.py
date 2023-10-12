@@ -88,22 +88,25 @@ def backward_package(base_package):
 
 @pytest.fixture(scope="function")
 def backward_job(backward_package, pipeline_context):
-    # from pipegoose.nn.pipeline_parallel2.queue import SavedActivation
+    from pipegoose.nn.pipeline_parallel2.queue import (
+        save_input_activations,
+        save_output_activations,
+    )
 
-    # MICROBATCH_IDX = backward_package.metadata.microbatch_idx
-    # PARTITION_IDX = backward_package.metadata.partition_idx
+    MICROBATCH_IDX = backward_package.metadata.microbatch_idx
+    PARTITION_IDX = backward_package.metadata.partition_idx
 
-    # input = torch.randn(*INPUT_SHAPE, requires_grad=True)
-    # linear = nn.Linear(*LINEAR_SHAPE)
-    # output = linear(input)
-    # INITIAL_GRADS = torch.ones_like(output)
+    input = torch.randn(*INPUT_SHAPE, requires_grad=True)
+    linear = nn.Linear(*LINEAR_SHAPE)
+    output = linear(input)
+    INITIAL_GRADS = torch.ones_like(output)
 
-    # # NOTE: stores the output activations that the backward job
-    # # will use to compute the gradients
-    # key = SavedActivation.get_key(MICROBATCH_IDX, PARTITION_IDX)
-    # SavedActivation.save_activations(key, output)
+    # NOTE: stores the output activations that the backward job
+    # will use to compute the gradients
+    save_input_activations(input, MICROBATCH_IDX, PARTITION_IDX)
+    save_output_activations(output, MICROBATCH_IDX, PARTITION_IDX)
 
-    # backward_package.data = torch.ones_like(INITIAL_GRADS)
+    backward_package.data = torch.ones_like(INITIAL_GRADS)
 
     def function():
         def backward_function(*args, **kwargs):
@@ -111,7 +114,8 @@ def backward_job(backward_package, pipeline_context):
 
         return backward_function
 
-    return create_job(function, backward_package, pipeline_context)
+    job = create_job(function, backward_package, pipeline_context)
+    return job
 
 
 @pytest.fixture(scope="function")
