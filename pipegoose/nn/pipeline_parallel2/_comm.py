@@ -5,7 +5,8 @@ import torch.distributed.rpc as rpc
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.pipeline_parallel2._package import Package
-from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
+
+# from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 
 RECV_QUEUE = Queue()
 # RECV_QUEUE = dict()
@@ -15,12 +16,12 @@ RECV_QUEUE = Queue()
 _PIPELINE_CONTEXT = None
 
 
-def set_pipeline_context(pipeline_context: PipelineContext):
+def set_pipeline_context(pipeline_context):
     global _PIPELINE_CONTEXT
     _PIPELINE_CONTEXT = pipeline_context
 
 
-def get_pipeline_context() -> PipelineContext:
+def get_pipeline_context():
     return _PIPELINE_CONTEXT
 
 

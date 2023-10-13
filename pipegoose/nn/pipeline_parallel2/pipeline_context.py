@@ -3,6 +3,7 @@ from typing import List
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.nn.pipeline_parallel2._comm import set_pipeline_context
 from pipegoose.nn.pipeline_parallel2._utils import get_partition_idx, is_last_stage
 from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
 
@@ -18,6 +19,8 @@ class PipelineContext:
         self._clock_idx = 0
         # NOTE: block CPU thread until the next clock cycle
         self._wait_new_clock_cycle = threading.Condition()
+
+        set_pipeline_context(self)
 
     @property
     def partition_idx(self) -> int:

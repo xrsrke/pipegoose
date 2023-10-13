@@ -2,6 +2,7 @@ import threading
 
 import pytest
 
+from pipegoose.nn.pipeline_parallel2._comm import get_pipeline_context
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 from pipegoose.nn.pipeline_parallel2.scheduler import SchedulerType, get_scheduler
 from pipegoose.nn.pipeline_parallel2.task import Task
@@ -37,6 +38,7 @@ def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_
     assert isinstance(pipeline_context.schedules, list)
     assert isinstance(pipeline_context.get_schedule_from_partition(clock_idx=3, partition_idx=2), list)
     assert isinstance(pipeline_context.get_schedule_from_microbatch(clock_idx=3, microbatch_idx=0), list)
+    assert get_pipeline_context() == pipeline_context
 
     next_schedules = pipeline_context.get_next_schedule_from_microbatch(microbatch_idx=0)
     assert isinstance(next_schedules, list)
@@ -108,37 +110,3 @@ def test_get_syncronous_schedule():
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
     )
-
-
-# def run_pipeline_context_init_progress_tracker(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-#     N_PARTITIONS = 4
-#     N_MICROBATCHES = 5
-
-#     parallel_context = init_parallel_context(
-#         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
-#     )
-#     scheduler = get_scheduler(SchedulerType.GPIPE)(N_MICROBATCHES, N_PARTITIONS)
-#     TOTAL_SCHEDULES = scheduler.total_clock_cycles
-
-#     def increase_clock_every_second(pipeline_context):
-#         for _ in range(TOTAL_SCHEDULES):
-#             pipeline_context.increase_a_clock_cycle()
-
-#     pipeline_context = PipelineContext(scheduler, parallel_context)
-
-#     assert 1 == 1
-
-
-# def test_pipeline_context_init_progress_tracker():
-#     TENSOR_PARALLEL_SIZE = 1
-#     PIPELINE_PARALLEL_SIZE = 2
-#     DATA_PARALLEL_SIZE = 1
-#     WORLD_SIZE = TENSOR_PARALLEL_SIZE * PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE
-
-#     spawn(
-#         run_pipeline_context_init_progress_tracker,
-#         world_size=WORLD_SIZE,
-#         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
-#         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
-#         data_parallel_size=DATA_PARALLEL_SIZE,
-#     )

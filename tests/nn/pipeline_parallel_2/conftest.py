@@ -144,7 +144,14 @@ def backward_job(backward_package, parallel_context, pipeline_context):
     return job
 
 
+@pytest.fixture
+def forward_function():
+    return nn.Linear(*LINEAR_SHAPE)
+
+
 @pytest.fixture(scope="function")
-def forward_job(forward_package, parallel_context, pipeline_context):
-    function = nn.Linear(*LINEAR_SHAPE)
-    return create_job(function, forward_package, parallel_context, pipeline_context)
+def forward_job(forward_package, forward_function):
+    from pipegoose.nn.pipeline_parallel2._job.forward import ForwardJob
+
+    # return create_job(function, forward_package, parallel_context, pipeline_context)
+    return ForwardJob(forward_function, forward_package)
