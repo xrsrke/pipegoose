@@ -97,10 +97,15 @@ class ProgressTracker(Handshake):
         return self.progress is not None
 
     def initiate(self, progress: Progress):
-        INITIAL_CLOCK_IDX = 0
-        ProgressTracker._broadcast_tasks(progress, clock_idx=INITIAL_CLOCK_IDX, is_init=True)
-        ProgressTracker.progress = progress
-        ProgressTracker.clock_idx = INITIAL_CLOCK_IDX
+        """Initiate the progress tracker."""
+        if self.parallel_context.get_local_rank(self.parallel_mode) == self.master_rank:
+            INITIAL_CLOCK_IDX = 0
+
+            ProgressTracker._broadcast_tasks(progress, clock_idx=INITIAL_CLOCK_IDX, is_init=True)
+            ProgressTracker.progress = progress
+            ProgressTracker.clock_idx = INITIAL_CLOCK_IDX
+
+        set_progress_tracker(self)
 
     @staticmethod
     def _broadcast_tasks(progress, clock_idx, is_init=False):

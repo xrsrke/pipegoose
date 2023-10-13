@@ -6,7 +6,10 @@ import torch.distributed as dist
 
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2.sync.callback import Callback
-from pipegoose.nn.pipeline_parallel2.sync.handshake import ProgressTracker
+from pipegoose.nn.pipeline_parallel2.sync.handshake import (
+    ProgressTracker,
+    get_progress_tracker,
+)
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 MASTER_RANK = 0
@@ -30,8 +33,7 @@ def run_init_progress_tracker(rank, world_size, port, tensor_parallel_size, pipe
     )
     tracker = ProgressTracker(MASTER_RANK, parallel_context=parallel_context, parallel_mode=ParallelMode.GLOBAL)
 
-    if rank == tracker.master_rank:
-        tracker.initiate(PROGRESS)
+    tracker.initiate(PROGRESS)
 
     # NOTE: wait until the tracker is initiated
     dist.barrier()
@@ -40,6 +42,10 @@ def run_init_progress_tracker(rank, world_size, port, tensor_parallel_size, pipe
     assert tracker.clock_idx == 0
     assert tracker.is_all_confirmed(clock_idx=0) is False
     assert tracker.progress == PROGRESS
+
+    # NOTE: progress tracker should be set to global variable
+    # this used in pipeline engine
+    assert get_progress_tracker() == tracker
 
     parallel_context.destroy()
 
