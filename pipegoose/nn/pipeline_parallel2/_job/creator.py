@@ -131,7 +131,7 @@ def _create_backward_job_and_put_to_pending_queue(grad_input: torch.Tensor, meta
 
     print(f"invoked create_backward_job_and_put_to_pending_queue, rank={rank}, microbatch_idx={microbatch_idx}")
 
-    backward_job = create_job(backward_function, package, pipeline_context)
+    backward_job = create_job(backward_function, package, parallel_context, pipeline_context)
 
     # NOTE : put the backward job to pending queue
     JobQueue.PENDING_JOBS.put(backward_job)

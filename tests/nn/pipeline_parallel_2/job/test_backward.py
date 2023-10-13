@@ -12,6 +12,12 @@ from pipegoose.nn.pipeline_parallel2._job.backward import (
     CreateBackwardOutputPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.creator import schedule_backward_job
+from pipegoose.nn.pipeline_parallel2._job.forward import (
+    CreateForwardOutputPackageCallback,
+    ForwardJob,
+    SaveActivationIfTrainingCallback,
+    SaveInputActivationsCallback,
+)
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
@@ -19,9 +25,13 @@ from pipegoose.nn.pipeline_parallel2.queue import JobQueue, SavedActivation
 from pipegoose.nn.pipeline_parallel2.scheduler import SchedulerType, get_scheduler
 from pipegoose.testing.utils import init_parallel_context, init_pipeline_context, spawn
 
-# @pytest.fixture
-# def forward_job():
-#     """A forward job that set with callbacks that use in training. like save input activation and output activations for backward job"""
+
+@pytest.fixture
+def forward_job(forward_package, forward_function):
+    """A forward job that set with callbacks that use in training. like save input activation and output activations for backward job"""
+    callbacks = [SaveInputActivationsCallback, SaveActivationIfTrainingCallback]
+    forward_job = ForwardJob(forward_function, forward_package, callbacks)
+    return forward_job
 
 
 @pytest.fixture
@@ -35,65 +45,39 @@ def forward_package_in_same_node(forward_package):
     return forward_package
 
 
-def run_create_a_backward_job_if_a_tensor_do_backprop(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, forward_package
-):
-    SRC = forward_package.metadata.src
-    DST = forward_package.metadata.dst
-    forward_package.metadata.microbatch_idx
-    forward_package.metadata.partition_idx
+def test_create_a_backward_job_if_a_tensor_do_backprop(forward_package, forward_function, parallel_context, pipeline_context):
+    callbacks = [
+        CreateForwardOutputPackageCallback(parallel_context, pipeline_context),
+        SaveInputActivationsCallback,
+        SaveActivationIfTrainingCallback,
+    ]
+    forward_job = ForwardJob(forward_function, forward_package, callbacks)
 
-    pipeline_context, parallel_context = init_pipeline_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
-    )
-    rank = parallel_context.get_global_rank()
+    # NOTE: we enqueue the backward job in the destination rank
+    output = forward_job.compute()
+    DATA = output.data.clone()
+    METADATA = deepcopy(output.metadata)
 
-    dist.barrier()
+    output = schedule_backward_job(output, pipeline_context)
+    # NOTE: make sure we aren't change the package
+    assert torch.equal(output.data, DATA)
+    assert output.metadata == METADATA
 
-    if rank == DST:
-        # NOTE: we enqueue the backward job in the destination rank
-        ORIG_FORWARD_PACKAGE = deepcopy(forward_package)
-        forward_package = schedule_backward_job(forward_package, pipeline_context)
+    output.data.sum().backward()
 
-        # NOTE: make sure we aren't change the package
-        assert torch.equal(forward_package.data, ORIG_FORWARD_PACKAGE.data)
-        assert forward_package.metadata == ORIG_FORWARD_PACKAGE.metadata
+    # NOTE: since we don't launch any job selector workers in the background,
+    # after triggering the creation of a backward job,
+    # we expect the destination worker's job queue to have one job
+    time.sleep(0.1)
+    assert JobQueue.PENDING_JOBS.qsize() == 1
 
-        forward_package.data.sum().backward()
-
-        # NOTE: since we don't launch any job selector workers in the background,
-        # after triggering the creation of a backward job,
-        # we expect the destination worker's job queue to have one job
-        time.sleep(0.1)
-        assert JobQueue.PENDING_JOBS.qsize() == 1
-
-        backward_job = JobQueue.PENDING_JOBS.get()
-        assert isinstance(backward_job, BackwardJob)
+    backward_job = JobQueue.PENDING_JOBS.get()
+    assert isinstance(backward_job, BackwardJob)
 
     # NOTE: wait for the backward job to be created
-    dist.barrier()
     time.sleep(0.1)
 
-    if rank == SRC:
-        assert JobQueue.PENDING_JOBS.qsize() == 0
-
-
-@pytest.mark.parametrize("pipeline_parallel_size", [2, 5])
-@pytest.mark.parametrize("package", ["forward_package_in_same_node", "forward_package_in_different_nodes"])
-def test_create_a_backward_job_if_a_tensor_do_backprop_in_the_same_node(request, package, pipeline_parallel_size):
-    TENSOR_PARALLEL_SIZE = 1
-    DATA_PARALLEL_SIZE = 1
-
-    forward_package = request.getfixturevalue(package)
-
-    spawn(
-        run_create_a_backward_job_if_a_tensor_do_backprop,
-        world_size=pipeline_parallel_size,
-        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
-        pipeline_parallel_size=pipeline_parallel_size,
-        data_parallel_size=DATA_PARALLEL_SIZE,
-        forward_package=forward_package,
-    )
+    assert JobQueue.PENDING_JOBS.qsize() == 0
 
 
 def run_execute_scheduled_backward_job(

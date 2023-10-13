@@ -4,6 +4,8 @@ from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.job import Job
 
 
+# NOTE: We don't want to rely on the behavior of other jobs, like forward job
+# and backward job. so we create a dummy job solely to test callbacks
 class DummyJob(Job):
     def run_compute(self):
         return self.function(self.input.data)
