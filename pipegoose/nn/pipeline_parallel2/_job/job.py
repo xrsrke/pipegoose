@@ -4,7 +4,6 @@ from typing import Callable, List, NewType, Optional
 
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback, CallbackEvent
 from pipegoose.nn.pipeline_parallel2._package import Package
-from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 
 
 class JobStatus(Enum):
@@ -24,18 +23,10 @@ PartitionKey = NewType("PartitionKey", str)
 class Job(ABC):
     """A job that will be executed by a worker."""
 
-    def __init__(
-        self, function: Callable, input: Package, cbs: List[Callback] = [], pipeline_context: PipelineContext = None, **kwargs
-    ):
-        assert isinstance(
-            pipeline_context, PipelineContext
-        ), f"input must be an instance of PipelineContext, got {type(input)}"
-
+    def __init__(self, function: Callable, input: Package, cbs: List[Callback] = []):
         self.function = function
         self.input = input
         self.cbs = []
-        self.kwargs = kwargs
-        self.pipeline_context = pipeline_context
 
         self._status = JobStatus.PENDING
         self._output = None

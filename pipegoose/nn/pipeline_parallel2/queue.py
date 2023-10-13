@@ -31,6 +31,11 @@ class SavedActivation:
     """A class for saving activations from forward job for backward job."""
 
     @staticmethod
+    def is_saved(microbatch_idx: int, partition_idx: int) -> bool:
+        key = SavedActivation.get_key(microbatch_idx, partition_idx)
+        return key in _SAVED_ACTIVATIONS
+
+    @staticmethod
     def get_key(microbatch_idx: int, partition_idx: int) -> ActivationKey:
         return (microbatch_idx, partition_idx)
 
@@ -59,10 +64,16 @@ class InputActivations:
         return (microbatch_idx, partition_idx)
 
     @staticmethod
+    def is_saved(microbatch_idx: int, partition_idx: int) -> bool:
+        key = InputActivations.get_key(microbatch_idx, partition_idx)
+        return key in _INPUT_ACTIVATIONS
+
+    @staticmethod
     def get_saved_activations(key: ActivationKey) -> torch.Tensor:
         """Get the saved activations for a given key for backward job."""
         # NOTE: because a partition can have multiple microbatches,
-        return _INPUT_ACTIVATIONS.pop(key)
+        # return _INPUT_ACTIVATIONS.pop(key)
+        return _INPUT_ACTIVATIONS[key]
 
     def save_activations(key: ActivationKey, data: torch.Tensor):
         """Save forward job's activations for backward job."""
@@ -91,12 +102,16 @@ def save_output_activations(output: torch.Tensor, microbatch_idx: int, partition
     SavedActivation.save_activations(key, output)
 
 
-def get_output_activations(microbatch_idx: int, partition_idx: int) -> torch.Tensor:
+def get_output_activations(microbatch_idx: int, partition_idx: int, is_pipeline: bool = False) -> torch.Tensor:
     key = SavedActivation.get_key(microbatch_idx, partition_idx)
     # output = SavedActivation.get_saved_activations(key)
+
     try:
         output = _SAVED_ACTIVATIONS[key]
-        return output.detach().requires_grad_(True)
+        if is_pipeline is True:
+            return output.detach().requires_grad_(True)
+        else:
+            return output.requires_grad_(True)
     except KeyError:
         raise PipelineNoSavedActivationError(
             f"Can't find saved activations to do backpropogation for \

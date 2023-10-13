@@ -14,6 +14,7 @@ from pipegoose.nn.pipeline_parallel2._job.forward import (
     CreateForwardOutputPackageCallback,
     ForwardJob,
     SaveActivationIfTrainingCallback,
+    SaveInputActivationsCallback,
     SendForwardPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.job import Job
@@ -32,7 +33,7 @@ class JobCreator(ABC):
 
 
 class ScheduleBackwardJobCallback(Callback):
-    order = 1
+    order = 3
 
     def after_compute(self):
         package = self.job.output
@@ -45,6 +46,7 @@ class _ForwardJobCreator(JobCreator):
 
     CBS = [
         CreateForwardOutputPackageCallback,
+        SaveInputActivationsCallback,
         SaveActivationIfTrainingCallback,
         ScheduleBackwardJobCallback,
         SendForwardPackageCallback,

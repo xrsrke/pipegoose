@@ -21,8 +21,10 @@ def test_the_job_status_after_executing_a_job(request, package, pipeline_context
 
 
 @pytest.mark.parametrize("package, job_cls", [("forward_package", ForwardJob), ("backward_package", BackwardJob)])
-def test_create_a_job_from_package(request, package, job_cls, pipeline_context):
+def test_create_a_job_from_package(request, package, forward_job, job_cls, pipeline_context):
     package = request.getfixturevalue(package)
+
+    forward_job.compute()
     job = create_job(function, package, pipeline_context)
 
     assert isinstance(job, job_cls)

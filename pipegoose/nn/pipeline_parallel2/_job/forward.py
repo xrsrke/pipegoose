@@ -2,10 +2,12 @@ from copy import deepcopy
 
 import torch
 
+from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.job import Job
 from pipegoose.nn.pipeline_parallel2._package import Package
+from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
 
 
 class ForwardJob(Job):
@@ -22,6 +24,10 @@ class ForwardJob(Job):
 class CreateForwardOutputPackageCallback(Callback):
     """Create a new package for the output of a forward job."""
 
+    def __init__(self, parallel_context: ParallelContext, pipeline_context: PipelineContext):
+        self.parallel_context = parallel_context
+        self.pipeline_context = pipeline_context
+
     order = 0
 
     def after_compute(self):
@@ -30,18 +36,17 @@ class CreateForwardOutputPackageCallback(Callback):
 
         package = Package(data, input_metadata)
 
-        if not self.job.pipeline_context.is_last_stage:
+        if not self.pipeline_context.is_last_stage:
             package = self._update_next_pipeline_stage(package)
             package = self._update_src_and_dst_rank(package)
 
         self.job.output = package
 
     def _update_next_pipeline_stage(self, package: Package) -> Package:
-        pipeline_context = self.job.pipeline_context
         microbatch_idx = package.metadata.microbatch_idx
 
         # NOTE: determine which pipeline stage to send the output to
-        next_schedule = pipeline_context.get_next_schedule_from_microbatch(microbatch_idx)
+        next_schedule = self.pipeline_context.get_next_schedule_from_microbatch(microbatch_idx)
 
         # NOTE: because currently each pipeline stage only has one task at a time
         # so we hardcode and select that one
@@ -53,11 +58,8 @@ class CreateForwardOutputPackageCallback(Callback):
         return package
 
     def _update_src_and_dst_rank(self, package: Package) -> Package:
-        pipeline_context = self.job.pipeline_context
-        parallel_context = pipeline_context.parallel_context
-
-        package.metadata.src = parallel_context.get_global_rank()
-        package.metadata.dst = parallel_context.get_next_global_rank(ParallelMode.PIPELINE)
+        package.metadata.src = self.parallel_context.get_global_rank()
+        package.metadata.dst = self.parallel_context.get_next_global_rank(ParallelMode.PIPELINE)
 
         return package
 
@@ -101,14 +103,16 @@ class SendForwardPackageCallback(Callback):
 
     order = 5
 
+    def __init__(self, parallel_context: ParallelContext):
+        self.parallel_context = parallel_context
+
     def after_compute(self):
         from pipegoose.nn.pipeline_parallel2._comm import send_package
 
-        parallel_context = self.job.pipeline_context.parallel_context
-        if parallel_context.pipeline_parallel_size > 1:
+        if self.parallel_context.pipeline_parallel_size > 1:
             output = self.job.output
             assert isinstance(output, Package), f"output must be an instance of Package, got {type(output)}"
-            send_package(output, parallel_context)
+            send_package(output, self.parallel_context)
 
 
 class ConfirmCompleteATaskToProgressTracker(Callback):

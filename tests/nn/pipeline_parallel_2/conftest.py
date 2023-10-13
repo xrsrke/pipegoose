@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import pytest
 import torch
 from torch import nn
@@ -5,7 +7,7 @@ from torch import nn
 from pipegoose.nn.pipeline_parallel2._job.creator import create_job
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
-from pipegoose.testing.utils import init_pipeline_context
+from pipegoose.testing.utils import init_parallel_context
 
 # NOTE: it should be compatible to perform
 # matrix multiplication with the job's function
@@ -20,7 +22,7 @@ LINEAR_SHAPE = (
 
 
 @pytest.fixture(scope="session")
-def pipeline_context():
+def parallel_context():
     TENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
@@ -28,18 +30,41 @@ def pipeline_context():
     WORLD_SIZE = 1
     PORT = 12355
 
-    N_PARTITIONS = 3
-    N_MICROBATCHES = 5
-
-    pipeline_context = init_pipeline_context(
+    parallel_context = init_parallel_context(
         rank=RANK,
         world_size=WORLD_SIZE,
         port=PORT,
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
-        n_partitions=N_PARTITIONS,
-        n_microbatches=N_MICROBATCHES,
+    )
+
+    return parallel_context
+
+
+@pytest.fixture(scope="session")
+def pipeline_context(parallel_context):
+    from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
+    from pipegoose.nn.pipeline_parallel2.scheduler import SchedulerType, get_scheduler
+
+    N_PARTITIONS = 3
+    N_MICROBATCHES = 5
+
+    # pipeline_context, _ = init_pipeline_context(
+    #     rank=RANK,
+    #     world_size=WORLD_SIZE,
+    #     port=PORT,
+    #     tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+    #     pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+    #     data_parallel_size=DATA_PARALLEL_SIZE,
+    #     n_partitions=N_PARTITIONS,
+    #     n_microbatches=N_MICROBATCHES,
+    # )
+
+    scheduler = get_scheduler(SchedulerType.GPIPE)(N_MICROBATCHES, N_PARTITIONS)
+    pipeline_context = PipelineContext(
+        scheduler=scheduler,
+        parallel_context=parallel_context,
     )
 
     return pipeline_context
@@ -79,19 +104,15 @@ def forward_package(base_package):
     return base_package
 
 
-@pytest.fixture
-def backward_package(base_package):
-    # NOTE: package for backward job
-    base_package.metadata.job_type = JobType.BACKWARD
-    return base_package
-
-
 @pytest.fixture(scope="function")
-def backward_job(backward_package, pipeline_context):
+def backward_package(base_package):
     from pipegoose.nn.pipeline_parallel2.queue import (
         save_input_activations,
         save_output_activations,
     )
+
+    backward_package = deepcopy(base_package)
+    backward_package.metadata.job_type = JobType.BACKWARD
 
     MICROBATCH_IDX = backward_package.metadata.microbatch_idx
     PARTITION_IDX = backward_package.metadata.partition_idx
@@ -108,6 +129,11 @@ def backward_job(backward_package, pipeline_context):
 
     backward_package.data = torch.ones_like(INITIAL_GRADS)
 
+    return backward_package
+
+
+@pytest.fixture(scope="function")
+def backward_job(backward_package, pipeline_context):
     def function():
         def backward_function(*args, **kwargs):
             return torch.randn(1)

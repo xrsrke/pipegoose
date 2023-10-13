@@ -19,10 +19,9 @@ from pipegoose.testing.utils import init_pipeline_context, spawn
 function = nn.Linear(2, 4)
 
 
-def test_the_output_package_of_a_forward_job(forward_package, pipeline_context):
-    forward_job = ForwardJob(
-        function, forward_package, cbs=[CreateForwardOutputPackageCallback()], pipeline_context=pipeline_context
-    )
+def test_the_output_package_of_a_forward_job(forward_package, parallel_context, pipeline_context):
+    cbs = [CreateForwardOutputPackageCallback(parallel_context, pipeline_context)]
+    forward_job = ForwardJob(function, forward_package, cbs)
 
     output = forward_job.compute()
 
@@ -37,58 +36,59 @@ def test_the_output_package_of_a_forward_job(forward_package, pipeline_context):
 
 @pytest.mark.skip
 def test_destination_of_output_package(forward_package, pipeline_context):
-    # NOTE: (microbatch_idx, partition_idx) -> (microbatch_idx, next_partition_idx)
-    OUTPUT_DESTINATION = {
-        (0, 0): (0, 1),
-        (0, 1): (0, 2),
-        (1, 0): (1, 1),
-        (1, 1): (1, 2),
-        (2, 0): (2, 1),
-        (2, 1): (2, 2),
-        (3, 0): (3, 1),
-        (3, 1): (3, 2),
-        (4, 0): (4, 1),
-        (4, 1): (4, 2),
-    }
+    # # NOTE: (microbatch_idx, partition_idx) -> (microbatch_idx, next_partition_idx)
+    # OUTPUT_DESTINATION = {
+    #     (0, 0): (0, 1),
+    #     (0, 1): (0, 2),
+    #     (1, 0): (1, 1),
+    #     (1, 1): (1, 2),
+    #     (2, 0): (2, 1),
+    #     (2, 1): (2, 2),
+    #     (3, 0): (3, 1),
+    #     (3, 1): (3, 2),
+    #     (4, 0): (4, 1),
+    #     (4, 1): (4, 2),
+    # }
 
-    OUTPUT_SRC_DST_RANK_MAPPING = {
-        (0): (0, 1),
-    }
+    # OUTPUT_SRC_DST_RANK_MAPPING = {
+    #     (0): (0, 1),
+    # }
 
-    forward_job = ForwardJob(
-        function, forward_package, cbs=[CreateForwardOutputPackageCallback()], pipeline_context=pipeline_context
-    )
-    ORIG_MICROBATCH_IDX = forward_job.input.metadata.microbatch_idx
-    ORIG_PARTITION_IDX = forward_job.input.metadata.partition_idx
+    # forward_job = ForwardJob(
+    #     function, forward_package, cbs=[CreateForwardOutputPackageCallback()]
+    # )
+    # ORIG_MICROBATCH_IDX = forward_job.input.metadata.microbatch_idx
+    # ORIG_PARTITION_IDX = forward_job.input.metadata.partition_idx
 
-    output = forward_job.compute()
+    # output = forward_job.compute()
 
-    assert forward_job.output == output
-    assert isinstance(output, Package)
-    assert isinstance(output.data, torch.Tensor)
-    assert output.metadata.job_type == JobType.FORWARD
+    # assert forward_job.output == output
+    # assert isinstance(output, Package)
+    # assert isinstance(output.data, torch.Tensor)
+    # assert output.metadata.job_type == JobType.FORWARD
 
-    assert OUTPUT_DESTINATION[(ORIG_MICROBATCH_IDX, ORIG_PARTITION_IDX)] == (
-        output.metadata.microbatch_idx,
-        output.metadata.partition_idx,
-    )
-    for key in vars(output.metadata.training).keys():
-        assert getattr(output.metadata.training, key) == getattr(forward_job.input.metadata.training, key)
+    # assert OUTPUT_DESTINATION[(ORIG_MICROBATCH_IDX, ORIG_PARTITION_IDX)] == (
+    #     output.metadata.microbatch_idx,
+    #     output.metadata.partition_idx,
+    # )
+    # for key in vars(output.metadata.training).keys():
+    #     assert getattr(output.metadata.training, key) == getattr(forward_job.input.metadata.training, key)
 
-    # NOTE: we expect the metadata of the output package to
-    # indicate which node executed it, and the destination node
-    src, dst = output.metadata.src, output.metadata.dst
-    assert isinstance(src, int)
-    assert isinstance(dst, int)
-    assert (src, dst) == OUTPUT_SRC_DST_RANK_MAPPING[ORIG_MICROBATCH_IDX]
+    # # NOTE: we expect the metadata of the output package to
+    # # indicate which node executed it, and the destination node
+    # src, dst = output.metadata.src, output.metadata.dst
+    # assert isinstance(src, int)
+    # assert isinstance(dst, int)
+    # assert (src, dst) == OUTPUT_SRC_DST_RANK_MAPPING[ORIG_MICROBATCH_IDX]
+    pass
 
 
-def test_forward_job_save_input_activations_for_backward_pass(forward_package, pipeline_context):
+def test_forward_job_save_input_activations_for_backward_pass(forward_package, parallel_context, pipeline_context):
     MICROBATCH_IDX = forward_package.metadata.microbatch_idx
     PARTITION_IDX = forward_package.metadata.partition_idx
-    CALLBACKS = [CreateForwardOutputPackageCallback(), SaveInputActivationsCallback()]
+    CALLBACKS = [CreateForwardOutputPackageCallback(parallel_context, pipeline_context), SaveInputActivationsCallback()]
 
-    forward_job = ForwardJob(function, forward_package, cbs=CALLBACKS, pipeline_context=pipeline_context)
+    forward_job = ForwardJob(function, forward_package, CALLBACKS)
 
     with pytest.raises(Exception):
         # NOTE: only save the input activations after the forward pass
@@ -102,13 +102,13 @@ def test_forward_job_save_input_activations_for_backward_pass(forward_package, p
     assert saved_activations.requires_grad is True
 
 
-def test_forward_job_save_output_activations_for_backward_pass(forward_package, pipeline_context):
+def test_forward_job_save_output_activations_for_backward_pass(forward_package, parallel_context, pipeline_context):
     MICROBATCH_IDX = forward_package.metadata.microbatch_idx
     PARTITION_IDX = forward_package.metadata.partition_idx
-    CALLBACKS = [CreateForwardOutputPackageCallback(), SaveActivationIfTrainingCallback()]
+    CALLBACKS = [CreateForwardOutputPackageCallback(parallel_context, pipeline_context), SaveActivationIfTrainingCallback()]
 
     key = SavedActivation.get_key(MICROBATCH_IDX, PARTITION_IDX)
-    forward_job = ForwardJob(function, forward_package, cbs=CALLBACKS, pipeline_context=pipeline_context)
+    forward_job = ForwardJob(function, forward_package, CALLBACKS)
 
     output = forward_job.compute()
     saved_activations = SavedActivation.get_saved_activations(key)
@@ -126,15 +126,14 @@ def test_forward_job_save_output_activations_for_backward_pass(forward_package, 
 def run_forward_job_send_output_to_the_next_pipeline_stage(
     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, forward_package
 ):
-    CALLBACKS = [
-        CreateForwardOutputPackageCallback(),
-        SendForwardPackageCallback(),
-    ]
-
-    pipeline_context, _ = init_pipeline_context(
+    pipeline_context, parallel_context = init_pipeline_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    forward_job = ForwardJob(function, forward_package, cbs=CALLBACKS, pipeline_context=pipeline_context)
+    callbacks = [
+        CreateForwardOutputPackageCallback(parallel_context, pipeline_context),
+        SendForwardPackageCallback(parallel_context),
+    ]
+    forward_job = ForwardJob(function, forward_package, cbs=callbacks)
 
     forward_job.compute()
 
@@ -159,7 +158,8 @@ def run_forward_job_send_output_to_the_next_pipeline_stage(
         1,
         2,
         # TODO: fix this, it can't work with 3, 5
-        # 3, 5
+        3,
+        5,
     ],
 )
 def test_forward_job_send_output_to_the_next_pipeline_stage(forward_package, pipeline_parallel_size):
