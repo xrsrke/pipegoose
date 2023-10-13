@@ -18,13 +18,13 @@ function = nn.Linear(2, 4)
 
 
 # @pytest.mark.parametrize("package", ["forward_package", "backward_package"])
-# def test_the_job_status_after_executing_a_job(request, package, parallel_context, pipeline_context):
-#     package = request.getfixturevalue(package)
-#     job = create_job(function, package, parallel_context, pipeline_context)
+def test_backward_job(backward_package, parallel_context, pipeline_context):
+    # package = request.getfixturevalue(package)
+    job = create_job(function, backward_package, parallel_context, pipeline_context)
 
-#     job.compute()
+    job.compute()
 
-#     assert job.status == JobStatus.EXECUTED
+    assert job.status == JobStatus.EXECUTED
 
 
 def run_create_a_job_from_package(
