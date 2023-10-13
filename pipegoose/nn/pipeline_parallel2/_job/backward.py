@@ -1,5 +1,6 @@
 import torch
 
+from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.job import Job
 from pipegoose.nn.pipeline_parallel2._package import Package
@@ -28,14 +29,16 @@ class SendBackwardPackageCallback(Callback):
 
     order = 5
 
+    def __init__(self, parallel_context: ParallelContext):
+        self.parallel_context = parallel_context
+
     def after_compute(self):
         from pipegoose.nn.pipeline_parallel2._comm import send_package
 
-        parallel_context = self.job.pipeline_context.parallel_context
-        if parallel_context.pipeline_parallel_size > 1:
+        if self.parallel_context.pipeline_parallel_size > 1:
             output = self.job.output
             assert isinstance(output, Package), f"output must be an instance of Package, got {type(output)}"
-            send_package(output, parallel_context)
+            send_package(output, self.parallel_context)
 
 
 class BackwardJob(Job):
@@ -58,8 +61,8 @@ class BackwardJob(Job):
         # # and we do gradient accumulation, we don't need return grads or send to other stages
         # assert isinstance(input.grad, torch.Tensor)
 
-        rank = self.pipeline_context.parallel_context.get_global_rank()
-        print(f"executing backward job, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
+        # rank = self.pipeline_context.parallel_context.get_global_rank()
+        # print(f"executing backward job, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
         print(f"yay! gradients: {input.grad.shape}")
 
         if input.grad is None:

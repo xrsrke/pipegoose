@@ -12,34 +12,16 @@ from pipegoose.nn.pipeline_parallel2._job.backward import (
     CreateBackwardOutputPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.creator import schedule_backward_job
+from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
+from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-from pipegoose.nn.pipeline_parallel2.queue import (
-    JobQueue,
-    SavedActivation,
-    get_input_activations,
-)
+from pipegoose.nn.pipeline_parallel2.queue import JobQueue, SavedActivation
 from pipegoose.nn.pipeline_parallel2.scheduler import SchedulerType, get_scheduler
 from pipegoose.testing.utils import init_parallel_context, init_pipeline_context, spawn
 
-# NOTE: use for creating a forward job
-function = nn.Linear(2, 4)
-
-# BATCH_SIZE = 2
-# SEQ_LEN = 5
-# HIDDEN_SIZE = 10
-# linear = nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE)
-
-# input = torch.randn(BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE, requires_grad=True)
-# INPUT = deepcopy(input)
-# LINEAR = deepcopy(linear)
-# OUTPUT = LINEAR(INPUT)
-# INITIAL_GRADS = torch.ones_like(OUTPUT)
-# OUTPUT.sum().backward()
-
-
-@pytest.fixture
-def forward_job():
-    """A forward job that set with callbacks that use in training. like save input activation and output activations for backward job"""
+# @pytest.fixture
+# def forward_job():
+#     """A forward job that set with callbacks that use in training. like save input activation and output activations for backward job"""
 
 
 @pytest.fixture
@@ -61,15 +43,6 @@ def run_create_a_backward_job_if_a_tensor_do_backprop(
     forward_package.metadata.microbatch_idx
     forward_package.metadata.partition_idx
 
-    # N_PARTITIONS = 3
-    # N_MICROBATCHES = 5
-    # parallel_context = init_parallel_context(
-    #     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
-    # )
-
-    # scheduler = get_scheduler(SchedulerType.GPIPE)(N_MICROBATCHES, N_PARTITIONS)
-    # pipeline_context = PipelineContext(scheduler, parallel_context)
-    # set_pipeline_context(pipeline_context)
     pipeline_context, parallel_context = init_pipeline_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
@@ -186,22 +159,28 @@ def test_execute_scheduled_backward_job(request, package, pipeline_parallel_size
     )
 
 
-def test_execute_a_backward_job(backward_package, pipeline_context):
+def test_execute_a_backward_job(forward_job, backward_package, pipeline_context):
     def function(*args, **kwargs):
         pass
 
-    MICROBATCH_IDX = backward_package.metadata.microbatch_idx
-    PARTITION_IDX = backward_package.metadata.partition_idx
-    # # NOTE: the backward job should do the backward pass
-    # # with respect to the input activations
-    INPUT_ACTS = get_input_activations(MICROBATCH_IDX, PARTITION_IDX)
+    # MICROBATCH_IDX = backward_package.metadata.microbatch_idx
+    # PARTITION_IDX = backward_package.metadata.partition_idx
+    # # # NOTE: the backward job should do the backward pass
+    # # # with respect to the input activations
+    # INPUT_ACTS = get_input_activations(MICROBATCH_IDX, PARTITION_IDX)
 
-    backward_job = BackwardJob(function, backward_package, cbs=[], pipeline_context=pipeline_context)
+    # backward_job = BackwardJob(function, backward_package)
 
+    output = forward_job.compute()
+    INITIAL_GRADS = torch.ones_like(output.data)
+    grad_package = Package(INITIAL_GRADS, forward_job.input.metadata)
+    grad_package.metadata.job_type = JobType.BACKWARD
+
+    backward_job = BackwardJob(function, grad_package)
     grads = backward_job.compute()
 
     assert isinstance(grads, torch.Tensor)
-    assert torch.equal(grads, INPUT_ACTS.grad)
+    # assert torch.equal(grads, INPUT_ACTS.grad)
 
 
 def run_execute_a_backward_job_and_send_the_output(

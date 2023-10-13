@@ -3,6 +3,7 @@ import torch
 from torch import nn
 
 from pipegoose.nn.pipeline_parallel2._job.forward import (
+    ConfirmCompleteATaskToProgressTracker,
     CreateForwardOutputPackageCallback,
     ForwardJob,
     SaveActivationIfTrainingCallback,
@@ -171,6 +172,52 @@ def test_forward_job_send_output_to_the_next_pipeline_stage(forward_package, pip
         world_size=pipeline_parallel_size,
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=DATA_PARALLEL_SIZE,
+        forward_package=forward_package,
+    )
+
+
+def run_confirm_a_forward_job_after_completing_it(
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, forward_package
+):
+    import torch.distributed as dist
+
+    from pipegoose.distributed.parallel_mode import ParallelMode
+    from pipegoose.nn.pipeline_parallel2.sync.handshake import ProgressTracker
+    from pipegoose.nn.pipeline_parallel2.sync.progress_tracker import (
+        get_progresses_from_pipeline_context,
+    )
+
+    MASTER_RANK = 0
+
+    pipeline_context, parallel_context = init_pipeline_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
+
+    tracker = ProgressTracker(MASTER_RANK, parallel_context=parallel_context, parallel_mode=ParallelMode.GLOBAL)
+    progresses = get_progresses_from_pipeline_context(pipeline_context)
+    tracker.initiate(progresses)
+    dist.barrier()
+
+    callbacks = [ConfirmCompleteATaskToProgressTracker(parallel_context)]
+    forward_job = ForwardJob(function, forward_package, callbacks)
+    forward_job.compute()
+
+    assert tracker.is_all_confirmed(clock_idx=0) is True
+
+
+def test_confirm_a_forward_job_after_completing_it(forward_package):
+    TENSOR_PARALLEL_SIZE = 1
+    PIPELINE_PARALLEL_SIZE = 2
+    DATA_PARALLEL_SIZE = 1
+
+    WORLD_SIZE = TENSOR_PARALLEL_SIZE * PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE
+
+    spawn(
+        run_confirm_a_forward_job_after_completing_it,
+        world_size=WORLD_SIZE,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
         forward_package=forward_package,
     )

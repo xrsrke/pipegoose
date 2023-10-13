@@ -8,6 +8,7 @@ from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.job import Job
 from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
+from pipegoose.nn.pipeline_parallel2.sync.handshake import get_progress_tracker
 
 
 class ForwardJob(Job):
@@ -120,11 +121,16 @@ class ConfirmCompleteATaskToProgressTracker(Callback):
 
     order = 6
 
-    def after_compute(self):
-        from pipegoose.nn.pipeline_parallel2.sync.handshake import get_progress_tracker
+    def __init__(self, parallel_context: ParallelContext):
+        assert get_progress_tracker() is not None, "Progress tracker must be initialized before using this callback"
 
-        progress_tracker = get_progress_tracker()
+        world_size = parallel_context.get_world_size(ParallelMode.GLOBAL)
+        assert world_size > 1, "Progress tracker is only used in distributed training"
+
+    def after_compute(self):
         microbatch_idx = self.job.input.metadata.microbatch_idx
         partition_idx = self.job.input.metadata.partition_idx
         key = (microbatch_idx, partition_idx)
+
+        progress_tracker = get_progress_tracker()
         progress_tracker.confirm(key)

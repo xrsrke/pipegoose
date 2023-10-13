@@ -23,6 +23,9 @@ from pipegoose.nn.pipeline_parallel2.sync.handshake import (
     ProgressTracker,
     set_progress_tracker,
 )
+from pipegoose.nn.pipeline_parallel2.sync.progress_tracker import (
+    get_progresses_from_pipeline_context,
+)
 
 
 @dataclass
@@ -102,11 +105,12 @@ class PipelineEngine:
 
         # if self.parallel_context.is_first_rank(ParallelMode.PIPELINE):
         if self.parallel_context.get_global_rank() == 0:
-            schedules = self.pipeline_context.schedules
-            progress = {
-                i: {(item.microbatch_idx, item.partition_idx): False for item in sublist}
-                for i, sublist in enumerate(schedules)
-            }
+            # schedules = self.pipeline_context.schedules
+            # progress = {
+            #     i: {(item.microbatch_idx, item.partition_idx): False for item in sublist}
+            #     for i, sublist in enumerate(schedules)
+            # }
+            progress = get_progresses_from_pipeline_context(self.pipeline_context)
             progress_tracker.initiate(progress)
             print(progress)
 
@@ -157,9 +161,11 @@ class PipelineEngine:
             # outputs = [SavedActivation.get_saved_activations((microbatch_idx, partition_idx)) for microbatch_idx in range(n_microbatches)]
             # outputs = torch.cat(outputs, dim=0)
             return outputs
-        # else:
-        #     # NOTE: not terminate the worker, make it wait for processing further backward jobs
-        #     time.sleep(100)
+        else:
+            import time
+
+            # NOTE: not terminate the worker, make it wait for processing further backward jobs
+            time.sleep(100)
 
         # dist.barrier()
 

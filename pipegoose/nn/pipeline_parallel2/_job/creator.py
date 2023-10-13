@@ -3,6 +3,7 @@ from typing import Callable, Union
 
 import torch
 
+from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.pipeline_parallel2._comm import (
     get_pipeline_context,
     set_pipeline_context,
@@ -35,27 +36,31 @@ class JobCreator(ABC):
 class ScheduleBackwardJobCallback(Callback):
     order = 3
 
+    def __init__(self, pipeline_context: PipelineContext):
+        self.pipeline_context = pipeline_context
+
     def after_compute(self):
         package = self.job.output
-        new_package = schedule_backward_job(package, self.job.pipeline_context)
+        new_package = schedule_backward_job(package, self.pipeline_context)
         self.job.output = new_package
 
 
 class _ForwardJobCreator(JobCreator):
     """Put a forward job into job queue for a worker to execute."""
 
-    CBS = [
-        CreateForwardOutputPackageCallback,
-        SaveInputActivationsCallback,
-        SaveActivationIfTrainingCallback,
-        ScheduleBackwardJobCallback,
-        SendForwardPackageCallback,
-        ConfirmCompleteATaskToProgressTracker,
-    ]
-
     @classmethod
-    def create(cls, function: Callable, package: Package, pipeline_context: PipelineContext) -> ForwardJob:
-        job = ForwardJob(function, package, cbs=cls.CBS, pipeline_context=pipeline_context)
+    def create(
+        cls, function: Callable, package: Package, parallel_context: ParallelContext, pipeline_context: PipelineContext
+    ) -> ForwardJob:
+        callbacks = [
+            CreateForwardOutputPackageCallback(parallel_context, pipeline_context),
+            SaveInputActivationsCallback,
+            SaveActivationIfTrainingCallback,
+            ScheduleBackwardJobCallback(pipeline_context),
+            SendForwardPackageCallback(parallel_context),
+            ConfirmCompleteATaskToProgressTracker(parallel_context),
+        ]
+        job = ForwardJob(function, package, callbacks)
         return job
 
 
@@ -63,7 +68,9 @@ class _BackwardJobCreator(JobCreator):
     # CBS = [CreateBackwardOutputPackageCallback, SendBackwardPackageCallback]
 
     @classmethod
-    def create(cls, function: Callable, package: Package, pipeline_context: PipelineContext) -> BackwardJob:
+    def create(
+        cls, function: Callable, package: Package, parallel_context: ParallelContext, pipeline_context: PipelineContext
+    ) -> BackwardJob:
         from pipegoose.nn.pipeline_parallel2.queue import (
             InputActivations,
             SavedActivation,
@@ -81,11 +88,13 @@ class _BackwardJobCreator(JobCreator):
         ), f"No saved input activations for \
             microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
 
-        job = BackwardJob(function, package, pipeline_context=pipeline_context)
+        job = BackwardJob(function, package)
         return job
 
 
-def create_job(function: Callable, package: Package, pipeline_context: PipelineContext) -> Union[ForwardJob, BackwardJob]:
+def create_job(
+    function: Callable, package: Package, parallel_context: ParallelContext, pipeline_context: PipelineContext
+) -> Union[ForwardJob, BackwardJob]:
     """Create a job based on the package."""
     assert isinstance(package, Package), f"package must be an instance of Package, got {type(package)}"
     assert isinstance(
@@ -98,7 +107,7 @@ def create_job(function: Callable, package: Package, pipeline_context: PipelineC
     }
 
     job_type = package.metadata.job_type
-    job = JOB_TYPE_TO_CREATOR[job_type].create(function, package, pipeline_context)
+    job = JOB_TYPE_TO_CREATOR[job_type].create(function, package, parallel_context, pipeline_context)
 
     return job
 

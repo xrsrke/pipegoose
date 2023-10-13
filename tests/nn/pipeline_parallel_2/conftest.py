@@ -133,18 +133,18 @@ def backward_package(base_package):
 
 
 @pytest.fixture(scope="function")
-def backward_job(backward_package, pipeline_context):
+def backward_job(backward_package, parallel_context, pipeline_context):
     def function():
         def backward_function(*args, **kwargs):
             return torch.randn(1)
 
         return backward_function
 
-    job = create_job(function, backward_package, pipeline_context)
+    job = create_job(function, backward_package, parallel_context, pipeline_context)
     return job
 
 
 @pytest.fixture(scope="function")
-def forward_job(forward_package, pipeline_context):
+def forward_job(forward_package, parallel_context, pipeline_context):
     function = nn.Linear(*LINEAR_SHAPE)
-    return create_job(function, forward_package, pipeline_context)
+    return create_job(function, forward_package, parallel_context, pipeline_context)
