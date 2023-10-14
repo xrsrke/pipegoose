@@ -64,18 +64,13 @@ def run_destination_of_output_package(
         # so the last partition created the first backward package for itself,
         # so the package expect to be in the same partition
         (0, 1): (0, 1),
-        # (1, 0): (1, 1),
-        # (1, 1): (1, 2),
-        # (2, 0): (2, 1),
-        # (2, 1): (2, 2),
-        # (3, 0): (3, 1),
-        # (3, 1): (3, 2),
-        # (4, 0): (4, 1),
-        # (4, 1): (4, 2),
     }
 
+    # NOTE: mapping from the next scr dst rank of a microbatch after the first clock cycle
     OUTPUT_SRC_DST_RANK_MAPPING = {
-        (0): (0, 1),
+        (0, 0): (0, 1),
+        # NOTE: same reason as above
+        (0, 1): (0, 1),
     }
 
     pipeline_context, parallel_context = init_pipeline_context(
@@ -100,7 +95,7 @@ def run_destination_of_output_package(
         src, dst = output.metadata.src, output.metadata.dst
         assert isinstance(src, int)
         assert isinstance(dst, int)
-        assert (src, dst) == OUTPUT_SRC_DST_RANK_MAPPING[ORIG_MICROBATCH_IDX]
+        assert (src, dst) == OUTPUT_SRC_DST_RANK_MAPPING[ORIG_MICROBATCH_IDX, ORIG_PARTITION_IDX]
 
 
 @pytest.mark.parametrize("pipeline_parallel_size", [2])
@@ -175,8 +170,8 @@ def run_forward_job_send_output_to_the_next_pipeline_stage(
     forward_job = ForwardJob(function, forward_package, cbs=callbacks)
 
     forward_job.compute()
-
     RECV_RANK = forward_job.output.metadata.dst
+
     if world_size > 1 and rank == RECV_RANK:
         from pipegoose.nn.pipeline_parallel2._comm import RECV_QUEUE
 
@@ -187,8 +182,6 @@ def run_forward_job_send_output_to_the_next_pipeline_stage(
 
         assert isinstance(received_package, Package)
         assert received_package.metadata.dst == rank
-        # NEXT_PARTITION_IDX = PARTITION_IDX + 1
-        # received_package = RECV_QUEUE[(MICROBATCH_IDX, NEXT_PARTITION_IDX)]
 
 
 @pytest.mark.parametrize(

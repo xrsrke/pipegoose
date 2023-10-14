@@ -58,6 +58,22 @@ def forward_package_in_same_node(forward_package):
     return forward_package
 
 
+@pytest.fixture
+def backward_package_in_the_last_pipeline_stage(backward_package):
+    backward_package.metadata.src = 1
+    backward_package.metadata.dst = 1
+    backward_package.metadata.partition_idx = 1
+    return backward_package
+
+
+@pytest.fixture
+def backward_package_in_the_second_last_pipeline_stage(backward_package):
+    backward_package.metadata.src = 1
+    backward_package.metadata.dst = 0
+    backward_package.metadata.partition_idx = 0
+    return backward_package
+
+
 def test_create_a_backward_job_if_a_tensor_do_backprop(forward_package, forward_function, parallel_context, pipeline_context):
     callbacks = [
         CreateForwardOutputPackageCallback(parallel_context, pipeline_context),
@@ -129,7 +145,21 @@ def run_check_the_destination_of_output_package_from_a_backward_job(
     def function(*args, **kwargs):
         pass
 
-    if rank == backward_package.metadata.src:
+    # NOTE: (microbatch_idx, partition_idx) -> (microbatch_idx, next_partition_idx)
+    MICROBATCH_PARTITION_IDX_MAPPING = {(0, 1): (0, 1), (0, 0): (0, 0)}
+
+    # NOTE: mapping from the next scr dst rank of a microbatch after the first clock cycle
+    SRC_DST_MAPPING = {
+        (1, 1): (1, 0),
+        # NOTE: same reason as above
+        (1, 0): (1, 0),
+    }
+
+    pipeline_context, parallel_context = init_pipeline_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
+
+    if rank == backward_package.metadata.dst:
         HIDDEN_SIZE = 2
         INPUT_SHAPE = (
             backward_package.data.shape[0],
@@ -138,10 +168,6 @@ def run_check_the_destination_of_output_package_from_a_backward_job(
         LINEAR_SHAPE = (
             HIDDEN_SIZE,
             backward_package.data.shape[-1],
-        )
-
-        pipeline_context, parallel_context = init_pipeline_context(
-            rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
         )
 
         input = torch.randn(*INPUT_SHAPE, requires_grad=True)
@@ -164,13 +190,31 @@ def run_check_the_destination_of_output_package_from_a_backward_job(
         for key in vars(output.metadata.training).keys():
             assert getattr(output.metadata.training, key) == getattr(backward_job.input.metadata.training, key)
 
+        inp_microbatch_idx, inp_partition_idx = (
+            backward_package.metadata.microbatch_idx,
+            backward_package.metadata.partition_idx,
+        )
+        out_microbatch_idx, out_partition_idx = output.metadata.microbatch_idx, output.metadata.partition_idx
+        assert (out_microbatch_idx, out_partition_idx) == MICROBATCH_PARTITION_IDX_MAPPING[
+            (inp_microbatch_idx, inp_partition_idx)
+        ]
 
-@pytest.mark.parametrize("pipeline_parallel_size", [1, 2, 4])
-def test_the_destination_of_output_package_from_a_backward_job(pipeline_parallel_size, backward_package):
+        inp_src, inp_dst = backward_package.metadata.src, backward_package.metadata.dst
+        src, dst = output.metadata.src, output.metadata.dst
+        assert (src, dst) == SRC_DST_MAPPING[(inp_src, inp_dst)]
+
+
+@pytest.mark.parametrize("pipeline_parallel_size", [2])
+@pytest.mark.parametrize(
+    "package", ["backward_package_in_the_last_pipeline_stage", "backward_package_in_the_second_last_pipeline_stage"]
+)
+def test_the_destination_of_output_package_from_a_backward_job(request, pipeline_parallel_size, package):
     TENSOR_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 
     WORLD_SIZE = TENSOR_PARALLEL_SIZE * pipeline_parallel_size * DATA_PARALLEL_SIZE
+
+    backward_package = request.getfixturevalue(package)
 
     spawn(
         run_check_the_destination_of_output_package_from_a_backward_job,
