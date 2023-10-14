@@ -2,21 +2,11 @@ import pytest
 from torch.optim import Adam
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from pipegoose.nn import DataParallel
+from pipegoose.nn.data_parallel.data_parallel import DataParallel
 from pipegoose.optim.zero.optim import DistributedOptimizer
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 MODEL_NAME = "prajjwal1/bert-tiny"
-
-
-@pytest.fixture(scope="module")
-def model():
-    return AutoModelForCausalLM.from_pretrained(MODEL_NAME)
-
-
-@pytest.fixture(scope="module")
-def tokenizer():
-    return AutoTokenizer.from_pretrained(MODEL_NAME)
 
 
 def run_hybrid_parallelism(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, kwargs):
@@ -25,6 +15,7 @@ def run_hybrid_parallelism(rank, world_size, port, tensor_parallel_size, pipelin
     )
 
     parallelized_model = DataParallel(kwargs["model"], parallel_context).parallelize()
+
     optim = Adam(parallelized_model.parameters())
     dist_optim = DistributedOptimizer(optim, parallel_context)
 
@@ -39,9 +30,12 @@ def run_hybrid_parallelism(rank, world_size, port, tensor_parallel_size, pipelin
 @pytest.mark.parametrize("tensor_parallel_size", [2])
 @pytest.mark.parametrize("pipeline_parallel_size", [2])
 @pytest.mark.parametrize("data_parallel_size", [2])
-def test_hybrid_parallelism(model, tokenizer, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+def test_hybrid_parallelism(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     WORLD_SIZE = tensor_parallel_size * pipeline_parallel_size * data_parallel_size
     GENERATION_CONFIGS = {"max_new_tokens": 1}
+
+    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     text = "Persistence is all you need."
     input = tokenizer(text, return_tensors="pt")
@@ -52,9 +46,6 @@ def test_hybrid_parallelism(model, tokenizer, tensor_parallel_size, pipeline_par
         "generation_configs": GENERATION_CONFIGS,
         "input": input,
         "labels": labels,
-        # "generated_tokens": generated_tokens.detach(),
-        # "logits": logits.detach(),
-        # "loss": loss.detach(),
     }
 
     spawn(
