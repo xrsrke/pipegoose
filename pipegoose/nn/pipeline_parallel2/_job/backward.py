@@ -1,6 +1,7 @@
 import torch
 
 from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.job import Job
 from pipegoose.nn.pipeline_parallel2._package import Package
@@ -26,9 +27,33 @@ class CreateBackwardOutputPackageCallback(Callback):
         orig_metadata = self.job.input.metadata
 
         package = Package(data, orig_metadata)
-        package.metadata.partition_idx -= 1
+
+        if not self.pipeline_context.is_first_stage:
+            package = self._update_next_pipeline_stage(package)
+            package = self._update_src_and_dst_rank(package)
 
         self.job.output = package
+
+    def _update_next_pipeline_stage(self, package: Package) -> Package:
+        microbatch_idx = package.metadata.microbatch_idx
+
+        # NOTE: determine which pipeline stage to send the output to
+        next_schedule = self.pipeline_context.get_next_schedule_from_microbatch(microbatch_idx)
+
+        # NOTE: because currently each pipeline stage only has one task at a time
+        # so we hardcode and select that one
+        # TODO: take into account that a pipeline stage can has more than one task
+        # in a clock cycle, then find the correspond task to send the output to
+        next_partition = next_schedule[0].partition_idx
+        package.metadata.partition_idx = next_partition
+
+        return package
+
+    def _update_src_and_dst_rank(self, package: Package) -> Package:
+        package.metadata.src = self.parallel_context.get_global_rank()
+        package.metadata.dst = self.parallel_context.get_prev_global_rank(ParallelMode.PIPELINE)
+
+        return package
 
 
 class SendBackwardPackageCallback(Callback):

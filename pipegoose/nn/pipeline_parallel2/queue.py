@@ -104,7 +104,6 @@ def save_output_activations(output: torch.Tensor, microbatch_idx: int, partition
 
 def get_output_activations(microbatch_idx: int, partition_idx: int, is_pipeline: bool = False) -> torch.Tensor:
     key = SavedActivation.get_key(microbatch_idx, partition_idx)
-    # output = SavedActivation.get_saved_activations(key)
 
     try:
         output = _SAVED_ACTIVATIONS[key]

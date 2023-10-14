@@ -112,6 +112,8 @@ def backward_package(base_package):
     )
 
     backward_package = deepcopy(base_package)
+    backward_package.metadata.src = 2
+    backward_package.metadata.dst = 1
     backward_package.metadata.job_type = JobType.BACKWARD
 
     MICROBATCH_IDX = backward_package.metadata.microbatch_idx
@@ -122,7 +124,6 @@ def backward_package(base_package):
 
     linear = nn.Linear(*LINEAR_SHAPE)
     output = linear(input)
-    # output.requires_grad = True
     INITIAL_GRADS = torch.ones_like(output)
 
     # NOTE: stores the output activations that the backward job

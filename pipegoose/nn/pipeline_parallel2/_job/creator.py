@@ -5,7 +5,10 @@ import torch
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.pipeline_parallel2._comm import get_pipeline_context
-from pipegoose.nn.pipeline_parallel2._job.backward import BackwardJob
+from pipegoose.nn.pipeline_parallel2._job.backward import (
+    BackwardJob,
+    CreateBackwardOutputPackageCallback,
+)
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.forward import (
     ConfirmCompleteATaskToProgressTracker,
@@ -43,7 +46,7 @@ class ScheduleBackwardJobCallback(Callback):
 
 
 class _ForwardJobCreator(JobCreator):
-    """Put a forward job into job queue for a worker to execute."""
+    """Create a forward job for pipeline parallelism."""
 
     @classmethod
     def create(
@@ -62,6 +65,8 @@ class _ForwardJobCreator(JobCreator):
 
 
 class _BackwardJobCreator(JobCreator):
+    """Create a backward job for pipeline parallelism."""
+
     @classmethod
     def create(
         cls, function: Callable, package: Package, parallel_context: ParallelContext, pipeline_context: PipelineContext
@@ -84,7 +89,7 @@ class _BackwardJobCreator(JobCreator):
             microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
 
         callbacks = [
-            # CreateBackwardOutputPackageCallback(parallel_context, pipeline_context),
+            CreateBackwardOutputPackageCallback(parallel_context, pipeline_context),
             # SendBackwardPackageCallback(parallel_context)
         ]
         job = BackwardJob(function, package, is_scheduled=True, cbs=callbacks)

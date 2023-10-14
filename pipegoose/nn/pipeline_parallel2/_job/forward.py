@@ -25,11 +25,11 @@ class ForwardJob(Job):
 class CreateForwardOutputPackageCallback(Callback):
     """Create a new package for the output of a forward job."""
 
+    order = 0
+
     def __init__(self, parallel_context: ParallelContext, pipeline_context: PipelineContext):
         self.parallel_context = parallel_context
         self.pipeline_context = pipeline_context
-
-    order = 0
 
     def after_compute(self):
         data = self.job.output

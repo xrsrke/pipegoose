@@ -31,24 +31,15 @@ def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_
 
     pipeline_context = PipelineContext(scheduler, parallel_context)
 
+    assert get_pipeline_context() == pipeline_context
     assert isinstance(pipeline_context.partition_idx, int)
 
     assert pipeline_context.clock_idx == 0
     assert isinstance(pipeline_context.schedule, list)
     assert isinstance(pipeline_context.schedules, list)
+
     assert isinstance(pipeline_context.get_schedule_from_partition(clock_idx=3, partition_idx=2), list)
     assert isinstance(pipeline_context.get_schedule_from_microbatch(clock_idx=3, microbatch_idx=0), list)
-    assert get_pipeline_context() == pipeline_context
-
-    next_schedules = pipeline_context.get_next_schedule_from_microbatch(microbatch_idx=0)
-    assert isinstance(next_schedules, list)
-
-    # NOTE: x is (microbatch_idx, partition_idx)
-    # x[0] means microbatch_idx of the task
-    EXPECTED_NEXT_SCHEDULE = [x for x in EXPECTED_SCHEDULES[pipeline_context.clock_idx + 1] if x[0] == 0]
-    assert len(next_schedules) == len(EXPECTED_NEXT_SCHEDULE)
-    for task, (_, partition_idx) in zip(next_schedules, EXPECTED_NEXT_SCHEDULE):
-        assert task.partition_idx == partition_idx
 
     CURRENT_CLOCK_IDX = pipeline_context.clock_idx
     pipeline_context.increase_a_clock_cycle()
@@ -63,6 +54,44 @@ def test_run_pipeline_context(pipeline_parallel_size):
 
     spawn(
         run_pipeline_context,
+        world_size=pipeline_parallel_size,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=DATA_PARALLEL_SIZE,
+    )
+
+
+def run_get_the_next_pipeline_schedule_from_pipeline_context(
+    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+):
+    N_PARTITIONS = 5
+    N_MICROBATCHES = 4
+
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
+    scheduler = get_scheduler(SchedulerType.GPIPE)(N_MICROBATCHES, N_PARTITIONS)
+
+    pipeline_context = PipelineContext(scheduler, parallel_context)
+
+    next_schedules = pipeline_context.get_next_schedule_from_microbatch(microbatch_idx=0)
+    assert isinstance(next_schedules, list)
+
+    # NOTE: x is (microbatch_idx, partition_idx)
+    # x[0] means microbatch_idx of the task
+    EXPECTED_NEXT_SCHEDULE = [x for x in EXPECTED_SCHEDULES[pipeline_context.clock_idx + 1] if x[0] == 0]
+    assert len(next_schedules) == len(EXPECTED_NEXT_SCHEDULE)
+    for task, (_, partition_idx) in zip(next_schedules, EXPECTED_NEXT_SCHEDULE):
+        assert task.partition_idx == partition_idx
+
+
+@pytest.mark.parametrize("pipeline_parallel_size", [1, 2, 4])
+def test_get_the_next_pipeline_schedule_from_pipeline_context(pipeline_parallel_size):
+    TENSOR_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+
+    spawn(
+        run_get_the_next_pipeline_schedule_from_pipeline_context,
         world_size=pipeline_parallel_size,
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=pipeline_parallel_size,
