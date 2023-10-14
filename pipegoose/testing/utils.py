@@ -78,10 +78,17 @@ def init_pipeline_context(
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-
     scheduler = get_scheduler(SchedulerType.GPIPE)(n_microbatches, n_partitions)
-
-    return PipelineContext(
+    # progress_tracker = ProgressTracker(
+    #     MASTER_RANK, callbacks=[], parallel_context=parallel_context, parallel_mode=ParallelMode.GLOBAL
+    # )
+    pipeline_context = PipelineContext(
         scheduler=scheduler,
         parallel_context=parallel_context,
     )
+    # progress_tracker.initiate(progress)
+
+    # set_progress_tracker(progress_tracker)
+    # set_pipeline_context(pipeline_context)
+
+    return pipeline_context, parallel_context

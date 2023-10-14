@@ -62,8 +62,6 @@ class _ForwardJobCreator(JobCreator):
 
 
 class _BackwardJobCreator(JobCreator):
-    # CBS = [CreateBackwardOutputPackageCallback, SendBackwardPackageCallback]
-
     @classmethod
     def create(
         cls, function: Callable, package: Package, parallel_context: ParallelContext, pipeline_context: PipelineContext
@@ -85,7 +83,11 @@ class _BackwardJobCreator(JobCreator):
         ), f"No saved input activations for \
             microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
 
-        job = BackwardJob(function, package)
+        callbacks = [
+            # CreateBackwardOutputPackageCallback(parallel_context, pipeline_context),
+            # SendBackwardPackageCallback(parallel_context)
+        ]
+        job = BackwardJob(function, package, is_scheduled=True, cbs=callbacks)
         return job
 
 

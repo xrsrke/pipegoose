@@ -118,13 +118,15 @@ def backward_package(base_package):
     PARTITION_IDX = backward_package.metadata.partition_idx
 
     input = torch.randn(*INPUT_SHAPE, requires_grad=True)
+    save_input_activations(input, MICROBATCH_IDX, PARTITION_IDX)
+
     linear = nn.Linear(*LINEAR_SHAPE)
     output = linear(input)
+    # output.requires_grad = True
     INITIAL_GRADS = torch.ones_like(output)
 
     # NOTE: stores the output activations that the backward job
     # will use to compute the gradients
-    save_input_activations(input, MICROBATCH_IDX, PARTITION_IDX)
     save_output_activations(output, MICROBATCH_IDX, PARTITION_IDX)
 
     backward_package.data = torch.ones_like(INITIAL_GRADS)
