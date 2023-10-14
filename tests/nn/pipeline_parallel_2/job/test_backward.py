@@ -129,39 +129,40 @@ def run_check_the_destination_of_output_package_from_a_backward_job(
     def function(*args, **kwargs):
         pass
 
-    HIDDEN_SIZE = 2
-    INPUT_SHAPE = (
-        backward_package.data.shape[0],
-        HIDDEN_SIZE,
-    )
-    LINEAR_SHAPE = (
-        HIDDEN_SIZE,
-        backward_package.data.shape[-1],
-    )
+    if rank == backward_package.metadata.src:
+        HIDDEN_SIZE = 2
+        INPUT_SHAPE = (
+            backward_package.data.shape[0],
+            HIDDEN_SIZE,
+        )
+        LINEAR_SHAPE = (
+            HIDDEN_SIZE,
+            backward_package.data.shape[-1],
+        )
 
-    pipeline_context, parallel_context = init_pipeline_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
-    )
+        pipeline_context, parallel_context = init_pipeline_context(
+            rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+        )
 
-    input = torch.randn(*INPUT_SHAPE, requires_grad=True)
-    linear = nn.Linear(*LINEAR_SHAPE)
-    output = linear(input)
+        input = torch.randn(*INPUT_SHAPE, requires_grad=True)
+        linear = nn.Linear(*LINEAR_SHAPE)
+        output = linear(input)
 
-    callbacks = [
-        SetupInputOutputActivations(input, output),
-        CreateBackwardOutputPackageCallback(parallel_context, pipeline_context),
-    ]
+        callbacks = [
+            SetupInputOutputActivations(input, output),
+            CreateBackwardOutputPackageCallback(parallel_context, pipeline_context),
+        ]
 
-    backward_job = BackwardJob(function, backward_package, callbacks)
-    output = backward_job.compute()
+        backward_job = BackwardJob(function, backward_package, callbacks)
+        output = backward_job.compute()
 
-    assert backward_job.output == output
-    assert isinstance(output, Package)
-    assert isinstance(output.data, torch.Tensor)
-    assert output.metadata.job_type == JobType.BACKWARD
+        assert backward_job.output == output
+        assert isinstance(output, Package)
+        assert isinstance(output.data, torch.Tensor)
+        assert output.metadata.job_type == JobType.BACKWARD
 
-    for key in vars(output.metadata.training).keys():
-        assert getattr(output.metadata.training, key) == getattr(backward_job.input.metadata.training, key)
+        for key in vars(output.metadata.training).keys():
+            assert getattr(output.metadata.training, key) == getattr(backward_job.input.metadata.training, key)
 
 
 @pytest.mark.parametrize("pipeline_parallel_size", [1, 2, 4])

@@ -21,6 +21,13 @@ LINEAR_SHAPE = (
 )
 
 
+@pytest.fixture
+def training_info():
+    return {
+        "n_microbatches": 5,
+    }
+
+
 @pytest.fixture(scope="session")
 def parallel_context():
     TENSOR_PARALLEL_SIZE = 1
@@ -47,19 +54,9 @@ def pipeline_context(parallel_context):
     from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
     from pipegoose.nn.pipeline_parallel2.scheduler import SchedulerType, get_scheduler
 
-    N_PARTITIONS = 3
+    # N_PARTITIONS = 3
+    N_PARTITIONS = parallel_context.pipeline_parallel_size
     N_MICROBATCHES = 5
-
-    # pipeline_context, _ = init_pipeline_context(
-    #     rank=RANK,
-    #     world_size=WORLD_SIZE,
-    #     port=PORT,
-    #     tensor_parallel_size=TENSOR_PARALLEL_SIZE,
-    #     pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
-    #     data_parallel_size=DATA_PARALLEL_SIZE,
-    #     n_partitions=N_PARTITIONS,
-    #     n_microbatches=N_MICROBATCHES,
-    # )
 
     scheduler = get_scheduler(SchedulerType.GPIPE)(N_MICROBATCHES, N_PARTITIONS)
     pipeline_context = PipelineContext(
@@ -77,6 +74,7 @@ def base_package():
     IS_TRAINING = True
     IS_GRAD_ENABLED = True
 
+    # NOTE: this is the package of an input microbatch
     SRC = 0
     DST = 1
 
