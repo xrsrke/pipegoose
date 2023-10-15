@@ -96,6 +96,16 @@ class GPipeScheduler(BaseScheduler):
     def total_clock_cycles(self) -> int:
         return len(self.get_schedules())
 
+    @property
+    def total_forward_clock_cycles(self) -> int:
+        """Return the total number of clock cycles required to run the forward pass."""
+        return len(self.get_forward_schedules())
+
+    @property
+    def total_backward_clock_cycles(self) -> int:
+        """Return the total number of clock cycles required to run the forward pass."""
+        return len(self.get_backward_schedules())
+
 
 def get_scheduler(scheduler_type: SchedulerType) -> BaseScheduler:
     scheduler_type_to_scheduler = {

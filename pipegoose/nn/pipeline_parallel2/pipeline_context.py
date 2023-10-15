@@ -22,7 +22,7 @@ class PipelineContext:
     """A context that holds information about the pipeline execution."""
 
     def __init__(self, scheduler: BaseScheduler, parallel_context: ParallelContext):
-        self.scheduler = scheduler
+        self.scheduler: BaseScheduler = scheduler
         self.parallel_context = parallel_context
 
         self._clock_idx: int = 0
@@ -83,7 +83,13 @@ class PipelineContext:
 
     def get_schedule(self):
         with self._wait_new_clock_cycle:
-            while self.clock_idx < self.scheduler.total_clock_cycles:
+            TRAINING_STATE_TO_TOTAL_CLOCK_CYCLES = {
+                TrainingState.FORWARD: self.scheduler.total_forward_clock_cycles,
+                TrainingState.BACKWARD: self.scheduler.total_backward_clock_cycles,
+            }
+            total_clock_cycles = TRAINING_STATE_TO_TOTAL_CLOCK_CYCLES[self.state]
+
+            while self.clock_idx < total_clock_cycles:
                 schedules = self._get_schedule_from_partition(self.clock_idx, self.partition_idx, training_state=self.state)
                 yield schedules
 

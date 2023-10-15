@@ -80,36 +80,29 @@ class PipelineEngine:
         # that if the clock_idx is increased, then
         # notify pipeline_context to yield the next schedule
         class IncreasePipelineContextClockCycleCallback(Callback):
-            def __init__(self, pipeline_context):
+            def __init__(self, parallel_context, pipeline_context):
+                self.parallel_context = parallel_context
                 self.pipeline_context = pipeline_context
 
             def after_new_clock_cycle(self, progress, clock_idx):
-                parallel_context = self.pipeline_context.parallel_context
-
                 # NOTE: suppose we have tensor_parallel_size = 3
                 # that means a pipeline stage is split into 3 slices
                 # we want only one slice to increase the clock
                 # here we choose the last slice to increase the clock
-                if parallel_context.is_last_rank(ParallelMode.TENSOR):
+                if self.parallel_context.is_last_rank(ParallelMode.TENSOR):
                     print(
-                        f"increase clock, clock_idx={clock_idx}, rank={parallel_context.get_local_rank(ParallelMode.GLOBAL)}"
+                        f"increase clock, clock_idx={clock_idx}, rank={self.parallel_context.get_local_rank(ParallelMode.GLOBAL)}"
                     )
                     self.pipeline_context.increase_a_clock_cycle()
 
-        callbacks = [IncreasePipelineContextClockCycleCallback(self.pipeline_context)]
+        callbacks = [IncreasePipelineContextClockCycleCallback(self.parallel_context, self.pipeline_context)]
         progress_tracker = ProgressTracker(
             MASTER_RANK, callbacks=callbacks, parallel_context=self.parallel_context, parallel_mode=ParallelMode.GLOBAL
         )
         # NOTE: wait for all ranks to be initiated
         dist.barrier()
 
-        # if self.parallel_context.is_first_rank(ParallelMode.PIPELINE):
         if self.parallel_context.get_global_rank() == 0:
-            # schedules = self.pipeline_context.schedules
-            # progress = {
-            #     i: {(item.microbatch_idx, item.partition_idx): False for item in sublist}
-            #     for i, sublist in enumerate(schedules)
-            # }
             progress = get_progresses_from_pipeline_context(self.pipeline_context)
             progress_tracker.initiate(progress)
             print(progress)
@@ -120,13 +113,10 @@ class PipelineEngine:
 
         dist.barrier()
 
+        self.pipeline_context.forward()
+
         for tasks in self.pipeline_context.get_schedule():
             dist.barrier()
-
-            if self.pipeline_context.clock_idx == 9:
-                # TODO: remove this
-                # this is for breaking the loop once getting backward tasks
-                break
 
             if len(tasks) > 0:
                 for task in tasks:
@@ -141,7 +131,7 @@ class PipelineEngine:
 
                     save_input_activations(package.data, microbatch_idx=microbatch_idx, partition_idx=partition_idx)
 
-                    job = create_job(self.partition_func, package, self.pipeline_context)
+                    job = create_job(self.partition_func, package, self.parallel_context, self.pipeline_context)
                     JobQueue.PENDING_JOBS.put(job)
 
             dist.barrier()
@@ -159,13 +149,13 @@ class PipelineEngine:
                 outputs.append(get_output_activations(microbatch_idx, partition_idx))
 
             # outputs = [SavedActivation.get_saved_activations((microbatch_idx, partition_idx)) for microbatch_idx in range(n_microbatches)]
-            # outputs = torch.cat(outputs, dim=0)
+            outputs = torch.cat(outputs, dim=0)
             return outputs
-        else:
-            import time
+        # else:
+        #     import time
 
-            # NOTE: not terminate the worker, make it wait for processing further backward jobs
-            time.sleep(100)
+        #     # NOTE: not terminate the worker, make it wait for processing further backward jobs
+        #     time.sleep(100)
 
         # dist.barrier()
 
