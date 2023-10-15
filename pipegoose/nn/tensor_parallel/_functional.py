@@ -1,3 +1,7 @@
+"""
+Inspired from OSLO: https://github.com/EleutherAI/oslo/blob/d7c4e32e766a99cc9d56533bc090570360dc8b2a/oslo/torch/nn/parallel/tensor_parallel/_1d/_ops.py#L17
+"""
+
 from typing import Any, Tuple
 
 import torch
