@@ -1,4 +1,5 @@
 import threading
+from enum import Enum, auto
 from typing import List
 
 from pipegoose.distributed.parallel_context import ParallelContext
@@ -8,6 +9,15 @@ from pipegoose.nn.pipeline_parallel2._utils import get_partition_idx, is_last_st
 from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
 
 
+class TrainingState(Enum):
+    """Training state of the pipeline engine."""
+
+    IDLE = auto()
+    FORWARD = auto()
+    BACKWARD = auto()
+    FINISHED = auto()
+
+
 class PipelineContext:
     """A context that holds information about the pipeline execution."""
 
@@ -15,19 +25,29 @@ class PipelineContext:
         self.scheduler = scheduler
         self.parallel_context = parallel_context
 
-        # NOTE: fix this
-        self._clock_idx = 0
+        self._clock_idx: int = 0
+        self._state: TrainingState = TrainingState.IDLE
         # NOTE: block CPU thread until the next clock cycle
         self._wait_new_clock_cycle = threading.Condition()
 
-        set_pipeline_context(self)
+        set_pipeline_context(pipeline_context=self)
+
+    @property
+    def state(self) -> TrainingState:
+        return self._state
+
+    def forward(self):
+        self._state = TrainingState.FORWARD
+
+    def backward(self):
+        self._state = TrainingState.BACKWARD
+
+    def finish(self):
+        self._state = TrainingState.FINISHED
 
     @property
     def partition_idx(self) -> int:
         parallel_context = self.parallel_context
-        # rank = parallel_context.get_local_rank(ParallelMode.PIPELINE)
-        # n_ranks_per_group = len(parallel_context.get_ranks_in_group(ParallelMode.PIPELINE))
-        # pipeline_stage_idx = rank // n_ranks_per_group
         pipeline_stage_idx = get_partition_idx(parallel_context)
         return pipeline_stage_idx
 
@@ -46,21 +66,26 @@ class PipelineContext:
     @property
     def schedule(self) -> List:
         """Get the current schedule of this partition."""
-        return self.get_schedule_from_partition(self.clock_idx, self.partition_idx)
+        return self._get_schedule_from_partition(self.clock_idx, self.partition_idx, training_state=self.state)
 
     @property
     def schedules(self) -> List:
         """Get the schedule for entire training run."""
         return self.scheduler.get_schedules()
 
+    def _get_schedule_from_training_state(self, training_state: TrainingState) -> List:
+        """Get the schedule from a given training state."""
+        STATE_TO_SCHEDULES = {
+            training_state.FORWARD: self.scheduler.get_forward_schedules,
+            training_state.BACKWARD: self.scheduler.get_backward_schedules,
+        }
+        return STATE_TO_SCHEDULES[training_state]()
+
     def get_schedule(self):
         with self._wait_new_clock_cycle:
             while self.clock_idx < self.scheduler.total_clock_cycles:
-                schedules = self.get_schedule_from_partition(self.clock_idx, self.partition_idx)
+                schedules = self._get_schedule_from_partition(self.clock_idx, self.partition_idx, training_state=self.state)
                 yield schedules
-
-                # if self.clock_idx == 1:
-                #     assert 1 == 1
 
                 # NOTE: wait for the next clock cycle
                 print(
@@ -68,32 +93,32 @@ class PipelineContext:
                 )
                 self._wait_new_clock_cycle.wait()
 
-    def get_schedule_from_partition(self, clock_idx: int, partition_idx: int):
+    def _get_schedule_from_partition(self, clock_idx: int, partition_idx: int, training_state: TrainingState):
         """Get the schedule of a partition at a certain clock cycle."""
+
         assert clock_idx >= 0, "Clock cycle index must be greater than or equal to 0."
         assert partition_idx >= 0, "Partition index must be greater than or equal to 0."
 
-        schedules = self.schedules[clock_idx]
+        schedules = self._get_schedule_from_training_state(training_state)[clock_idx]
         schedule_of_this_partition = [schedule for schedule in schedules if schedule.partition_idx == partition_idx]
 
         return schedule_of_this_partition
 
-    def get_schedule_from_microbatch(self, clock_idx: int, microbatch_idx: int):
+    def _get_schedule_from_microbatch(self, clock_idx: int, microbatch_idx: int, training_state: TrainingState):
         """Get the schedule of a microbatch at a certain clock cycle."""
         assert clock_idx >= 0, "Clock cycle index must be greater than or equal to 0."
         assert microbatch_idx >= 0, "Microbatch index must be greater than or equal to 0."
 
-        schedules = self.schedules[clock_idx]
+        schedules = self._get_schedule_from_training_state(training_state)[clock_idx]
         schedule_of_this_microbatch = [schedule for schedule in schedules if schedule.microbatch_idx == microbatch_idx]
 
         return schedule_of_this_microbatch
 
-    def get_next_schedule_from_microbatch(self, microbatch_idx):
+    def get_next_schedule_from_microbatch(self, microbatch_idx: int):
         """Get the schedule of a micro-batch in the next clock cycle."""
         next_clock_idx = self.clock_idx + 1
-        schedule = self.get_schedule_from_microbatch(
-            clock_idx=next_clock_idx,
-            microbatch_idx=microbatch_idx,
+        schedule = self._get_schedule_from_microbatch(
+            clock_idx=next_clock_idx, microbatch_idx=microbatch_idx, training_state=self.state
         )
         return schedule
 

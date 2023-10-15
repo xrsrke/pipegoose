@@ -16,6 +16,21 @@ class BaseScheduler(ABC):
         """Return the schedule for the whole training run."""
         raise NotImplementedError
 
+    @abstractclassmethod
+    def get_forward_schedules(self):
+        """Return the forward schedule for the whole training run."""
+        raise NotImplementedError
+
+    @abstractclassmethod
+    def get_backward_schedules(self):
+        """Return the backward schedule for the whole training run."""
+        raise NotImplementedError
+
+    @abstractclassmethod
+    def total_clock_cycles(self):
+        """Return the total number of clock cycles."""
+        raise NotImplementedError
+
 
 class GPipeScheduler(BaseScheduler):
     """
