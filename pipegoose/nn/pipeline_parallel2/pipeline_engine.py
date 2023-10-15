@@ -38,6 +38,8 @@ class Schedule:
 class PipelineEngine:
     """A base pipeline engine that can be used to implement different pipeline engines."""
 
+    MASTER_RANK = 0
+
     def __init__(
         self,
         module: nn.Module,
@@ -45,7 +47,6 @@ class PipelineEngine:
         scheduler: BaseScheduler,
         worker_manager: BaseWorkerManager,
         parallel_context: ParallelContext,
-        rank: int,
         partition_func,
     ):
         assert isinstance(module, nn.Module), f"module must be an instance of nn.Module, got {type(module)}"
@@ -60,16 +61,9 @@ class PipelineEngine:
         self.parallel_context = parallel_context
 
         self.pipeline_context = PipelineContext(scheduler, parallel_context)
-        self.rank = rank
         self.partition_func = partition_func
 
     def run(self, inputs: torch.Tensor) -> torch.Tensor:
-        MASTER_RANK = 0
-
-        from pipegoose.nn.pipeline_parallel2._comm import set_pipeline_context
-
-        set_pipeline_context(self.pipeline_context)
-
         self.worker_manager.spawn()
         n_microbatches = self.scheduler.n_microbatches
 
@@ -97,9 +91,9 @@ class PipelineEngine:
 
         callbacks = [IncreasePipelineContextClockCycleCallback(self.parallel_context, self.pipeline_context)]
         progress_tracker = ProgressTracker(
-            MASTER_RANK, callbacks=callbacks, parallel_context=self.parallel_context, parallel_mode=ParallelMode.GLOBAL
+            self.MASTER_RANK, callbacks=callbacks, parallel_context=self.parallel_context, parallel_mode=ParallelMode.GLOBAL
         )
-        # NOTE: wait for all ranks to be initiated
+        # # NOTE: wait for all ranks to be initiated
         dist.barrier()
 
         if self.parallel_context.get_global_rank() == 0:
@@ -110,9 +104,6 @@ class PipelineEngine:
         dist.barrier()
 
         set_progress_tracker(progress_tracker)
-
-        dist.barrier()
-
         self.pipeline_context.forward()
 
         for tasks in self.pipeline_context.get_schedule():
@@ -139,27 +130,14 @@ class PipelineEngine:
         dist.barrier()
 
         if self.pipeline_context.is_last_stage:
-
-            # TODO: use SavedActivation.get_key()
-            partition_idx = self.pipeline_context.partition_idx
             outputs = []
             for microbatch_idx in range(n_microbatches):
-                # key = SavedActivation.get_key(microbatch_idx=microbatch_idx, partition_idx=partition_idx)
-                # outputs.append(_SAVED_ACTIVATIONS[key])
-                outputs.append(get_output_activations(microbatch_idx, partition_idx))
+                outputs.append(get_output_activations(microbatch_idx, self.pipeline_context.partition_idx))
 
-            # outputs = [SavedActivation.get_saved_activations((microbatch_idx, partition_idx)) for microbatch_idx in range(n_microbatches)]
             outputs = torch.cat(outputs, dim=0)
             return outputs
-        # else:
-        #     import time
 
-        #     # NOTE: not terminate the worker, make it wait for processing further backward jobs
-        #     time.sleep(100)
-
-        # dist.barrier()
-
-    def _construct_first_package(self, microbatch_idx: int, input: torch.Tensor):
+    def _construct_first_package(self, microbatch_idx: int, input: torch.Tensor) -> Package:
         """Construct the first forward package of a microbatch."""
         PARTITION_IDX = 0
         IS_TRAINING = torch.is_grad_enabled()
