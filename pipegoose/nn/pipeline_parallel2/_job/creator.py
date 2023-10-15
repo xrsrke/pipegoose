@@ -34,7 +34,7 @@ class JobCreator(ABC):
 
 
 class ScheduleBackwardJobCallback(Callback):
-    order = 3
+    order = 1
 
     def __init__(self, pipeline_context: PipelineContext):
         self.pipeline_context = pipeline_context
@@ -54,9 +54,9 @@ class _ForwardJobCreator(JobCreator):
     ) -> ForwardJob:
         callbacks = [
             CreateForwardOutputPackageCallback(parallel_context, pipeline_context),
-            SaveInputActivationsCallback,
-            SaveActivationIfTrainingCallback,
             ScheduleBackwardJobCallback(pipeline_context),
+            SaveActivationIfTrainingCallback(),
+            SaveInputActivationsCallback(),
             SendForwardPackageCallback(parallel_context),
             ConfirmCompleteATaskToProgressTracker(parallel_context),
         ]
@@ -144,13 +144,14 @@ def _create_backward_job_and_put_to_pending_queue(grad_input: torch.Tensor, meta
 def schedule_backward_job(package: Package, pipeline_context: PipelineContext) -> Package:
     class Function(torch.autograd.Function):
         @staticmethod
-        def forward(ctx, metadata: Metadata, input):
+        def forward(ctx, metadata: Metadata, input: torch.Tensor) -> torch.Tensor:
             ctx.package_meta = metadata
             return input
 
         @staticmethod
-        def backward(ctx, grad_input):
+        def backward(ctx, grad_input: torch.Tensor) -> (None, torch.Tensor):
             metadata = ctx.package_meta
+            print("trigger creating backward job")
             _create_backward_job_and_put_to_pending_queue(grad_input, metadata)
             return (None, grad_input)
 

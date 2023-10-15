@@ -56,10 +56,14 @@ def run_pipeline_engine(
     p_outputs = pipeline_engine.run(inputs)
 
     if is_last_stage(parallel_context):
-        assert torch.allclose(p_outputs, outputs)
+        assert torch.allclose(torch.cat(p_outputs, dim=0), outputs)
         assert forward_timeline == EXPECTED_FORWARD_TIMELINE
 
         # p_outputs.sum().backward()
+        for p_output in p_outputs:
+            p_output.sum().backward()
+
+        assert 1 == 1
     else:
         # NOTE: earlier stages should not return the final output
         assert p_outputs is None

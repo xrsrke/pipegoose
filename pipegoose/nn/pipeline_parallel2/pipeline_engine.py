@@ -134,8 +134,14 @@ class PipelineEngine:
             for microbatch_idx in range(n_microbatches):
                 outputs.append(get_output_activations(microbatch_idx, self.pipeline_context.partition_idx))
 
-            outputs = torch.cat(outputs, dim=0)
+            # outputs = torch.cat(outputs, dim=0)
             return outputs
+
+            # from pipegoose.nn.pipeline_parallel2.queue import _SAVED_ACTIVATIONS
+            # _SAVED_ACTIVATIONS[(0, 3)].sum().backward()
+
+            # import time
+            # time.sleep(10)
 
     def _construct_first_package(self, microbatch_idx: int, input: torch.Tensor) -> Package:
         """Construct the first forward package of a microbatch."""

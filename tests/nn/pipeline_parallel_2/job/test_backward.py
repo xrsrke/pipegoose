@@ -158,6 +158,7 @@ def run_check_the_destination_of_output_package_from_a_backward_job(
     pipeline_context, parallel_context = init_pipeline_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
+    pipeline_context.backward()
 
     if rank == backward_package.metadata.dst:
         HIDDEN_SIZE = 2
