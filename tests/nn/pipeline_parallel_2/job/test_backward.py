@@ -60,17 +60,20 @@ def forward_package_in_same_node(forward_package):
 
 @pytest.fixture
 def backward_package_in_the_last_pipeline_stage(backward_package):
-    backward_package.metadata.src = 1
-    backward_package.metadata.dst = 1
-    backward_package.metadata.partition_idx = 1
+    backward_package.metadata.src = 3
+    backward_package.metadata.dst = 3
+    # TODO: make this configurable based on scheduler or a global config
+    backward_package.metadata.microbatch_idx = 4
+    backward_package.metadata.partition_idx = 3
     return backward_package
 
 
 @pytest.fixture
 def backward_package_in_the_second_last_pipeline_stage(backward_package):
-    backward_package.metadata.src = 1
-    backward_package.metadata.dst = 0
-    backward_package.metadata.partition_idx = 0
+    backward_package.metadata.src = 3
+    backward_package.metadata.dst = 2
+    backward_package.metadata.microbatch_idx = 4
+    backward_package.metadata.partition_idx = 2
     return backward_package
 
 
@@ -146,13 +149,17 @@ def run_check_the_destination_of_output_package_from_a_backward_job(
         pass
 
     # NOTE: (microbatch_idx, partition_idx) -> (microbatch_idx, next_partition_idx)
-    MICROBATCH_PARTITION_IDX_MAPPING = {(0, 1): (0, 1), (0, 0): (0, 0)}
+    MICROBATCH_PARTITION_IDX_MAPPING = {(4, 3): (4, 2), (4, 2): (4, 1)}
 
-    # NOTE: mapping from the next scr dst rank of a microbatch after the first clock cycle
-    SRC_DST_MAPPING = {
-        (1, 1): (1, 0),
-        # NOTE: same reason as above
-        (1, 0): (1, 0),
+    # NOTE: (src, dst) -> (src, dst)
+    # (3, 2) means that a packaged created in the 3rd rank, and sent to the 2nd rank
+    # (3, 3) means that a packaged created in the 3rd rank, and sent to the 3rd rank
+    # (3, 3): (3, 2) means that the input package is created in the 3rd rank, and the output package
+    # is sent from the 3rd rank to the 2nd rank
+    MAPPING_DESTINATION_OF_OUTPUT_PACKAGE = {
+        (3, 3): (3, 2),
+        (3, 2): (2, 1),
+        (2, 1): (1, 0),
     }
 
     pipeline_context, parallel_context = init_pipeline_context(
@@ -161,6 +168,13 @@ def run_check_the_destination_of_output_package_from_a_backward_job(
     pipeline_context.backward()
 
     if rank == backward_package.metadata.dst:
+        if backward_package.metadata.partition_idx == 2:
+            # TODO: refactor this
+            # NOTE: since we test the second last pipeline stage,
+            # and the second last pipeline stage only run in the second clock cycle,
+            # we need to increase the clock cycle by one
+            pipeline_context.increase_a_clock_cycle()
+
         HIDDEN_SIZE = 2
         INPUT_SHAPE = (
             backward_package.data.shape[0],
@@ -201,11 +215,11 @@ def run_check_the_destination_of_output_package_from_a_backward_job(
         ]
 
         inp_src, inp_dst = backward_package.metadata.src, backward_package.metadata.dst
-        src, dst = output.metadata.src, output.metadata.dst
-        assert (src, dst) == SRC_DST_MAPPING[(inp_src, inp_dst)]
+        out_src, out_dst = output.metadata.src, output.metadata.dst
+        assert (out_src, out_dst) == MAPPING_DESTINATION_OF_OUTPUT_PACKAGE[(inp_src, inp_dst)]
 
 
-@pytest.mark.parametrize("pipeline_parallel_size", [2])
+@pytest.mark.parametrize("pipeline_parallel_size", [4])
 @pytest.mark.parametrize(
     "package", ["backward_package_in_the_last_pipeline_stage", "backward_package_in_the_second_last_pipeline_stage"]
 )

@@ -66,20 +66,6 @@ class CreateForwardOutputPackageCallback(Callback):
         return package
 
 
-# class ScheduleBackwardJobCallback(Callback):
-#     """Trigger creating a backward job if user calls backward on the output of a forward job."""
-
-#     order = 1
-
-#     def __init__(self, pipeline_context: PipelineContext):
-#         self.pipeline_context = pipeline_context
-
-#     def after_compute(self):
-#         from pipegoose.nn.pipeline_parallel2._job.creator import schedule_backward_job
-#         new_package = schedule_backward_job(self.job.output, self.pipeline_context)
-#         self.job.output = new_package
-
-
 class SaveInputActivationsCallback(Callback):
     """Save the input activations for backward pass."""
 

@@ -23,7 +23,7 @@ EXPECTED_SCHEDULES = [
 ]
 
 
-def test_pipeline_context_training_state(parallel_context):
+def test_get_pipeline_schedule_from_training_state(parallel_context):
     N_PARTITIONS = 5
     N_MICROBATCHES = 4
 
@@ -35,9 +35,11 @@ def test_pipeline_context_training_state(parallel_context):
 
     pipeline_context.forward()
     assert pipeline_context.state == TrainingState.FORWARD
+    assert len(pipeline_context.schedule) > 0
 
     pipeline_context.backward()
     assert pipeline_context.state == TrainingState.BACKWARD
+    assert len(pipeline_context.schedule) > 0
 
     pipeline_context.finish()
     assert pipeline_context.state == TrainingState.FINISHED
@@ -61,6 +63,8 @@ def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_
     assert pipeline_context.clock_idx == 0
     assert isinstance(pipeline_context.schedule, list)
     assert isinstance(pipeline_context.schedules, list)
+
+    assert pipeline_context.num_microbatches == N_MICROBATCHES
 
     # assert isinstance(pipeline_context.get_schedule_from_partition(clock_idx=3, partition_idx=2), list)
     # assert isinstance(pipeline_context.get_schedule_from_microbatch(clock_idx=3, microbatch_idx=0), list)

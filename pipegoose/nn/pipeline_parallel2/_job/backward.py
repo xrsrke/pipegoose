@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import torch
 
 from pipegoose.distributed.parallel_context import ParallelContext
@@ -24,7 +26,7 @@ class CreateBackwardOutputPackageCallback(Callback):
 
     def after_compute(self):
         data = self.job.output
-        orig_metadata = self.job.input.metadata
+        orig_metadata = deepcopy(self.job.input.metadata)
 
         package = Package(data, orig_metadata)
 
@@ -61,7 +63,7 @@ class SendBackwardPackageCallback(Callback):
 
     order = 1
 
-    def __init__(self, parallel_context: ParallelContext, pipeline_context: PipelineContext):
+    def __init__(self, parallel_context: ParallelContext):
         self.parallel_context = parallel_context
 
     def after_compute(self):

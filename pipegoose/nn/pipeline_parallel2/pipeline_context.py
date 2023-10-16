@@ -37,13 +37,22 @@ class PipelineContext:
         return self._state
 
     def forward(self):
+        self._clock_idx = 0
         self._state = TrainingState.FORWARD
 
     def backward(self):
+        # NOTE: reset the clock cycle to 0
+        # align with the backward schedule
+        self._clock_idx = 0
         self._state = TrainingState.BACKWARD
 
     def finish(self):
         self._state = TrainingState.FINISHED
+
+    @property
+    def num_microbatches(self) -> int:
+        """Return the number of microbatches in the pipeline execution."""
+        return self.scheduler.n_microbatches
 
     @property
     def partition_idx(self) -> int:

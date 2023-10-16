@@ -8,6 +8,7 @@ from pipegoose.nn.pipeline_parallel2._comm import get_pipeline_context
 from pipegoose.nn.pipeline_parallel2._job.backward import (
     BackwardJob,
     CreateBackwardOutputPackageCallback,
+    SendBackwardPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.forward import (
@@ -41,8 +42,9 @@ class ScheduleBackwardJobCallback(Callback):
 
     def after_compute(self):
         package = self.job.output
-        new_package = schedule_backward_job(package, self.pipeline_context)
-        self.job.output = new_package
+        if package.metadata.microbatch_idx == self.pipeline_context.num_microbatches - 1:
+            new_package = schedule_backward_job(package, self.pipeline_context)
+            self.job.output = new_package
 
 
 class _ForwardJobCreator(JobCreator):
@@ -90,7 +92,8 @@ class _BackwardJobCreator(JobCreator):
 
         callbacks = [
             CreateBackwardOutputPackageCallback(parallel_context, pipeline_context),
-            # SendBackwardPackageCallback(parallel_context)
+            SendBackwardPackageCallback(parallel_context),
+            # ConfirmCompleteATaskToProgressTracker(parallel_context)
         ]
         job = BackwardJob(function, package, is_scheduled=True, cbs=callbacks)
         return job
@@ -159,3 +162,65 @@ def schedule_backward_job(package: Package, pipeline_context: PipelineContext) -
     new_data = Function.apply(package.metadata, data)
     package.data = new_data
     return package
+
+
+def schedule_backward_execution(package: Package, pipeline_context: PipelineContext) -> Package:
+    class Function(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, metadata: Metadata, input: torch.Tensor) -> torch.Tensor:
+            ctx.package_meta = metadata
+            return input
+
+        @staticmethod
+        def backward(ctx, grad_input: torch.Tensor) -> (None, torch.Tensor):
+            metadata = ctx.package_meta
+            print("trigger creating backward job")
+            _run_backward_execution(grad_input, metadata)
+            return (None, grad_input)
+
+    data = package.data
+    new_data = Function.apply(package.metadata, data)
+    package.data = new_data
+    return package
+
+
+def _run_backward_execution(grad_input, metadata):
+    import torch.distributed as dist
+
+    pipeline_context = get_pipeline_context()
+    parallel_context = pipeline_context.parallel_context
+    pipeline_context.backward()
+
+    for tasks in pipeline_context.get_schedule():
+        # dist.barrier()
+
+        if len(tasks) > 0:
+            for task in tasks:
+                microbatch_idx = task.microbatch_idx
+                partition_idx = task.partition_idx
+                # if parallel_context.is_first_rank(ParallelMode.PIPELINE):
+                #     if partition_idx == 0:
+                #         batch = microbatches[microbatch_idx]
+                #         package = self._construct_first_package(microbatch_idx, input=batch)
+                # else:
+                #     package = RECV_QUEUE.get()
+
+                # save_input_activations(package.data, microbatch_idx=microbatch_idx, partition_idx=partition_idx)
+
+                # job = create_job(self.partition_func, package, self.parallel_context, self.pipeline_context)
+                # JobQueue.PENDING_JOBS.put(job)
+
+                if microbatch_idx == pipeline_context.num_microbatches - 1:
+                    _create_backward_job_and_put_to_pending_queue(grad_input, metadata)
+                else:
+                    from pipegoose.nn.pipeline_parallel2._comm import RECV_QUEUE
+
+                    RECV_QUEUE.get()
+
+                print(
+                    f"doing backward pass: rank={parallel_context.get_global_rank()}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
+                )
+
+        dist.barrier()
+
+    dist.barrier()

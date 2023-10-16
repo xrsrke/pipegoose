@@ -34,6 +34,7 @@ def run_create_a_job_from_package(
     pipeline_context, parallel_context = init_pipeline_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
+    pipeline_context.forward()
     tracker = ProgressTracker(MASTER_RANK, parallel_context=parallel_context, parallel_mode=ParallelMode.GLOBAL)
     progresses = get_progresses_from_pipeline_context(pipeline_context)
     tracker.initiate(progresses)
