@@ -8,6 +8,7 @@ from torch import nn
 from pipegoose.nn.pipeline_parallel2._job.backward import (
     BackwardJob,
     CreateBackwardOutputPackageCallback,
+    save_grad_loss,
 )
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.creator import schedule_backward_job
@@ -239,3 +240,15 @@ def test_the_destination_of_output_package_from_a_backward_job(request, pipeline
         data_parallel_size=DATA_PARALLEL_SIZE,
         backward_package=backward_package,
     )
+
+
+def test_saving_the_grad_loss(forward_package):
+    from pipegoose.nn.pipeline_parallel2.queue import _SAVED_GRAD_LOSS
+
+    MICROBATCH_IDX = forward_package.metadata.microbatch_idx
+    PARTITION_IDX = forward_package.metadata.partition_idx
+
+    forward_package = save_grad_loss(forward_package)
+    forward_package.data.pow(2).exp().sum().backward()
+
+    assert isinstance(_SAVED_GRAD_LOSS[(MICROBATCH_IDX, PARTITION_IDX)], torch.Tensor)

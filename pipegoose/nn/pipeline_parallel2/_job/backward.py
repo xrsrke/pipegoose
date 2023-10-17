@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Any
 
 import torch
 
@@ -13,6 +14,35 @@ from pipegoose.nn.pipeline_parallel2.queue import (
     get_input_activations,
     get_output_activations,
 )
+
+
+class _SaveGradLossFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx: Any, key, metadata, tensor: torch.Tensor):
+        print("forward of saving grad loss", key)
+        ctx.key = key
+        ctx.package_metadata = metadata
+        return tensor
+
+    @staticmethod
+    def backward(ctx: Any, grad_output: torch.Tensor):
+        from pipegoose.nn.pipeline_parallel2.queue import (
+            _SAVED_GRAD_LOSS,
+            _SAVED_METADATA_of_GRAD_LOSS,
+        )
+
+        key = ctx.key
+        print("backward of saving grad loss", ctx.key)
+
+        _SAVED_GRAD_LOSS[key] = grad_output
+        _SAVED_METADATA_of_GRAD_LOSS[key] = ctx.package_metadata
+        return (None, None, grad_output)
+
+
+def save_grad_loss(package: Package) -> Package:
+    key = (package.metadata.microbatch_idx, package.metadata.partition_idx)
+    package.data = _SaveGradLossFunction.apply(key, package.metadata, package.data)
+    return package
 
 
 class CreateBackwardOutputPackageCallback(Callback):
@@ -95,6 +125,14 @@ class BackwardJob(Job):
                 "Please set .requires_grad = True to input activations. Gradients can't flow back to the input of the pipeline stage"
             )
 
+        from pipegoose.nn.pipeline_parallel2._comm import get_pipeline_context
+
+        pipeline_context = get_pipeline_context()
+        rank = pipeline_context.parallel_context.get_global_rank()
+
+        if rank == 3:
+            assert 1 == 1
+
         # new_output = output.detach().requires_grad_(True)
         torch.autograd.backward(output, grad_tensors=prev_grad)
 
@@ -105,8 +143,9 @@ class BackwardJob(Job):
         # # and we do gradient accumulation, we don't need return grads or send to other stages
         # assert isinstance(input.grad, torch.Tensor)
 
-        # rank = self.pipeline_context.parallel_context.get_global_rank()
         # print(f"executing backward job, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
-        print(f"yay! gradients: {input.grad.shape}")
+        print(
+            f"rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}, yay! gradients: {input.grad.shape}"
+        )
 
         return input.grad

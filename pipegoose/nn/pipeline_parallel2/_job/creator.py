@@ -9,6 +9,7 @@ from pipegoose.nn.pipeline_parallel2._job.backward import (
     BackwardJob,
     CreateBackwardOutputPackageCallback,
     SendBackwardPackageCallback,
+    save_grad_loss,
 )
 from pipegoose.nn.pipeline_parallel2._job.callback import Callback
 from pipegoose.nn.pipeline_parallel2._job.forward import (
@@ -47,6 +48,8 @@ class ScheduleBackwardJobCallback(Callback):
             self.job.output = new_package
 
             package = new_package
+        else:
+            package = save_grad_loss(package)
 
         from pipegoose.nn.pipeline_parallel2.queue import _SAVED_SCHEDULED_ACTIVATIONS
 
@@ -101,7 +104,7 @@ class _BackwardJobCreator(JobCreator):
         callbacks = [
             CreateBackwardOutputPackageCallback(parallel_context, pipeline_context),
             SendBackwardPackageCallback(parallel_context),
-            # ConfirmCompleteATaskToProgressTracker(parallel_context)
+            ConfirmCompleteATaskToProgressTracker(parallel_context),
         ]
         job = BackwardJob(function, package, is_scheduled=True, cbs=callbacks)
         return job
@@ -201,22 +204,57 @@ def _run_backward_execution(grad_input, metadata):
     def backward_function(self):
         pass
 
+    dist.barrier()
+
     pipeline_context = get_pipeline_context()
     parallel_context = pipeline_context.parallel_context
     pipeline_context.backward()
 
-    for tasks in pipeline_context.get_schedule():
-        # dist.barrier()
+    from pipegoose.nn.pipeline_parallel2.sync.handshake import get_progress_tracker
+    from pipegoose.nn.pipeline_parallel2.sync.progress_tracker import (
+        get_progresses_from_pipeline_context,
+    )
 
-        print(f"new_clock_cycle, {pipeline_context.clock_idx}")
+    progress = get_progresses_from_pipeline_context(pipeline_context)
+    progress_tracker = get_progress_tracker()
+
+    if parallel_context.get_global_rank() == 0:
+        progress = get_progresses_from_pipeline_context(pipeline_context)
+        progress_tracker.initiate(progress)
+        print("new backward progress: ", progress)
+
+    rank = parallel_context.get_global_rank()
+    print(f"rank={rank}, running main thread backward pass")
+
+    dist.barrier()
+
+    for tasks in pipeline_context.get_schedule():
+        dist.barrier()
+
+        print(f"rank={rank}, entered clock_idx: {pipeline_context.clock_idx}")
 
         if len(tasks) > 0:
             for task in tasks:
                 microbatch_idx = task.microbatch_idx
                 partition_idx = task.partition_idx
 
+                print(
+                    f"rank={rank}, clock_idx={pipeline_context.clock_idx}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
+                )
+
                 if pipeline_context.is_last_stage:
                     if is_last_microbatch(microbatch_idx):
+                        package = Package(grad_input, metadata)
+                        package.metadata.job_type = JobType.BACKWARD
+                    else:
+                        from pipegoose.nn.pipeline_parallel2.queue import (
+                            _SAVED_GRAD_LOSS,
+                            _SAVED_METADATA_of_GRAD_LOSS,
+                        )
+
+                        grad_input = _SAVED_GRAD_LOSS[(microbatch_idx, partition_idx)]
+                        metadata = _SAVED_METADATA_of_GRAD_LOSS[(microbatch_idx, partition_idx)]
+
                         package = Package(grad_input, metadata)
                         package.metadata.job_type = JobType.BACKWARD
                 else:
@@ -230,7 +268,7 @@ def _run_backward_execution(grad_input, metadata):
                 backward_job = create_job(backward_function, package, parallel_context, pipeline_context)
                 # NOTE: this is a bug, not consistent with the test cases
                 # backward_job.is_scheduled = False
-                print(f"created backward job: rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
+                print(f"rank={rank}, created backward job: microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
 
                 # NOTE : put the backward job to pending queue
                 JobQueue.PENDING_JOBS.put(backward_job)

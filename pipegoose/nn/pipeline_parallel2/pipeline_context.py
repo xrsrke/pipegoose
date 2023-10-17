@@ -80,7 +80,11 @@ class PipelineContext:
     @property
     def schedules(self) -> List:
         """Get the schedule for entire training run."""
-        return self.scheduler.get_schedules()
+        STATE_TO_SCHEDULES = {
+            TrainingState.FORWARD: self.scheduler.get_forward_schedules,
+            TrainingState.BACKWARD: self.scheduler.get_backward_schedules,
+        }
+        return STATE_TO_SCHEDULES[self.state]()
 
     def _get_schedule_from_training_state(self, training_state: TrainingState) -> List:
         """Get the schedule from a given training state."""

@@ -61,6 +61,7 @@ class PipelineEngine:
 
     def run(self, inputs: torch.Tensor) -> torch.Tensor:
         self.worker_manager.spawn()
+        self.pipeline_context.forward()
         n_microbatches = self.scheduler.n_microbatches
 
         # microbatches = microbatch.split(inputs, n_microbatches=n_microbatches)
@@ -100,7 +101,6 @@ class PipelineEngine:
         dist.barrier()
 
         set_progress_tracker(progress_tracker)
-        self.pipeline_context.forward()
 
         for tasks in self.pipeline_context.get_schedule():
             dist.barrier()
@@ -125,11 +125,10 @@ class PipelineEngine:
 
         dist.barrier()
 
+        from pipegoose.nn.pipeline_parallel2.queue import _SAVED_SCHEDULED_ACTIVATIONS
+
         if self.pipeline_context.is_last_stage:
             outputs = []
-            from pipegoose.nn.pipeline_parallel2.queue import (
-                _SAVED_SCHEDULED_ACTIVATIONS,
-            )
 
             for microbatch_idx in range(n_microbatches):
                 output = _SAVED_SCHEDULED_ACTIVATIONS[(microbatch_idx, self.pipeline_context.partition_idx)]
@@ -144,6 +143,9 @@ class PipelineEngine:
 
             # import time
             # time.sleep(10)
+        else:
+            output = _SAVED_SCHEDULED_ACTIVATIONS[(microbatch_idx, self.pipeline_context.partition_idx)]
+            return output
 
     def _construct_first_package(self, microbatch_idx: int, input: torch.Tensor) -> Package:
         """Construct the first forward package of a microbatch."""

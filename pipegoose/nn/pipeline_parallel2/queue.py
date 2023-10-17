@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from queue import Queue
-from typing import Dict, NewType, Tuple
+from typing import Any, Dict, NewType, Tuple
 
 import torch
 
@@ -18,6 +18,10 @@ _INPUT_ACTIVATIONS: Dict[ActivationKey, torch.Tensor] = {}
 _SAVED_ACTIVATIONS: Dict[ActivationKey, torch.Tensor] = {}
 
 _SAVED_SCHEDULED_ACTIVATIONS: Dict[ActivationKey, torch.Tensor] = {}
+
+_SAVED_GRAD_LOSS: Dict[ActivationKey, torch.Tensor] = {}
+
+_SAVED_METADATA_of_GRAD_LOSS: Dict[ActivationKey, Any] = {}
 
 
 @dataclass
