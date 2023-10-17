@@ -1,4 +1,4 @@
-# 🚧 PipeGoose: Training any 🤗 `transformers` in Megatron-LM 3D parallelism out of the box
+# 🚧 PipeGoose: Training any 🤗 `transformers` in Megatron-LM 3D parallelism and ZeRO-1 out of the box
 
 [<img src="https://img.shields.io/badge/license-MIT-blue">](https://github.com/xrsrke/pipegoose) [![tests](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml/badge.svg)](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml) [<img src="https://img.shields.io/discord/767863440248143916?label=discord">](https://discord.gg/s9ZS9VXZ3p) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [<img alt="Codecov" src="https://img.shields.io/codecov/c/github/xrsrke/pipegoose">](https://app.codecov.io/gh/xrsrke/pipegoose) [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/) [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/cloudposse.svg?style=social&label=Follow%20%40xariusrke)](https://twitter.com/xariusrke)
 
@@ -57,6 +57,11 @@ for epoch in range(69):
         optimizer.step()
 ```
 
+**Features**
+- Megatron-style 3D parallelism
+- ZeRO-1: Distributed BF16 Optimizer
+- Kernel Fusion
+- ...
 
 **Implementation Details**
 
