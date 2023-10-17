@@ -17,6 +17,8 @@ _INPUT_ACTIVATIONS: Dict[ActivationKey, torch.Tensor] = {}
 # NOTE: save activations from forward job for backward job
 _SAVED_ACTIVATIONS: Dict[ActivationKey, torch.Tensor] = {}
 
+_SAVED_SCHEDULED_ACTIVATIONS: Dict[ActivationKey, torch.Tensor] = {}
+
 
 @dataclass
 class JobQueue:
@@ -47,12 +49,12 @@ class SavedActivation:
 
     def save_activations(key: ActivationKey, data: torch.Tensor, is_by_schedule: bool = False):
         """Save forward job's activations for backward job."""
-        if is_by_schedule is True:
-            # TODO: why is this the case
-            # NOTE: if create a backward job by schedule,
-            # it requires the data to be detached
-            # but directly create backward job doesn't require
-            data = data.detach().requires_grad_(True)
+        # if is_by_schedule is True:
+        #     # TODO: why is this the case
+        #     # NOTE: if create a backward job by schedule,
+        #     # it requires the data to be detached
+        #     # but directly create backward job doesn't require
+        #     data = data.detach().requires_grad_(True)
         _SAVED_ACTIVATIONS[key] = data
 
 
@@ -81,7 +83,7 @@ class InputActivations:
 
 
 def save_input_activations(input: torch.Tensor, microbatch_idx: int, partition_idx: int):
-    input.requires_grad = True
+    # input.requires_grad = True
     key = InputActivations.get_key(microbatch_idx, partition_idx)
     InputActivations.save_activations(key, input)
 
@@ -107,10 +109,13 @@ def get_output_activations(microbatch_idx: int, partition_idx: int, is_pipeline:
 
     try:
         output = _SAVED_ACTIVATIONS[key]
+        # return output
         if is_pipeline is True:
-            return output.detach().requires_grad_(True)
-        else:
+            # return output.detach().requires_grad_(True)
             return output.requires_grad_(True)
+        else:
+            # return output.requires_grad_(True)
+            return output.detach().requires_grad_(True)
     except KeyError:
         raise PipelineNoSavedActivationError(
             f"Can't find saved activations to do backpropogation for \

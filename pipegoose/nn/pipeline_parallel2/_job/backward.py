@@ -95,6 +95,7 @@ class BackwardJob(Job):
                 "Please set .requires_grad = True to input activations. Gradients can't flow back to the input of the pipeline stage"
             )
 
+        # new_output = output.detach().requires_grad_(True)
         torch.autograd.backward(output, grad_tensors=prev_grad)
 
         if input.grad is None:

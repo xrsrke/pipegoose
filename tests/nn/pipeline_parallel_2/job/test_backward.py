@@ -95,7 +95,7 @@ def test_create_a_backward_job_if_a_tensor_do_backprop(forward_package, forward_
     assert torch.equal(output.data, DATA)
     assert output.metadata == METADATA
 
-    output.data.sum().backward()
+    output.data.sum().backward(retain_graph=True)
 
     # NOTE: since we don't launch any job selector workers in the background,
     # after triggering the creation of a backward job,

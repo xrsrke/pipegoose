@@ -12,11 +12,7 @@ from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
 from pipegoose.nn.pipeline_parallel2._worker import BaseWorkerManager
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-from pipegoose.nn.pipeline_parallel2.queue import (
-    JobQueue,
-    get_output_activations,
-    save_input_activations,
-)
+from pipegoose.nn.pipeline_parallel2.queue import JobQueue, save_input_activations
 from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
 from pipegoose.nn.pipeline_parallel2.sync.callback import Callback
 from pipegoose.nn.pipeline_parallel2.sync.handshake import (
@@ -131,8 +127,14 @@ class PipelineEngine:
 
         if self.pipeline_context.is_last_stage:
             outputs = []
+            from pipegoose.nn.pipeline_parallel2.queue import (
+                _SAVED_SCHEDULED_ACTIVATIONS,
+            )
+
             for microbatch_idx in range(n_microbatches):
-                outputs.append(get_output_activations(microbatch_idx, self.pipeline_context.partition_idx))
+                output = _SAVED_SCHEDULED_ACTIVATIONS[(microbatch_idx, self.pipeline_context.partition_idx)]
+                # outputs.append(get_output_activations(microbatch_idx, self.pipeline_context.partition_idx))
+                outputs.append(output)
 
             # outputs = torch.cat(outputs, dim=0)
             return outputs
