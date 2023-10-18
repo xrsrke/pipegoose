@@ -64,7 +64,7 @@ def run_pipeline_engine(
         # assert torch.allclose(torch.cat(p_outputs, dim=0), outputs)
         # assert forward_timeline == EXPECTED_FORWARD_TIMELINE
         for output in p_outputs:
-            output.sum().backward()
+            output.sum().backward(retain_graph=True)
 
         # concated_p_putputs = torch.cat(p_outputs, dim=0)
         # # p_outputs[0].sum().backward()

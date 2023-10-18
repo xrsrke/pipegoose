@@ -16,8 +16,6 @@ from pipegoose.nn.pipeline_parallel2._job.forward import (
     ConfirmCompleteATaskToProgressTracker,
     CreateForwardOutputPackageCallback,
     ForwardJob,
-    SaveActivationIfTrainingCallback,
-    SaveInputActivationsCallback,
     SendForwardPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.job import Job
@@ -36,26 +34,34 @@ class JobCreator(ABC):
 
 
 class ScheduleBackwardJobCallback(Callback):
-    order = 1
+    order = 3
 
     def __init__(self, pipeline_context: PipelineContext):
         self.pipeline_context = pipeline_context
 
     def after_compute(self):
+        from pipegoose.nn.pipeline_parallel2.queue import (
+            get_input_activations,
+            get_output_activations,
+        )
+
         package = self.job.output
+        microbatch_idx = self.job.input.metadata.microbatch_idx
+        partition_idx = self.job.input.metadata.partition_idx
+
+        assert isinstance(get_input_activations(microbatch_idx, partition_idx), torch.Tensor)
+        assert isinstance(get_output_activations(microbatch_idx, partition_idx), torch.Tensor)
+
         if package.metadata.microbatch_idx == self.pipeline_context.num_microbatches - 1:
             new_package = schedule_backward_execution(package, self.pipeline_context)
             self.job.output = new_package
-
-            package = new_package
         else:
-            package = save_grad_loss(package)
+            new_package = save_grad_loss(package)
+            self.job.output = new_package
 
         from pipegoose.nn.pipeline_parallel2.queue import _SAVED_SCHEDULED_ACTIVATIONS
 
-        microbatch_idx = self.job.input.metadata.microbatch_idx
-        partition_idx = self.job.input.metadata.partition_idx
-        _SAVED_SCHEDULED_ACTIVATIONS[(microbatch_idx, partition_idx)] = package.data
+        _SAVED_SCHEDULED_ACTIVATIONS[(microbatch_idx, partition_idx)] = new_package.data
 
 
 class _ForwardJobCreator(JobCreator):
@@ -68,8 +74,8 @@ class _ForwardJobCreator(JobCreator):
         callbacks = [
             CreateForwardOutputPackageCallback(parallel_context, pipeline_context),
             ScheduleBackwardJobCallback(pipeline_context),
-            SaveActivationIfTrainingCallback(),
-            SaveInputActivationsCallback(),
+            # SaveActivationIfTrainingCallback(),
+            # SaveInputActivationsCallback(),
             SendForwardPackageCallback(parallel_context),
             ConfirmCompleteATaskToProgressTracker(parallel_context),
         ]
@@ -180,14 +186,15 @@ def schedule_backward_execution(package: Package, pipeline_context: PipelineCont
         @staticmethod
         def forward(ctx, metadata: Metadata, input: torch.Tensor) -> torch.Tensor:
             ctx.package_meta = metadata
-            return input
+            new_input = input.detach().clone()
+            return new_input
 
         @staticmethod
         def backward(ctx, grad_input: torch.Tensor) -> (None, torch.Tensor):
             metadata = ctx.package_meta
             print("trigger creating backward job")
             _run_backward_execution(grad_input, metadata)
-            return (None, grad_input)
+            return (None, None)
 
     data = package.data
     new_data = Function.apply(package.metadata, data)
@@ -233,6 +240,9 @@ def _run_backward_execution(grad_input, metadata):
 
         print(f"rank={rank}, entered clock_idx: {pipeline_context.clock_idx}")
 
+        if pipeline_context.clock_idx == 9 and pipeline_context.partition_idx == 0:
+            assert 1 == 1
+
         if len(tasks) > 0:
             for task in tasks:
                 microbatch_idx = task.microbatch_idx
@@ -276,3 +286,5 @@ def _run_backward_execution(grad_input, metadata):
         dist.barrier()
 
     dist.barrier()
+
+    print("done")

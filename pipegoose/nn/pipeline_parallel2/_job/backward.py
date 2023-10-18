@@ -22,26 +22,32 @@ class _SaveGradLossFunction(torch.autograd.Function):
         print("forward of saving grad loss", key)
         ctx.key = key
         ctx.package_metadata = metadata
-        return tensor
+        new_tensor = tensor.detach().clone()
+        return new_tensor
 
     @staticmethod
     def backward(ctx: Any, grad_output: torch.Tensor):
-        from pipegoose.nn.pipeline_parallel2.queue import (
-            _SAVED_GRAD_LOSS,
-            _SAVED_METADATA_of_GRAD_LOSS,
-        )
+        with torch.autograd.set_grad_enabled(False):
+            from pipegoose.nn.pipeline_parallel2.queue import (
+                _SAVED_GRAD_LOSS,
+                _SAVED_METADATA_of_GRAD_LOSS,
+            )
 
-        key = ctx.key
-        print("backward of saving grad loss", ctx.key)
+            key = ctx.key
+            print("backward of saving grad loss", ctx.key)
 
-        _SAVED_GRAD_LOSS[key] = grad_output
-        _SAVED_METADATA_of_GRAD_LOSS[key] = ctx.package_metadata
-        return (None, None, grad_output)
+            _SAVED_GRAD_LOSS[key] = grad_output
+            _SAVED_METADATA_of_GRAD_LOSS[key] = ctx.package_metadata
+            # NOTE: prevent the grad from flowing back to the input of the pipeline stage
+            # since we only do one backward pass at a time
+        return (None, None, None)
 
 
 def save_grad_loss(package: Package) -> Package:
     key = (package.metadata.microbatch_idx, package.metadata.partition_idx)
     package.data = _SaveGradLossFunction.apply(key, package.metadata, package.data)
+    if package.metadata.partition_idx == 3:
+        assert 1 == 1
     return package
 
 
@@ -117,27 +123,38 @@ class BackwardJob(Job):
         partition_idx = self.input.metadata.partition_idx
         prev_grad = self.input.data
 
-        input = get_input_activations(microbatch_idx, partition_idx)
-        output = get_output_activations(microbatch_idx, partition_idx, self.is_scheduled)
-
-        if input.requires_grad is False:
-            raise PipelineGradientFlowError(
-                "Please set .requires_grad = True to input activations. Gradients can't flow back to the input of the pipeline stage"
-            )
-
         from pipegoose.nn.pipeline_parallel2._comm import get_pipeline_context
 
         pipeline_context = get_pipeline_context()
         rank = pipeline_context.parallel_context.get_global_rank()
 
-        if rank == 3:
+        input = get_input_activations(microbatch_idx, partition_idx)
+        output = get_output_activations(microbatch_idx, partition_idx, self.is_scheduled)
+
+        if input.requires_grad is False and partition_idx != 0:
+            raise PipelineGradientFlowError(
+                f"Please set .requires_grad = True to input activations. Gradients can't flow back to the input of the pipeline stage, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
+            )
+
+        def is_last_microbatch(microbatch_idx):
+            return microbatch_idx == pipeline_context.num_microbatches - 1
+
+        # if not is_last_microbatch(microbatch_idx):
+        #     output = output.detach().requires_grad_(True)
+
+        if rank == 3 and microbatch_idx == 4:
             assert 1 == 1
 
         # new_output = output.detach().requires_grad_(True)
         torch.autograd.backward(output, grad_tensors=prev_grad)
 
+        if partition_idx == 0:
+            return
+
         if input.grad is None:
-            raise PipelineGradientFlowError("Gradients can't flow back to the input of the pipeline stage")
+            raise PipelineGradientFlowError(
+                "Gradients can't flow back to the input of the pipeline stage, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
+            )
 
         # # TODO: remove this, since the grads is stored in module's weights
         # # and we do gradient accumulation, we don't need return grads or send to other stages
