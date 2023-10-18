@@ -12,7 +12,7 @@ from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
 from pipegoose.nn.pipeline_parallel2._worker import BaseWorkerManager
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-from pipegoose.nn.pipeline_parallel2.queue import JobQueue
+from pipegoose.nn.pipeline_parallel2.queue import _SAVED_SCHEDULED_ACTIVATIONS, JobQueue
 from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
 from pipegoose.nn.pipeline_parallel2.sync.callback import Callback
 from pipegoose.nn.pipeline_parallel2.sync.handshake import (
@@ -118,19 +118,16 @@ class PipelineEngine:
 
         dist.barrier()
 
-        from pipegoose.nn.pipeline_parallel2.queue import _SAVED_SCHEDULED_ACTIVATIONS
-
         if self.pipeline_context.is_last_stage:
             outputs = []
-
             for microbatch_idx in range(n_microbatches):
                 output = _SAVED_SCHEDULED_ACTIVATIONS[(microbatch_idx, self.pipeline_context.partition_idx)]
                 outputs.append(output)
-
-            return outputs
         else:
             output = _SAVED_SCHEDULED_ACTIVATIONS[(microbatch_idx, self.pipeline_context.partition_idx)]
-            return output
+            outputs = [torch.zeros(1, requires_grad=True).float() for _ in range(n_microbatches - 1)] + [output]
+
+        return outputs
 
     def _construct_first_package(self, microbatch_idx: int, input: torch.Tensor) -> Package:
         """Construct the first forward package of a microbatch."""

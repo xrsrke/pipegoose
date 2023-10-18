@@ -10,7 +10,7 @@ from pipegoose.nn.pipeline_parallel2.pipeline_parallel import PipelineParallel
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 
-def run_pipeline_engine(
+def run_pipeline_parallel(
     rank,
     world_size,
     port,
@@ -32,10 +32,9 @@ def run_pipeline_engine(
 
     if is_last_stage(parallel_context):
         assert torch.allclose(torch.cat(outputs, dim=0), ref_outputs)
-        for output in outputs:
-            output.sum().backward(retain_graph=True)
-    else:
-        outputs.sum().backward()
+
+    for output in outputs:
+        output.sum().backward(retain_graph=True)
 
 
 @pytest.mark.parametrize(
@@ -46,7 +45,7 @@ def run_pipeline_engine(
         # (2, 4, 2)
     ],
 )
-def test_pipeline_engine(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
+def test_pipeline_parallel(tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
     BATCH_SIZE = 32
     N_MICROBATCHES = 6
     SEQ_LEN = 10
@@ -61,7 +60,7 @@ def test_pipeline_engine(tensor_parallel_size, pipeline_parallel_size, data_para
     outputs.sum().backward()
 
     spawn(
-        run_pipeline_engine,
+        run_pipeline_parallel,
         world_size=WORLD_SIZE,
         tensor_parallel_size=tensor_parallel_size,
         pipeline_parallel_size=pipeline_parallel_size,

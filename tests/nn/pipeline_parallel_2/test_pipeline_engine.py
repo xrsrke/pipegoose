@@ -62,18 +62,15 @@ def run_pipeline_engine(
     [(microbatch_idx, partition_idx) for microbatch_idx in range(n_microbatches)]
     EXPECTED_FORWARD_TIMELINE = [(microbatch_idx, partition_idx) for microbatch_idx in range(n_microbatches)]
     # EXPECTED_BACKWARD_TIMELINE = [(microbatch_idx, partition_idx) for microbatch_idx in range(n_microbatches, -1, -1)]
-    p_outputs = pipeline_engine.run(inputs)
+    outputs = pipeline_engine.run(inputs)
 
     assert forward_timeline == EXPECTED_FORWARD_TIMELINE
 
     if is_last_stage(parallel_context):
-        assert torch.allclose(torch.cat(p_outputs, dim=0), ref_outputs)
-        for output in p_outputs:
-            output.sum().backward(retain_graph=True)
-    else:
-        # NOTE: earlier stages should not return the final output
-        # assert p_outputs is None
-        p_outputs.sum().backward()
+        assert torch.allclose(torch.cat(outputs, dim=0), ref_outputs)
+
+    for output in outputs:
+        output.sum().backward(retain_graph=True)
 
     for param in partition.parameters():
         assert param.grad is not None
