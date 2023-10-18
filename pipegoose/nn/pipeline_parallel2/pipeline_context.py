@@ -148,3 +148,6 @@ class PipelineContext:
     @property
     def is_last_stage(self) -> bool:
         return is_last_stage(self.parallel_context)
+
+    def is_last_microbatch(self, microbatch_idx: int) -> bool:
+        return microbatch_idx == self.num_microbatches - 1

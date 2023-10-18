@@ -12,7 +12,7 @@ from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Metadata, Package, TrainingMetadata
 from pipegoose.nn.pipeline_parallel2._worker import BaseWorkerManager
 from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-from pipegoose.nn.pipeline_parallel2.queue import JobQueue, save_input_activations
+from pipegoose.nn.pipeline_parallel2.queue import JobQueue
 from pipegoose.nn.pipeline_parallel2.scheduler import BaseScheduler
 from pipegoose.nn.pipeline_parallel2.sync.callback import Callback
 from pipegoose.nn.pipeline_parallel2.sync.handshake import (
@@ -39,7 +39,6 @@ class PipelineEngine:
     def __init__(
         self,
         module: nn.Module,
-        # partitioner: BasePartitioner,
         scheduler: BaseScheduler,
         worker_manager: BaseWorkerManager,
         parallel_context: ParallelContext,
@@ -51,7 +50,6 @@ class PipelineEngine:
         ), f"parallel_context must be an instance of ParallelContext, got {type(parallel_context)}"
 
         self.module = module
-        # self.partitioner = partitioner
         self.scheduler = scheduler
         self.worker_manager = worker_manager
         self.parallel_context = parallel_context
@@ -116,8 +114,6 @@ class PipelineEngine:
                     else:
                         package = RECV_QUEUE.get()
 
-                    save_input_activations(package.data, microbatch_idx=microbatch_idx, partition_idx=partition_idx)
-
                     job = create_job(self.partition_func, package, self.parallel_context, self.pipeline_context)
                     JobQueue.PENDING_JOBS.put(job)
 
@@ -132,17 +128,9 @@ class PipelineEngine:
 
             for microbatch_idx in range(n_microbatches):
                 output = _SAVED_SCHEDULED_ACTIVATIONS[(microbatch_idx, self.pipeline_context.partition_idx)]
-                # outputs.append(get_output_activations(microbatch_idx, self.pipeline_context.partition_idx))
                 outputs.append(output)
 
-            # outputs = torch.cat(outputs, dim=0)
             return outputs
-
-            # from pipegoose.nn.pipeline_parallel2.queue import _SAVED_ACTIVATIONS
-            # _SAVED_ACTIVATIONS[(0, 3)].sum().backward()
-
-            # import time
-            # time.sleep(10)
         else:
             output = _SAVED_SCHEDULED_ACTIVATIONS[(microbatch_idx, self.pipeline_context.partition_idx)]
             return output

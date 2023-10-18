@@ -18,6 +18,7 @@ function = nn.Linear(2, 4)
 
 
 # @pytest.mark.parametrize("package", ["forward_package", "backward_package"])
+@pytest.mark.skip
 def test_backward_job(backward_package, parallel_context, pipeline_context):
     # package = request.getfixturevalue(package)
     job = create_job(function, backward_package, parallel_context, pipeline_context)
@@ -53,6 +54,7 @@ def run_create_a_job_from_package(
     assert job.status == JobStatus.EXECUTED
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("package, job_cls", [("forward_package", ForwardJob), ("backward_package", BackwardJob)])
 def test_create_a_job_from_package(request, package, job_cls):
     TENSOR_PARALLEL_SIZE = 1

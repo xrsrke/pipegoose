@@ -16,6 +16,7 @@ from pipegoose.nn.pipeline_parallel2._job.forward import (
     ConfirmCompleteATaskToProgressTracker,
     CreateForwardOutputPackageCallback,
     ForwardJob,
+    SaveBufferForBackwardCallback,
     SendForwardPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.job import Job
@@ -73,6 +74,7 @@ class _ForwardJobCreator(JobCreator):
     ) -> ForwardJob:
         callbacks = [
             CreateForwardOutputPackageCallback(parallel_context, pipeline_context),
+            SaveBufferForBackwardCallback(),
             ScheduleBackwardJobCallback(pipeline_context),
             # SaveActivationIfTrainingCallback(),
             # SaveInputActivationsCallback(),
@@ -205,9 +207,6 @@ def schedule_backward_execution(package: Package, pipeline_context: PipelineCont
 def _run_backward_execution(grad_input, metadata):
     import torch.distributed as dist
 
-    def is_last_microbatch(microbatch_idx):
-        return microbatch_idx == pipeline_context.num_microbatches - 1
-
     def backward_function(self):
         pass
 
@@ -228,10 +227,8 @@ def _run_backward_execution(grad_input, metadata):
     if parallel_context.get_global_rank() == 0:
         progress = get_progresses_from_pipeline_context(pipeline_context)
         progress_tracker.initiate(progress)
-        print("new backward progress: ", progress)
 
     rank = parallel_context.get_global_rank()
-    print(f"rank={rank}, running main thread backward pass")
 
     dist.barrier()
 
@@ -239,9 +236,6 @@ def _run_backward_execution(grad_input, metadata):
         dist.barrier()
 
         print(f"rank={rank}, entered clock_idx: {pipeline_context.clock_idx}")
-
-        if pipeline_context.clock_idx == 9 and pipeline_context.partition_idx == 0:
-            assert 1 == 1
 
         if len(tasks) > 0:
             for task in tasks:
@@ -253,10 +247,7 @@ def _run_backward_execution(grad_input, metadata):
                 )
 
                 if pipeline_context.is_last_stage:
-                    if is_last_microbatch(microbatch_idx):
-                        package = Package(grad_input, metadata)
-                        package.metadata.job_type = JobType.BACKWARD
-                    else:
+                    if pipeline_context.is_last_microbatch(microbatch_idx) is False:
                         from pipegoose.nn.pipeline_parallel2.queue import (
                             _SAVED_GRAD_LOSS,
                             _SAVED_METADATA_of_GRAD_LOSS,
@@ -265,26 +256,20 @@ def _run_backward_execution(grad_input, metadata):
                         grad_input = _SAVED_GRAD_LOSS[(microbatch_idx, partition_idx)]
                         metadata = _SAVED_METADATA_of_GRAD_LOSS[(microbatch_idx, partition_idx)]
 
-                        package = Package(grad_input, metadata)
-                        package.metadata.job_type = JobType.BACKWARD
+                    package = Package(grad_input, metadata)
+                    package.metadata.job_type = JobType.BACKWARD
                 else:
                     from pipegoose.nn.pipeline_parallel2._comm import RECV_QUEUE
 
                     package = RECV_QUEUE.get()
 
-                rank = parallel_context.get_global_rank()
-                microbatch_idx = metadata.microbatch_idx
-
                 backward_job = create_job(backward_function, package, parallel_context, pipeline_context)
-                # NOTE: this is a bug, not consistent with the test cases
-                # backward_job.is_scheduled = False
-                print(f"rank={rank}, created backward job: microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
-
                 # NOTE : put the backward job to pending queue
                 JobQueue.PENDING_JOBS.put(backward_job)
+
+                microbatch_idx = metadata.microbatch_idx
+                print(f"rank={rank}, created backward job: microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
 
         dist.barrier()
 
     dist.barrier()
-
-    print("done")

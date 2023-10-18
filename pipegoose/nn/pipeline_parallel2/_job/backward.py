@@ -19,7 +19,6 @@ from pipegoose.nn.pipeline_parallel2.queue import (
 class _SaveGradLossFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx: Any, key, metadata, tensor: torch.Tensor):
-        print("forward of saving grad loss", key)
         ctx.key = key
         ctx.package_metadata = metadata
         new_tensor = tensor.detach().clone()
@@ -27,19 +26,19 @@ class _SaveGradLossFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx: Any, grad_output: torch.Tensor):
+        from pipegoose.nn.pipeline_parallel2.queue import (
+            _SAVED_GRAD_LOSS,
+            _SAVED_METADATA_of_GRAD_LOSS,
+        )
+
         with torch.autograd.set_grad_enabled(False):
-            from pipegoose.nn.pipeline_parallel2.queue import (
-                _SAVED_GRAD_LOSS,
-                _SAVED_METADATA_of_GRAD_LOSS,
-            )
-
             key = ctx.key
-            print("backward of saving grad loss", ctx.key)
-
             _SAVED_GRAD_LOSS[key] = grad_output
             _SAVED_METADATA_of_GRAD_LOSS[key] = ctx.package_metadata
-            # NOTE: prevent the grad from flowing back to the input of the pipeline stage
-            # since we only do one backward pass at a time
+
+        # NOTE: prevent the grad from flowing back to the input of the pipeline stage
+        # because we only do one backward pass at a time
+        # and it's orchestrated by the pipeline engine
         return (None, None, None)
 
 
@@ -119,11 +118,11 @@ class BackwardJob(Job):
         self.is_scheduled: bool = is_scheduled
 
     def run_compute(self) -> torch.Tensor:
+        from pipegoose.nn.pipeline_parallel2._comm import get_pipeline_context
+
         microbatch_idx = self.input.metadata.microbatch_idx
         partition_idx = self.input.metadata.partition_idx
         prev_grad = self.input.data
-
-        from pipegoose.nn.pipeline_parallel2._comm import get_pipeline_context
 
         pipeline_context = get_pipeline_context()
         rank = pipeline_context.parallel_context.get_global_rank()
@@ -131,24 +130,18 @@ class BackwardJob(Job):
         input = get_input_activations(microbatch_idx, partition_idx)
         output = get_output_activations(microbatch_idx, partition_idx, self.is_scheduled)
 
-        if input.requires_grad is False and partition_idx != 0:
+        if pipeline_context.is_first_stage is False and input.requires_grad is False:
+            # NOTE: the input of the first pipeline stage is the input of the model
+            # which we don't need to compute gradients for
             raise PipelineGradientFlowError(
                 f"Please set .requires_grad = True to input activations. Gradients can't flow back to the input of the pipeline stage, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
             )
 
-        def is_last_microbatch(microbatch_idx):
-            return microbatch_idx == pipeline_context.num_microbatches - 1
-
-        # if not is_last_microbatch(microbatch_idx):
-        #     output = output.detach().requires_grad_(True)
-
-        if rank == 3 and microbatch_idx == 4:
-            assert 1 == 1
-
-        # new_output = output.detach().requires_grad_(True)
-        torch.autograd.backward(output, grad_tensors=prev_grad)
+        torch.autograd.backward(output, grad_tensors=prev_grad, retain_graph=True)
 
         if partition_idx == 0:
+            # NOTE: the first pipeline stage is the end of the backward pass
+            # no need to send the gradients to any other pipeline stage
             return
 
         if input.grad is None:
@@ -156,11 +149,6 @@ class BackwardJob(Job):
                 "Gradients can't flow back to the input of the pipeline stage, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
             )
 
-        # # TODO: remove this, since the grads is stored in module's weights
-        # # and we do gradient accumulation, we don't need return grads or send to other stages
-        # assert isinstance(input.grad, torch.Tensor)
-
-        # print(f"executing backward job, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}")
         print(
             f"rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}, yay! gradients: {input.grad.shape}"
         )

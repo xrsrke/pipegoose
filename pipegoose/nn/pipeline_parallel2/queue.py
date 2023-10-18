@@ -53,12 +53,6 @@ class SavedActivation:
 
     def save_activations(key: ActivationKey, data: torch.Tensor, is_by_schedule: bool = False):
         """Save forward job's activations for backward job."""
-        # if is_by_schedule is True:
-        #     # TODO: why is this the case
-        #     # NOTE: if create a backward job by schedule,
-        #     # it requires the data to be detached
-        #     # but directly create backward job doesn't require
-        #     data = data.detach().requires_grad_(True)
         _SAVED_ACTIVATIONS[key] = data
 
 
@@ -78,8 +72,8 @@ class InputActivations:
     def get_saved_activations(key: ActivationKey) -> torch.Tensor:
         """Get the saved activations for a given key for backward job."""
         # NOTE: because a partition can have multiple microbatches,
-        # return _INPUT_ACTIVATIONS.pop(key)
-        return _INPUT_ACTIVATIONS[key]
+        input = _INPUT_ACTIVATIONS[key]
+        return input.requires_grad_(True)
 
     def save_activations(key: ActivationKey, data: torch.Tensor):
         """Save forward job's activations for backward job."""
@@ -113,12 +107,9 @@ def get_output_activations(microbatch_idx: int, partition_idx: int, is_pipeline:
 
     try:
         output = _SAVED_ACTIVATIONS[key]
-        # return output
         if is_pipeline is True:
-            # return output.detach().requires_grad_(True)
             return output.requires_grad_(True)
         else:
-            # return output.requires_grad_(True)
             return output.detach().requires_grad_(True)
     except KeyError:
         raise PipelineNoSavedActivationError(

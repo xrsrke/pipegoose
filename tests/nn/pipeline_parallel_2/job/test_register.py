@@ -1,14 +1,22 @@
 from queue import Queue
 
-import pytest
-
+from pipegoose.nn.pipeline_parallel2._job.job import Job
 from pipegoose.nn.pipeline_parallel2._job.register import add_job_to_queue
 
 
-@pytest.mark.parametrize("job", ["forward_job", "backward_job"])
-def test_register_job(request, job):
+class Dummyjob(Job):
+    def run_compute(self):
+        pass
+
+
+def test_register_job():
+    input = 1
+
+    def function(input):
+        return input
+
+    job = Dummyjob(function, input)
     JOB_QUEUE = Queue()
-    job = request.getfixturevalue(job)
 
     add_job_to_queue(job, JOB_QUEUE)
 

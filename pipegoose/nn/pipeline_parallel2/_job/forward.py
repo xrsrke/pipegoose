@@ -13,24 +13,10 @@ from pipegoose.nn.pipeline_parallel2.sync.handshake import get_progress_tracker
 
 class ForwardJob(Job):
     def run_compute(self) -> torch.Tensor:
-        with torch.set_grad_enabled(True):
-            # pipeline_context = self.pipeline_context
-            # if pipeline_context.partition_idx > 0:
-            #     assert 1 == 1
-            with torch.enable_grad():
-                output = self.function(self.input.data)
-
-                # from pipegoose.nn.pipeline_parallel2.queue import SavedActivation
-
-                # # TODO: refactor
-                # microbatch_idx = self.input.metadata.microbatch_idx
-                # partition_idx = self.input.metadata.partition_idx
-
-                # key = SavedActivation.get_key(microbatch_idx, partition_idx)
-                # # print("saving activation, data.shape=", self.job.output.data.shape)
-                # SavedActivation.save_activations(key, output)
-
-            return output
+        is_training = self.input.metadata.training.is_training
+        with torch.set_grad_enabled(is_training):
+            output = self.function(self.input.data)
+        return output
 
 
 class CreateForwardOutputPackageCallback(Callback):
@@ -43,26 +29,27 @@ class CreateForwardOutputPackageCallback(Callback):
         self.pipeline_context = pipeline_context
 
     def after_compute(self):
-        from pipegoose.nn.pipeline_parallel2.queue import save_input_activations
-
-        microbatch_idx = self.job.input.metadata.microbatch_idx
-        partition_idx = self.job.input.metadata.partition_idx
-        save_input_activations(self.job.input.data, microbatch_idx, partition_idx)
-
-        data = self.job.output
-        from pipegoose.nn.pipeline_parallel2.queue import save_output_activations
-
-        save_output_activations(data, microbatch_idx, partition_idx)
+        self._save_buffer_for_backward()
 
         input_metadata = deepcopy(self.job.input.metadata)
-
-        package = Package(data, input_metadata)
+        package = Package(self.job.output, input_metadata)
 
         if not self.pipeline_context.is_last_stage:
             package = self._update_next_pipeline_stage(package)
             package = self._update_src_and_dst_rank(package)
 
         self.job.output = package
+
+    def _save_buffer_for_backward(self):
+        from pipegoose.nn.pipeline_parallel2.queue import (
+            save_input_activations,
+            save_output_activations,
+        )
+
+        microbatch_idx = self.job.input.metadata.microbatch_idx
+        partition_idx = self.job.input.metadata.partition_idx
+        save_input_activations(self.job.input.data, microbatch_idx, partition_idx)
+        save_output_activations(self.job.output, microbatch_idx, partition_idx)
 
     def _update_next_pipeline_stage(self, package: Package) -> Package:
         microbatch_idx = package.metadata.microbatch_idx
@@ -86,39 +73,16 @@ class CreateForwardOutputPackageCallback(Callback):
         return package
 
 
-class SaveInputActivationsCallback(Callback):
-    """Save the input activations for backward pass."""
-
+class SaveBufferForBackwardCallback(Callback):
     order = 1
 
-    def after_compute(self):
-        # from pipegoose.nn.pipeline_parallel2.queue import save_input_activations
+    def ater_compute(self):
+        # from pipegoose.nn.pipeline_parallel2.queue import save_input_activations, save_output_activations
 
-        # data = self.job.input.data
         # microbatch_idx = self.job.input.metadata.microbatch_idx
         # partition_idx = self.job.input.metadata.partition_idx
-        # save_input_activations(data, microbatch_idx, partition_idx)
-        pass
-
-
-class SaveActivationIfTrainingCallback(Callback):
-    """Save the activation of a forward job for backward pass if training."""
-
-    order = 2
-
-    def after_compute(self):
-        # is_training = self.job.input.metadata.training.is_training
-
-        # if is_training is True:
-        #     from pipegoose.nn.pipeline_parallel2.queue import SavedActivation
-
-        #     # TODO: refactor
-        #     microbatch_idx = self.job.input.metadata.microbatch_idx
-        #     partition_idx = self.job.input.metadata.partition_idx
-
-        #     key = SavedActivation.get_key(microbatch_idx, partition_idx)
-        #     print("saving activation, data.shape=", self.job.output.data.shape)
-        #     SavedActivation.save_activations(key, self.job.output.data)
+        # save_input_activations(self.job.input.data, microbatch_idx, partition_idx)
+        # save_output_activations(self.job.output.data, microbatch_idx, partition_idx)
         pass
 
 
