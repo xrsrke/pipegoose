@@ -1,3 +1,4 @@
+from copy import deepcopy
 from functools import reduce
 
 import torch
@@ -21,6 +22,7 @@ def run_pipeline_engine(
     model,
     inputs,
     outputs,
+    grads,
 ):
     forward_timeline = []
     backward_timeline = []
@@ -57,29 +59,26 @@ def run_pipeline_engine(
         partition_func=partition_func,
     )
     [(microbatch_idx, partition_idx) for microbatch_idx in range(n_microbatches)]
+    EXPECTED_FORWARD_TIMELINE = [(microbatch_idx, partition_idx) for microbatch_idx in range(n_microbatches)]
     # EXPECTED_BACKWARD_TIMELINE = [(microbatch_idx, partition_idx) for microbatch_idx in range(n_microbatches, -1, -1)]
     p_outputs = pipeline_engine.run(inputs)
 
+    assert forward_timeline == EXPECTED_FORWARD_TIMELINE
+
     if is_last_stage(parallel_context):
-        # assert torch.allclose(torch.cat(p_outputs, dim=0), outputs)
-        # assert forward_timeline == EXPECTED_FORWARD_TIMELINE
+        assert torch.allclose(torch.cat(p_outputs, dim=0), outputs)
         for output in p_outputs:
             output.sum().backward(retain_graph=True)
-
-        # concated_p_putputs = torch.cat(p_outputs, dim=0)
-        # # p_outputs[0].sum().backward()
-        # concated_p_putputs.sum().backward()
-        # for p_output in p_outputs:
-        #     print("main thread do backward pass")
-        #     p_output.sum().backward()
-        #     # assert backward_timeline == EXPECTED_FORWARD_TIMELINE
-
-        assert 1 == 1
     else:
         # NOTE: earlier stages should not return the final output
         # assert p_outputs is None
-        assert 1 == 1
         p_outputs.sum().backward()
+
+    for param in partition_func.parameters():
+        assert param.grad is not None
+
+    for p, ground_grad in zip(partition_func.parameters(), grads[partition_idx]):
+        assert torch.allclose(p.grad, ground_grad)
 
 
 if __name__ == "__main__":
@@ -95,9 +94,12 @@ if __name__ == "__main__":
 
     inputs = torch.randn(BATCH_SIZE, SEQ_LEN, HIDDEN_DIM, requires_grad=False)
     model = nn.ModuleList([nn.Sequential(nn.Linear(HIDDEN_DIM, HIDDEN_DIM), nn.ReLU()) for _ in range(PIPELINE_PARALLEL_SIZE)])
+    ORIG_MODEL = deepcopy(model)
     outputs = reduce(lambda inputs, layer: layer(inputs), model, inputs)
 
-    # outputs.sum().backward()
+    outputs.sum().backward()
+
+    grads = [[p.grad for p in layer.parameters()] for layer in model]
 
     spawn(
         run_pipeline_engine,
@@ -106,7 +108,8 @@ if __name__ == "__main__":
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
         n_microbatches=N_MICROBATCHES,
-        model=model,
+        model=ORIG_MODEL,
         inputs=inputs.detach(),
         outputs=outputs.detach(),
+        grads=grads,
     )
