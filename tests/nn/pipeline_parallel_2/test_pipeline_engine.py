@@ -22,8 +22,8 @@ def run_pipeline_engine(
     n_microbatches,
     model,
     inputs,
-    outputs,
-    grads,
+    ref_outputs,
+    ref_grads,
 ):
     forward_timeline = []
     backward_timeline = []
@@ -51,13 +51,13 @@ def run_pipeline_engine(
     scheduler = GPipeScheduler(n_microbatches, pipeline_parallel_size)
     worker_manager = WorkerManager()
     partition_idx = get_partition_idx(parallel_context)
-    partition_func = Function(partition_idx)
+
+    partition = Function(partition_idx)
     pipeline_engine = PipelineEngine(
-        module=model,
+        module=partition,
         scheduler=scheduler,
         worker_manager=worker_manager,
         parallel_context=parallel_context,
-        partition_func=partition_func,
     )
     [(microbatch_idx, partition_idx) for microbatch_idx in range(n_microbatches)]
     EXPECTED_FORWARD_TIMELINE = [(microbatch_idx, partition_idx) for microbatch_idx in range(n_microbatches)]
@@ -67,7 +67,7 @@ def run_pipeline_engine(
     assert forward_timeline == EXPECTED_FORWARD_TIMELINE
 
     if is_last_stage(parallel_context):
-        assert torch.allclose(torch.cat(p_outputs, dim=0), outputs)
+        assert torch.allclose(torch.cat(p_outputs, dim=0), ref_outputs)
         for output in p_outputs:
             output.sum().backward(retain_graph=True)
     else:
@@ -75,11 +75,11 @@ def run_pipeline_engine(
         # assert p_outputs is None
         p_outputs.sum().backward()
 
-    for param in partition_func.parameters():
+    for param in partition.parameters():
         assert param.grad is not None
 
-    for p, ground_grad in zip(partition_func.parameters(), grads[partition_idx]):
-        assert torch.allclose(p.grad, ground_grad)
+    for p, ref_grad in zip(partition.parameters(), ref_grads[partition_idx]):
+        assert torch.allclose(p.grad, ref_grad)
 
 
 @pytest.mark.parametrize(
@@ -115,6 +115,6 @@ def test_pipeline_engine(tensor_parallel_size, pipeline_parallel_size, data_para
         n_microbatches=N_MICROBATCHES,
         model=ORIG_MODEL,
         inputs=inputs.detach(),
-        outputs=outputs.detach(),
-        grads=grads,
+        ref_outputs=outputs.detach(),
+        ref_grads=grads,
     )

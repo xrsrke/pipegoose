@@ -42,7 +42,6 @@ class PipelineEngine:
         scheduler: BaseScheduler,
         worker_manager: BaseWorkerManager,
         parallel_context: ParallelContext,
-        partition_func,
     ):
         assert isinstance(module, nn.Module), f"module must be an instance of nn.Module, got {type(module)}"
         assert isinstance(
@@ -53,9 +52,7 @@ class PipelineEngine:
         self.scheduler = scheduler
         self.worker_manager = worker_manager
         self.parallel_context = parallel_context
-
         self.pipeline_context = PipelineContext(scheduler, parallel_context)
-        self.partition_func = partition_func
 
     def run(self, inputs: torch.Tensor) -> torch.Tensor:
         self.worker_manager.spawn()
@@ -114,7 +111,7 @@ class PipelineEngine:
                     else:
                         package = RECV_QUEUE.get()
 
-                    job = create_job(self.partition_func, package, self.parallel_context, self.pipeline_context)
+                    job = create_job(self.module, package, self.parallel_context, self.pipeline_context)
                     JobQueue.PENDING_JOBS.put(job)
 
             dist.barrier()

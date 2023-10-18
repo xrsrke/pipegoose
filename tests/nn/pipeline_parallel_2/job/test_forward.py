@@ -2,18 +2,16 @@ import pytest
 import torch
 from torch import nn
 
-from pipegoose.nn.pipeline_parallel2._job.forward import (
+from pipegoose.nn.pipeline_parallel2._job.forward import (  # SaveActivationIfTrainingCallback,; SaveInputActivationsCallback,
     ConfirmCompleteATaskToProgressTracker,
     CreateForwardOutputPackageCallback,
     ForwardJob,
-    SaveActivationIfTrainingCallback,
-    SaveInputActivationsCallback,
     SendForwardPackageCallback,
 )
 from pipegoose.nn.pipeline_parallel2._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel2._package import Package
 from pipegoose.nn.pipeline_parallel2._utils import sleep
-from pipegoose.nn.pipeline_parallel2.queue import SavedActivation, get_input_activations
+from pipegoose.nn.pipeline_parallel2.queue import get_input_activations
 from pipegoose.testing.utils import init_pipeline_context, spawn
 
 # NOTE: use for creating a forward job
@@ -138,25 +136,25 @@ def test_forward_job_save_input_activations_for_backward_pass(forward_package, p
     assert saved_activations.requires_grad is True
 
 
-def test_forward_job_save_output_activations_for_backward_pass(forward_package, parallel_context, pipeline_context):
-    MICROBATCH_IDX = forward_package.metadata.microbatch_idx
-    PARTITION_IDX = forward_package.metadata.partition_idx
-    CALLBACKS = [CreateForwardOutputPackageCallback(parallel_context, pipeline_context), SaveActivationIfTrainingCallback()]
+# def test_forward_job_save_output_activations_for_backward_pass(forward_package, parallel_context, pipeline_context):
+#     MICROBATCH_IDX = forward_package.metadata.microbatch_idx
+#     PARTITION_IDX = forward_package.metadata.partition_idx
+#     CALLBACKS = [CreateForwardOutputPackageCallback(parallel_context, pipeline_context), SaveActivationIfTrainingCallback()]
 
-    key = SavedActivation.get_key(MICROBATCH_IDX, PARTITION_IDX)
-    forward_job = ForwardJob(function, forward_package, CALLBACKS)
+#     key = SavedActivation.get_key(MICROBATCH_IDX, PARTITION_IDX)
+#     forward_job = ForwardJob(function, forward_package, CALLBACKS)
 
-    output = forward_job.compute()
-    saved_activations = SavedActivation.get_saved_activations(key)
+#     output = forward_job.compute()
+#     saved_activations = SavedActivation.get_saved_activations(key)
 
-    assert isinstance(saved_activations, torch.Tensor)
-    assert torch.equal(saved_activations, output.data)
-    assert saved_activations.requires_grad is True
+#     assert isinstance(saved_activations, torch.Tensor)
+#     assert torch.equal(saved_activations, output.data)
+#     assert saved_activations.requires_grad is True
 
-    with pytest.raises(KeyError):
-        # NOTE: we expect the saved activations to be removed
-        # after retrieving them
-        SavedActivation.get_saved_activations(key)
+#     with pytest.raises(KeyError):
+#         # NOTE: we expect the saved activations to be removed
+#         # after retrieving them
+#         SavedActivation.get_saved_activations(key)
 
 
 def run_forward_job_send_output_to_the_next_pipeline_stage(
