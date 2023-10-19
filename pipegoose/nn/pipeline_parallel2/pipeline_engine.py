@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 
 import torch
@@ -49,6 +50,7 @@ class PipelineEngine:
         ), f"parallel_context must be an instance of ParallelContext, got {type(parallel_context)}"
 
         self.module = module
+        self.module_fwd_function: Callback = copy.copy(self.module.forward)
         self.scheduler = scheduler
         self.worker_manager = worker_manager
         self.parallel_context = parallel_context
@@ -111,7 +113,7 @@ class PipelineEngine:
                     else:
                         package = RECV_QUEUE.get()
 
-                    job = create_job(self.module, package, self.parallel_context, self.pipeline_context)
+                    job = create_job(self.module_fwd_function, package, self.parallel_context, self.pipeline_context)
                     JobQueue.PENDING_JOBS.put(job)
 
             dist.barrier()

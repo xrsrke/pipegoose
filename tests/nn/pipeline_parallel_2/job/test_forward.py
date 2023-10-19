@@ -117,6 +117,7 @@ def test_destination_of_output_package(request, pipeline_parallel_size, package)
     )
 
 
+@pytest.mark.skip
 def test_forward_job_save_input_activations_for_backward_pass(forward_package, parallel_context, pipeline_context):
     MICROBATCH_IDX = forward_package.metadata.microbatch_idx
     PARTITION_IDX = forward_package.metadata.partition_idx

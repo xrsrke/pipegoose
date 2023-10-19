@@ -39,5 +39,5 @@ class PipelineParallel:
             parallel_context=self.parallel_context,
         )
 
-        self.modules.forward = pipeline_engine.run
-        return self.modules
+        module.forward = pipeline_engine.run
+        return module
