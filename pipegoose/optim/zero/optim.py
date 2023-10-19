@@ -63,7 +63,7 @@ class DistributedOptimizer(BaseDistributedOptimizer):
                 flatten_params = flatten_a_list_tensor(param_group["params"])
                 broadcast(flatten_params, src=rank, parallel_context=self.parallel_context, parallel_mode=ParallelMode.DATA)
 
-    def zero_grad(self, *args, **kwargs):
+    def zero_grad(self):
         """Zero out gradients."""
         # NOTE: we zero out the gradients of the all parameters
         for param_groups in self._rank_to_param_groups.values():

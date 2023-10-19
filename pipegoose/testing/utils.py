@@ -72,23 +72,17 @@ def init_pipeline_context(
     n_partitions=N_PARTITIONS,
     n_microbatches=N_MICROBATCHES,
 ):
-    from pipegoose.nn.pipeline_parallel2.pipeline_context import PipelineContext
-    from pipegoose.nn.pipeline_parallel2.scheduler import SchedulerType, get_scheduler
+    from pipegoose.nn.pipeline_parallel.pipeline_context import PipelineContext
+    from pipegoose.nn.pipeline_parallel.scheduler import SchedulerType, get_scheduler
 
+    N_PARTITIONS = pipeline_parallel_size
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    scheduler = get_scheduler(SchedulerType.GPIPE)(n_microbatches, n_partitions)
-    # progress_tracker = ProgressTracker(
-    #     MASTER_RANK, callbacks=[], parallel_context=parallel_context, parallel_mode=ParallelMode.GLOBAL
-    # )
+    scheduler = get_scheduler(SchedulerType.GPIPE)(n_microbatches, N_PARTITIONS)
     pipeline_context = PipelineContext(
         scheduler=scheduler,
         parallel_context=parallel_context,
     )
-    # progress_tracker.initiate(progress)
-
-    # set_progress_tracker(progress_tracker)
-    # set_pipeline_context(pipeline_context)
 
     return pipeline_context, parallel_context
