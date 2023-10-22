@@ -7,14 +7,18 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.data_parallel.data_parallel import DataParallel
-from pipegoose.testing.utils import init_parallel_context, spawn
+from pipegoose.testing.utils import (
+    calculate_parameter_similarity,
+    init_parallel_context,
+    spawn,
+)
 
 MODEL_NAME = "prajjwal1/bert-tiny"
 
 
-@pytest.fixture(scope="module")
-def model():
-    return AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+# @pytest.fixture(scope="module")
+# def model():
+#     return AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
 
 @pytest.fixture(scope="module")
@@ -82,78 +86,76 @@ def test_parallelize_a_transformer_and_inference(model, tokenizer, data_parallel
 def run_backward_a_parallelized_transformers(
     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, kwargs
 ):
-    def get_microbatch(kwargs):
-        input_ids = kwargs["inputs"]["input_ids"][local_rank].unsqueeze(0)
-        attention_mask = kwargs["inputs"]["attention_mask"][local_rank].unsqueeze(0)
-        labels = kwargs["labels"][local_rank].unsqueeze(0)
-        return input_ids, attention_mask, labels
+    def get_microbatch(inputs, labels):
+        local_rank = parallel_context.get_local_rank(ParallelMode.DATA)
+        input_chunks = torch.chunk(inputs["input_ids"], chunks=world_size, dim=0)
+        attention_chunks = torch.chunk(inputs["attention_mask"], chunks=world_size, dim=0)
+        label_chunks = torch.chunk(labels, chunks=world_size, dim=0)
+        return input_chunks[local_rank], attention_chunks[local_rank], label_chunks[local_rank]
 
-    model = kwargs["model"]
-    loss = kwargs["loss"]
-    lr = kwargs["lr"]
+    model = deepcopy(kwargs["model"])
+    UPDATED_MODEL = deepcopy(kwargs["updated_model"])
+    LR = kwargs["lr"]
+    inputs = kwargs["inputs"]
+    labels = kwargs["labels"]
 
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
 
+    input_ids, attention_mask, labels = get_microbatch(inputs, labels)
     parallelized_model = DataParallel(model, parallel_context).parallelize()
-    local_rank = parallel_context.get_local_rank(ParallelMode.DATA)
+    optim = SGD(parallelized_model.parameters(), lr=LR)
 
-    input_ids, attention_mask, labels = get_microbatch(kwargs)
-
-    p_output = parallelized_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-    p_loss = p_output.loss
-
-    # NOTE: since each replica only computes on a subset of data,
-    # the replica's loss and the loss of the original model that trains
-    # on the whole set of data should not be equal.
-    assert not torch.allclose(p_loss, loss)
-
-    optim = SGD(parallelized_model.parameters(), lr=lr)
     optim.zero_grad()
-    p_loss.backward()
+    outputs = parallelized_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+
+    loss = outputs.loss
+    loss.backward()
     optim.step()
 
     # NOTE: after averaging the gradient, we expect the gradient of a replica
     # that trains on a subset of data to be equal to the gradient of
     # the original model that trains on the whole set of data
-    for parallel_p, p in zip(parallelized_model.parameters(), model.parameters()):
-        assert torch.allclose(parallel_p.grad, p.grad, rtol=1e-3)
+    for p, ref_p in zip(parallelized_model.parameters(), UPDATED_MODEL.parameters()):
+        assert torch.allclose(p, ref_p)
 
 
 @pytest.mark.parametrize("data_parallel_size", [1, 2])
-def test_backward_pass_a_parallelized_transformers(model, tokenizer, data_parallel_size):
+def test_backward_pass_a_parallelized_transformers(tokenizer, data_parallel_size):
     TENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 1
 
-    LR = 1e-3
+    # NOTE: if use small learning rate,
+    # the updated model and the original model's weights can be identical in some cases
+    # this could leads to wrong test
+    LR = 1e-1
 
     text = ["Persistence is all you need.", "3D parallelism is all you need."]
     inputs = tokenizer(text, return_tensors="pt", padding="longest")
-    labels = inputs["input_ids"]
+    labels = torch.randint_like(inputs["input_ids"], low=100, high=200)
+
+    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+    ORIG_MODEL = deepcopy(model)
     optim = SGD(model.parameters(), lr=LR)
-
-    GRADS = []
-
-    def save_orig_grad(grad):
-        GRADS.append(grad.clone().detach())
-
-    for p in model.parameters():
-        if p.requires_grad is True:
-            p.register_hook(save_orig_grad)
-
-    outputs = model(**inputs, labels=labels)
-
-    # NOTE: we make a copy of the model before updating its weights
-    # so the output of the model is not affected by the updated weights
-    orig_model = deepcopy(model)
-    loss = outputs.loss
-
     optim.zero_grad()
+    outputs = model(**inputs, labels=labels)
+    loss = outputs.loss
     loss.backward()
     optim.step()
 
-    kwargs = {"model": orig_model, "lr": LR, "inputs": inputs, "labels": labels, "grads": GRADS, "loss": loss.detach()}
+    # NOTE: if some cases, the updated model and the original model's weights can be identical
+    # so we need to make sure the updated model and the original model's weights are different
+    similarity = calculate_parameter_similarity(ORIG_MODEL, model)
+    assert similarity < 0.95, f"Two models should be different before training. Similarity: {similarity}"
+
+    kwargs = {
+        "model": ORIG_MODEL,
+        "updated_model": model,
+        "lr": LR,
+        "inputs": inputs,
+        "labels": labels,
+    }
 
     spawn(
         run_backward_a_parallelized_transformers,

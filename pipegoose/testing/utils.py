@@ -5,7 +5,12 @@ from functools import partial
 from typing import Callable
 
 import pytest
+import torch
 import torch.multiprocessing as mp
+from torch import nn
+
+from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.distributed.parallel_mode import ParallelMode
 
 # NOTE: because these tests run too slow in GitHub Actions
 skip_in_github_actions = pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") == "true", reason="Test skipped in GitHub Actions")
@@ -35,8 +40,6 @@ def spawn(func: Callable, world_size: int = 1, **kwargs):
 
 
 def init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size):
-    from pipegoose.distributed.parallel_context import ParallelContext
-
     HOST = "localhost"
     SEED = 69
     BACKEND = "gloo"
@@ -86,3 +89,26 @@ def init_pipeline_context(
     )
 
     return pipeline_context, parallel_context
+
+
+def get_partition(data: torch.Tensor, dim: int, parallel_context: ParallelContext) -> torch.Tensor:
+    local_world_size = parallel_context.get_world_size(ParallelMode.TENSOR)
+    local_rank = parallel_context.get_local_rank(ParallelMode.TENSOR)
+    chunks = torch.chunk(data, chunks=local_world_size, dim=dim)
+    return chunks[local_rank]
+
+
+def calculate_parameter_similarity(module1: nn.Module, module2: nn.Module, rtol: float = 1e-3) -> float:
+    # NOTE: In some test cases, the parameters of an updated model after
+    # .step() are very close to the parameters of the original model.
+    # So we use this function to check if the parameters of
+    # the updated model have deviated from the parameters
+    # of the original model enough.
+    total_parameters, equal_parameters = 0, 0
+    for param1, param2 in zip(module1.parameters(), module2.parameters()):
+        assert param1.shape == param2.shape, "Parameters have different shapes"
+        flat_param1, flat_param2 = param1.view(-1), param2.view(-1)
+        total_parameters += flat_param1.shape[0]
+        equal_parameters += torch.sum(torch.isclose(flat_param1, flat_param2, rtol=rtol)).item()
+
+    return equal_parameters / total_parameters
