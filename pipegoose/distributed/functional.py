@@ -1,7 +1,19 @@
-"""
-Inspired from OSLO's APIs.
-https://github.com/EleutherAI/oslo/blob/d7c4e32e766a99cc9d56533bc090570360dc8b2a/oslo/torch/distributed/nn/functional.py#L13
-"""
+# Copyright 2023 EleutherAI Inc.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Modified by pipegoose team
+# https://github.com/EleutherAI/oslo/blob/d7c4e32e766a99cc9d56533bc090570360dc8b2a/oslo/torch/distributed/nn/functional.py#L13
 
 
 from typing import Any, Optional
@@ -21,6 +33,7 @@ def scatter(
     parallel_context: Optional[ParallelContext] = None,
     parallel_mode: Optional[ParallelMode] = None,
 ) -> torch.Tensor:
+    """Scatter tensors to all ranks in parallel group."""
     world_size = parallel_context.get_world_size(parallel_mode)
     rank = parallel_context.get_local_rank(parallel_mode)
 
@@ -41,6 +54,7 @@ def reduce(
     parallel_context: Optional[ParallelContext] = None,
     parallel_mode: Optional[ParallelContext] = None,
 ) -> torch.Tensor:
+    """Reduce tensors from all processes in parallel group."""
     world_size = parallel_context.get_world_size(parallel_mode)
 
     if world_size == 1:
@@ -62,6 +76,7 @@ def broadcast(
     parallel_context: Optional[ParallelContext] = None,
     parallel_mode: Optional[ParallelMode] = None,
 ) -> torch.Tensor:
+    """Broadcast a tensor from src rank to all processes in parallel group."""
     world_size = parallel_context.get_world_size(parallel_mode)
 
     if world_size == 1:
@@ -122,6 +137,7 @@ def all_reduce(
     parallel_context: Optional[ParallelContext] = None,
     parallel_mode: Optional[ParallelMode] = None,
 ) -> torch.Tensor:
+    """All reduce a tensor from all ranks in parallel group."""
     world_size = parallel_context.get_world_size(parallel_mode)
 
     if world_size == 1:
@@ -147,6 +163,7 @@ def send(
     parallel_context: ParallelContext,
     parallel_mode: ParallelMode = ParallelMode.PIPELINE,
 ):
+    """P2P communication: Send an object from src rank to dst rank."""
     if src == parallel_context.get_local_rank(parallel_mode):
         _P2P().send(data, dst, parallel_context, parallel_mode)
 
@@ -154,6 +171,7 @@ def send(
 def recv(
     src: int, dst: int, parallel_context: ParallelContext, parallel_mode: ParallelMode = ParallelMode.PIPELINE
 ) -> Optional[Any]:
+    """P2P communication: Receive an object from src rank to dst rank."""
     if dst == parallel_context.get_local_rank(parallel_mode):
         return _P2P().recv(src, parallel_context, parallel_mode)
 

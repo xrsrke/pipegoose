@@ -3,7 +3,7 @@ from torch.optim import Optimizer
 from pipegoose.distributed.functional import broadcast
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.optim import BaseDistributedOptimizer
+from pipegoose.optim.base_optim import BaseDistributedOptimizer
 from pipegoose.optim.zero.sharding import OptimizerStateSharding
 from pipegoose.optim.zero.utils import flatten_a_list_tensor
 
