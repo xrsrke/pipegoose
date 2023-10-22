@@ -16,9 +16,9 @@ from pipegoose.testing.utils import (
 MODEL_NAME = "prajjwal1/bert-tiny"
 
 
-# @pytest.fixture(scope="module")
-# def model():
-#     return AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+@pytest.fixture(scope="module")
+def model():
+    return AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
 
 @pytest.fixture(scope="module")
@@ -29,18 +29,20 @@ def tokenizer():
 def run_parallelize_a_transformers_and_inference(
     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, kwargs
 ):
+    model = deepcopy(kwargs["model"])
+    REF_LOGITS, REF_LOSS = kwargs["logits"], kwargs["loss"]
+
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-
-    parallelized_model = DataParallel(kwargs["model"], parallel_context).parallelize()
+    parallelized_model = DataParallel(model, parallel_context).parallelize()
 
     p_generated_tokens = parallelized_model.generate(**kwargs["input"], **kwargs["generation_configs"])
     assert torch.allclose(p_generated_tokens, kwargs["generated_tokens"])
 
-    p_output = parallelized_model(**kwargs["input"], labels=kwargs["labels"])
-    assert torch.allclose(p_output.logits, kwargs["logits"], rtol=1e-1)
-    assert torch.allclose(p_output.loss, kwargs["loss"], rtol=1e-1)
+    outputs = parallelized_model(**kwargs["input"], labels=kwargs["labels"])
+    assert torch.allclose(outputs["logits"], REF_LOGITS)
+    assert torch.allclose(outputs["loss"], REF_LOSS)
 
 
 @pytest.mark.parametrize("data_parallel_size", [1, 2])
@@ -50,6 +52,7 @@ def test_parallelize_a_transformer_and_inference(model, tokenizer, data_parallel
 
     GENERATION_CONFIGS = {"max_new_tokens": 1}
 
+    ORIG_MODEL = deepcopy(model)
     text = "Persistence is all you need."
     input = tokenizer(text, return_tensors="pt")
     labels = input["input_ids"]
@@ -59,12 +62,11 @@ def test_parallelize_a_transformer_and_inference(model, tokenizer, data_parallel
 
     # NOTE: we make a copy of the model before updating its weights
     # so the output of the model is not affected by the updated weights
-    orig_model = deepcopy(model)
     loss = outputs.loss
     logits = outputs.logits
 
     kwargs = {
-        "model": orig_model,
+        "model": ORIG_MODEL,
         "generation_configs": GENERATION_CONFIGS,
         "input": input,
         "labels": labels,
@@ -122,7 +124,7 @@ def run_backward_a_parallelized_transformers(
 
 
 @pytest.mark.parametrize("data_parallel_size", [1, 2])
-def test_backward_pass_a_parallelized_transformers(tokenizer, data_parallel_size):
+def test_backward_pass_a_parallelized_transformers(model, tokenizer, data_parallel_size):
     TENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 1
 
@@ -135,7 +137,6 @@ def test_backward_pass_a_parallelized_transformers(tokenizer, data_parallel_size
     inputs = tokenizer(text, return_tensors="pt", padding="longest")
     labels = torch.randint_like(inputs["input_ids"], low=100, high=200)
 
-    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
     ORIG_MODEL = deepcopy(model)
     optim = SGD(model.parameters(), lr=LR)
     optim.zero_grad()
