@@ -181,6 +181,9 @@ def run_move_a_model_to_gpu(rank, world_size, port, tensor_parallel_size, pipeli
     for p in parallelized_model.parameters():
         assert p.device.type == "cuda"
 
+        if p.grad is not None:
+            assert p.grad.device.type == "cuda"
+
     for b in parallelized_model.buffers():
         assert b.device.type == "cuda"
 

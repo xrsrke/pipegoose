@@ -159,7 +159,7 @@ class EmbeddingParallelizer(ModuleParallelizer):
             padding_size += 1
 
         if padding_size > 0:
-            padding = torch.zeros((padding_size, embedding_dim))
+            padding = torch.zeros((padding_size, embedding_dim), device=module.weight.device)
             new_embeddings = torch.cat([module.weight, padding], dim=0)
 
             module.weight.data = new_embeddings

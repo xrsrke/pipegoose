@@ -1,6 +1,7 @@
 from abc import abstractclassmethod
 from dataclasses import dataclass
 from functools import partial
+from typing import cast
 
 from torch import nn
 
@@ -60,20 +61,33 @@ def _to_device(self, device: str):
     """Move a parallelized module to accelerators."""
     SUPPORTED_DEVICES = ["cuda"]
 
-    assert self.parallel_metadata is not None, "module is not parallelized yet"
-    assert device in SUPPORTED_DEVICES, f"device must be one of {SUPPORTED_DEVICES}, got {device}"
-    assert self.parallel_metadata.is_moved_to_device is False, "module is already moved to device"
+    def is_specific_device(device):
+        import re
 
-    local_device = self.parallel_metadata.local_device
+        pattern = r"^cuda:[0-9]+$"
+        if re.match(pattern, device):
+            return True
+        return False
+
+    parallel_metadata = cast(ParallelMetadata, getattr(self, "parallel_metadata", None))
+
+    assert parallel_metadata is not None, "Module is not parallelized yet"
+    assert device in SUPPORTED_DEVICES, f"Device must be one of {SUPPORTED_DEVICES}, got {device}"
+    assert parallel_metadata.is_moved_to_device is False, "Module is already moved to device"
+    assert not is_specific_device(
+        device
+    ), f'Moving to a specific device {device} is not supported. pipegoose will handle device assignment automatically. Please use "cuda" instead'
+
+    local_device = parallel_metadata.local_device
     for p in self.parameters():
-        p.data = p.to(f"cuda:{local_device}")
+        p = p.to(f"cuda:{local_device}")
         if p.grad is not None:
             p.grad = p.grad.to(f"cuda:{local_device}")
 
     for b in self.buffers():
-        b.data = b.to(f"cuda:{local_device}")
+        b = b.to(f"cuda:{local_device}")
 
-    self.parallel_metadata.is_moved_to_device = True
+    parallel_metadata.is_moved_to_device = True
 
 
 def _to_cuda(self):

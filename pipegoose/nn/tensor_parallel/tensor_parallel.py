@@ -4,6 +4,7 @@ import torch
 from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.nn.parallel import Parallel
 from pipegoose.nn.tensor_parallel.parallelizer import (
     EmbeddingParallelizer,
     LayerNormParallelizer,
@@ -13,7 +14,7 @@ from pipegoose.nn.tensor_parallel.parallelizer import (
 )
 
 
-class TensorParallel:
+class TensorParallel(Parallel):
     """Turn a 🤗 transformers model into a tensor parallel model."""
 
     PARALLELIZERS = [EmbeddingParallelizer, LinearParallelizer, LayerNormParallelizer, LMHeadParallelizer]
