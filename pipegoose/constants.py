@@ -1,3 +1,6 @@
+SEED = 69
+
+
 CHECKPOINT_WEIGHTS_NAME = "pytorch_model_tp_{}_pp_{}.bin"
 CHECKPOINT_PATH_NAME = "./"
 

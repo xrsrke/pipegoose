@@ -23,7 +23,7 @@ import torch
 import torch.distributed as dist
 import torch.distributed.rpc as rpc
 
-from pipegoose.constants import WORKER_NAME
+from pipegoose.constants import SEED, WORKER_NAME
 from pipegoose.distributed._initializers.initialize_data import (
     DataParallelGroupInitializer,
 )
@@ -48,11 +48,11 @@ class ParallelContext:
     @classmethod
     def from_torch(
         cls,
-        seed: int,
-        backend: DistributedBackend,
         tensor_parallel_size: int,
         pipeline_parallel_size: int,
         data_parallel_size: int,
+        seed: int = SEED,
+        backend: DistributedBackend = "nccl",
     ):
         """Initialize parallel context based on the environment variables defined by torchrun."""
         rank = int(os.environ["RANK"])
