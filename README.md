@@ -5,9 +5,6 @@
 ![pipeline](3d-parallelism.png)
 
 <!-- [![docs](https://img.shields.io/github/deployments/Production?label=docs&logo=vercel)](https://docs.dev/) -->
-<!-- [<img src="https://img.shields.io/youtube/channel/views/UCDdC6BIFRI0jvcwuhi3aI6w?style=social">](https://www.youtube.com/channel/UCDdC6BIFRI0jvcwuhi3aI6w/videos) -->
-<!-- [<img src="https://img.shields.io/badge/%F0%9F%A4%97%20Models-Huggingface-F8D521">](https://huggingface.co) -->
-<!-- [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/blob/master/docs/get-started/CleanRL_Huggingface_Integration_Demo.ipynb) -->
 
 
 Honk honk honk! This project is actively under development. Check out my learning progress [here](https://twitter.com/xariusrke/status/1667999818554413057).
@@ -16,51 +13,60 @@ Honk honk honk! This project is actively under development. Check out my learnin
 
 ⚠️ **The APIs is still a work in progress and could change at any time. None of the public APIs are set in stone until we hit version 0.6.9.**
 
+⚠️ **Support for hybrid 3D parallelism and distributed optimizer for 🤗 `transformers` will be available in the upcoming weeks (it's basically done, but it doesn't support 🤗 `transformers` yet)**
+
 ```diff
-import torch
-import torch.nn.functional as F
-from transformer import AutoModel, AutoTokenizer
+from torch.utils.data import DataLoader
++ from torch.utils.data.distributed import DistributedSampler
+from torch.optim import SGD
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_dataset
-+ from pipegoose import DataParallel, TensorParallel, PipelineParalell, ParallelContext
-+ from pipegoose.optim import DistributedOptimizer
 
-model = AutoModel.from_pretrained("bloom")
-tokenizer = AutoTokenizer.from_pretrained("bloom")
++ from pipegoose.distributed import ParallelContext, ParallelMode
++ from pipegoose.nn import DataParallel, TensorParallel
 
-- device = "cuda"
-- model = model.to(device)
-+ parallel_context = ParallelContext(
+model = AutoModelForCausalLM.from_pretrained("bigscience/bloom-560m")
+tokenizer = AutoTokenizer.from_pretrained("bigscience/bloom-560m")
+tokenizer.pad_token = tokenizer.eos_token
+
+BATCH_SIZE = 4
++ DATA_PARALLEL_SIZE = 2
++ parallel_context = ParallelContext.from_torch(
 +    tensor_parallel_size=2,
 +    data_parallel_size=2,
-+    pipeline_parallel_size=2
++    pipeline_parallel_size=1
 + )
-+ model = DataParallel(model, parallel_context).parallelize()
 + model = TensorParallel(model, parallel_context).parallelize()
-+ model = PipelineParallel(model, parallel_context).parallelize()
++ model = DataParallel(model, parallel_context).parallelize()
+model.to("cuda")
++ device = next(model.parameters()).device
 
-optimizer = torch.optim.Adam(model.parameters())
-+ optimizer = DistributedOptimizer(optimizer, parallel_context)
+optim = SGD(model.parameters(), lr=1e-3)
 
-dataset = load_dataset('goose')
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=42)
+dataset = load_dataset("imdb", split="train")
++ dp_rank = parallel_context.get_local_rank(ParallelMode.DATA)
++ sampler = DistributedSampler(dataset, num_replicas=DATA_PARALLEL_SIZE, rank=dp_rank, seed=42)
++ dataloader = DataLoader(dataset, batch_size=BATCH_SIZE // DATA_PARALLEL_SIZE, shuffle=False, sampler=sampler)
 
-for epoch in range(69):
-    for inputs, targets in dataloader:
--         inputs = inputs.to(device)
--         targets = targets.to(device)
+for epoch in range(100):
++    sampler.set_epoch(epoch)
 
-        output = model(inputs)
-        loss = F.cross_entropy(output, targets)
+    for batch in dataloader:
+        inputs = tokenizer(batch["text"], padding=True, truncation=True, max_length=1024, return_tensors="pt")
+        inputs = {name: tensor.to(device) for name, tensor in inputs.items()}
+        labels = inputs["input_ids"]
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        outputs = model(**inputs, labels=labels)
+
+        optim.zero_grad()
+        outputs.loss.backward()
+        optim.step()
 ```
 
 **Features**
 - Megatron-style 3D parallelism
 - ZeRO-1: Distributed BF16 Optimizer
-- Kernel Fusion
+- Highly optimized CUDA kernels port from Megatron-LM, DeepSpeed
 - ...
 
 **Implementation Details**

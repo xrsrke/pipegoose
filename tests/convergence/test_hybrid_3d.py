@@ -35,18 +35,14 @@ if __name__ == "__main__":
     BATCH_SIZE = 4
     CONTEXT_LENGTH = 1024
 
-    print("started")
-
     parallel_context = ParallelContext.from_torch(
-        seed=SEED,
-        backend="gloo",
         data_parallel_size=DATA_PARALLEL_SIZE,
         tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
     )
     rank = parallel_context.get_global_rank()
 
-    print("inited parallel_context")
+    print("initialized parallel_context")
 
     if rank == 0:
 
@@ -69,16 +65,13 @@ if __name__ == "__main__":
                 "learning_rate": LR,
                 "seed": SEED,
                 "batch_size": BATCH_SIZE,
-                "is_cuda": True,
             },
         )
 
     dist.barrier()
 
-    print("logged wandb")
-
     dataset = load_dataset("imdb", split="train[:100]")
-    dataset = dataset.map(lambda x: {"text": x["text"][:30]})
+    dataset = dataset.map(lambda x: {"text": x["text"][:30]})  # for demonstration purposes
 
     dp_rank = parallel_context.get_local_rank(ParallelMode.DATA)
     sampler = DistributedSampler(dataset, num_replicas=DATA_PARALLEL_SIZE, rank=dp_rank, seed=SEED)
@@ -91,10 +84,10 @@ if __name__ == "__main__":
 
     print(f"rank={rank}, model size before parallelizing: {round(get_model_params_size(model), 3)} GB")
 
-    model = DataParallel(model, parallel_context).parallelize()
-    model.to("cuda")
     model = TensorParallel(model, parallel_context).parallelize()
+    model = DataParallel(model, parallel_context).parallelize()
     optim = SGD(model.parameters(), lr=LR)
+    model.to("cuda")
     device = next(model.parameters()).device
 
     print(f"rank={rank}, model size before parallelizing: {round(get_model_params_size(model), 3)} GB")
@@ -115,11 +108,6 @@ if __name__ == "__main__":
         print(f"rank={rank}, epoch={epoch}")
 
         for batch in dataloader:
-            # print(f"dp_rank: {dp_rank}: {batch}")
-
-            print(f"rank={rank}, step={step}")
-            print(batch["text"])
-
             inputs = tokenizer(batch["text"], padding=True, truncation=True, max_length=CONTEXT_LENGTH, return_tensors="pt")
             inputs = {name: tensor.to(device) for name, tensor in inputs.items()}
             labels = inputs["input_ids"]
@@ -135,7 +123,7 @@ if __name__ == "__main__":
             ref_outputs.loss.backward()
             ref_optim.step()
 
-            print(f"rank={rank}, loss={outputs.loss}, ref_loss={ref_outputs.loss}")
+            print(f"rank={rank}, loss={outputs.loss}, ref_loss={ref_outputs.loss}, step={step}")
 
             if rank == 0:
                 wandb.log({"loss": outputs.loss, "ref_loss": ref_outputs.loss, "step": step, "epoch": epoch})
