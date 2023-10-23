@@ -17,7 +17,7 @@
 
 import os
 import random
-from typing import List, Literal
+from typing import Dict, List, Literal
 
 import torch
 import torch.distributed as dist
@@ -36,6 +36,7 @@ from pipegoose.distributed._initializers.initialize_tensor import (
 from pipegoose.distributed.parallel_mode import ParallelMode
 
 DistributedBackend = Literal["gloo", "mpi", "nccl"]
+RanksToDevice = Dict[ParallelMode, int]
 
 
 class ParallelContext:
@@ -121,10 +122,10 @@ class ParallelContext:
         self.init_global_dist(rank, world_size, backend, host, port)
         self.init_parallel_groups()
 
-        if torch.cuda.is_available():
-            self.set_device()
+        # if torch.cuda.is_available():
+        #     self.set_device()
 
-        # self.map_rank_to_device()
+        self.map_rank_to_device()
 
         self.rpc_worker_map = {rank: WORKER_NAME.format(rank) for rank in self.get_ranks_in_group(ParallelMode.GLOBAL)}
         self.init_rpc_workers(host, port)
@@ -184,8 +185,9 @@ class ParallelContext:
 
     def init_rpc_workers(self, host: str, port: int):
         """Initialize RPC workers for P2P communication."""
-        world_size = self.get_world_size(ParallelMode.GLOBAL)
-        if world_size > 1:
+
+        if self.pipeline_parallel_size > 1:
+            world_size = self.get_world_size(ParallelMode.GLOBAL)
             # NOTE: we actually only need to initialize RPC workers for
             # pipeline parallelism, but we also do so for testing all
             # the general modules that use RPC calls and work
@@ -259,6 +261,11 @@ class ParallelContext:
         for _rank, _rank_tensor in enumerate(rank_tensor_list):
             modes_and_ranks = {mode: rank for mode, rank in zip(self._local_ranks.keys(), _rank_tensor.tolist())}
             self._ranks_to_device[tuple(modes_and_ranks.items())] = _rank
+
+    def ranks2device(self, ranks: RanksToDevice) -> int:
+        """Return the global device id from ranks."""
+        assert ranks in self._ranks_to_device, f"{ranks} not in {self._ranks_to_device}"
+        return self._ranks_to_device[ranks]
 
     def is_initialized(self, parallel_mode: ParallelMode) -> bool:
         """Check if the parallel mode is initialized.

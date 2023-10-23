@@ -15,6 +15,8 @@ skip_if_no_cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA
 backend = ["gloo", pytest.param("nccl", marks=skip_if_no_cuda)]
 
 
+RPC_RECEIVE_QUEUE = list()
+
 # NOTE: map local rank to next rank based in [world_size][parallel_mode][local_rank]
 # for world_size = 8
 LOCAL_RANK_TO_NEXT_RANK = {
@@ -127,9 +129,6 @@ def init_parallel_context(
         assert parallel_context.is_initialized(parallel_mode) is False
 
 
-# @pytest.mark.parametrize("tensor_parallel_size", (1, 2))
-# @pytest.mark.parametrize("pipeline_parallel_size", (1, 2))
-# @pytest.mark.parametrize("data_parallel_size", (1, 2))
 @pytest.mark.parametrize("tensor_parallel_size", (2,))
 @pytest.mark.parametrize("pipeline_parallel_size", (4,))
 @pytest.mark.parametrize("data_parallel_size", (2,))
@@ -148,9 +147,6 @@ def test_init_parallel_context(tensor_parallel_size, pipeline_parallel_size, dat
         pipeline_parallel_size=pipeline_parallel_size,
         data_parallel_size=data_parallel_size,
     )
-
-
-RPC_RECEIVE_QUEUE = list()
 
 
 def recv_rpc_call(value):
@@ -225,4 +221,54 @@ def test_send_rcv_rpc(rpc_type):
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
         rpc_type=rpc_type,
+    )
+
+
+def run_device_mapping_in_parallel_context(
+    rank, world_size, seed, backend, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+):
+    parallel_context = ParallelContext(
+        rank=rank,
+        local_rank=rank,
+        world_size=world_size,
+        local_world_size=world_size,
+        host="localhost",
+        port=port,
+        seed=seed,
+        backend=backend,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=pipeline_parallel_size,
+        data_parallel_size=data_parallel_size,
+    )
+
+    ranks = (
+        (ParallelMode.GLOBAL, parallel_context.get_local_rank(ParallelMode.GLOBAL)),
+        (ParallelMode.TENSOR, parallel_context.get_local_rank(ParallelMode.TENSOR)),
+        (ParallelMode.PIPELINE, parallel_context.get_local_rank(ParallelMode.PIPELINE)),
+        (ParallelMode.DATA, parallel_context.get_local_rank(ParallelMode.DATA)),
+    )
+    device = parallel_context.ranks2device(ranks)
+
+    assert isinstance(device, int)
+    assert 0 <= device <= world_size
+
+
+def test_device_mapping_in_parallel_context():
+    TENSOR_PARALLEL_SIZE = 2
+    PIPELINE_PARALLEL_SIZE = 2
+    DATA_PARALLEL_SIZE = 2
+
+    WORLD_SIZE = TENSOR_PARALLEL_SIZE * PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE
+
+    SEED = 69
+    BACKEND = "gloo"
+
+    spawn(
+        run_device_mapping_in_parallel_context,
+        world_size=WORLD_SIZE,
+        seed=SEED,
+        backend=BACKEND,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
     )
