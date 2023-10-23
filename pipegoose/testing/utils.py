@@ -14,6 +14,7 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 
 # NOTE: because these tests run too slow in GitHub Actions
 skip_in_github_actions = pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") == "true", reason="Test skipped in GitHub Actions")
+skip_if_no_cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
 
 
 def find_free_port(min_port: int = 2000, max_port: int = 65000) -> int:

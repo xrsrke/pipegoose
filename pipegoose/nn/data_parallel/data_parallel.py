@@ -5,9 +5,10 @@ from torch import nn
 from pipegoose.distributed.functional import all_reduce
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.nn.parallel import Parallel
 
 
-class DataParallel:
+class DataParallel(Parallel):
     def __init__(self, module: nn.Module, parallel_context: ParallelContext):
         self.module = module
         self.parallel_context = parallel_context
@@ -18,6 +19,7 @@ class DataParallel:
 
         if self.parallel_context.data_parallel_size > 1:
             self._register_grad_avg_hook(module)
+            self._save_metadata(module, self.parallel_context)
 
         return module
 

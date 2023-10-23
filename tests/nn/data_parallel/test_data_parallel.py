@@ -6,10 +6,11 @@ from torch.optim import SGD
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.data_parallel.data_parallel import DataParallel
+from pipegoose.nn import DataParallel
 from pipegoose.testing.utils import (
     calculate_parameter_similarity,
     init_parallel_context,
+    skip_if_no_cuda,
     spawn,
 )
 
@@ -165,4 +166,38 @@ def test_backward_pass_a_parallelized_transformers(model, tokenizer, data_parall
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=data_parallel_size,
         kwargs=kwargs,
+    )
+
+
+def run_move_a_model_to_gpu(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, model):
+    model = deepcopy(model)
+    parallel_context = init_parallel_context(
+        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+    )
+    parallelized_model = DataParallel(model, parallel_context).parallelize()
+
+    parallelized_model.to("cuda")
+
+    for p in parallelized_model.parameters():
+        assert p.device.type == "cuda"
+
+    for b in parallelized_model.buffers():
+        assert b.device.type == "cuda"
+
+
+@skip_if_no_cuda
+def test_move_a_model_to_gpu(model):
+    DATA_PARALLEL_SIZE = 2
+    TENSOR_PARALLEL_SIZE = 1
+    PIPELINE_PARALLEL_SIZE = 1
+
+    WOLRD_SIZE = DATA_PARALLEL_SIZE * TENSOR_PARALLEL_SIZE * PIPELINE_PARALLEL_SIZE
+
+    spawn(
+        run_move_a_model_to_gpu,
+        world_size=WOLRD_SIZE,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
+        model=model,
     )
