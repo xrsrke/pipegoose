@@ -52,7 +52,7 @@ class ParallelContext:
         pipeline_parallel_size: int,
         data_parallel_size: int,
         seed: int = SEED,
-        backend: DistributedBackend = "nccl",
+        backend: DistributedBackend = "gloo",
     ):
         """Initialize parallel context based on the environment variables defined by torchrun."""
         rank = int(os.environ["RANK"])

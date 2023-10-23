@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import cast
 
+import torch
 from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
@@ -78,14 +79,17 @@ def _to_device(self, device: str):
         device
     ), f'Moving to a specific device {device} is not supported. pipegoose will handle device assignment automatically. Please use "cuda" instead'
 
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA is not available")
+
     local_device = parallel_metadata.local_device
     for p in self.parameters():
-        p = p.to(f"cuda:{local_device}")
+        p.data = p.to(f"cuda:{local_device}")
         if p.grad is not None:
-            p.grad = p.grad.to(f"cuda:{local_device}")
+            p.grad.data = p.grad.to(f"cuda:{local_device}")
 
     for b in self.buffers():
-        b = b.to(f"cuda:{local_device}")
+        b.data = b.to(f"cuda:{local_device}")
 
     parallel_metadata.is_moved_to_device = True
 
