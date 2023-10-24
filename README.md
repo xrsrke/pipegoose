@@ -1,15 +1,13 @@
 # 🚧 PipeGoose: Training any 🤗 `transformers` in Megatron-LM 3D parallelism and ZeRO-1 out of the box
 
-[<img src="https://img.shields.io/badge/license-MIT-blue">](https://github.com/xrsrke/pipegoose) [![tests](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml/badge.svg)](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml) [<img src="https://img.shields.io/discord/767863440248143916?label=discord">](https://discord.gg/s9ZS9VXZ3p) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [<img alt="Codecov" src="https://img.shields.io/codecov/c/github/xrsrke/pipegoose">](https://app.codecov.io/gh/xrsrke/pipegoose) [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/) [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/cloudposse.svg?style=social&label=Follow%20%40xariusrke)](https://twitter.com/xariusrke)
+[<img src="https://img.shields.io/badge/license-MIT-blue">](https://github.com/xrsrke/pipegoose) [![tests](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml/badge.svg)](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml) [<img src="https://img.shields.io/discord/767863440248143916?label=discord">](https://discord.gg/s9ZS9VXZ3p) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [<img alt="Codecov" src="https://img.shields.io/codecov/c/github/xrsrke/pipegoose">](https://app.codecov.io/gh/xrsrke/pipegoose) [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
 ![pipeline](3d-parallelism.png)
 
 <!-- [![docs](https://img.shields.io/github/deployments/Production?label=docs&logo=vercel)](https://docs.dev/) -->
 
 
-Honk honk honk! This project is actively under development. Check out my learning progress [here](https://twitter.com/xariusrke/status/1667999818554413057).
-
-⚠️ **The project is actively under development.**
+⚠️ **The project is actively under development, and we're actively seeking collaborators. Come join us: [[discord link]](https://discord.gg/s9ZS9VXZ3p)**
 
 ⚠️ **The APIs is still a work in progress and could change at any time. None of the public APIs are set in stone until we hit version 0.6.9.**
 
@@ -74,14 +72,14 @@ You can install the package through the following command:
 pip install pipegoose
 ```
 
-And try out a hybrid tensor and data parallelism training script.
+And try out a hybrid tensor and data parallelism training script (You must have at least 4 GPUs in order to try hybrid 2D parallelism).
 
 ```bash
 cd pipegoose/examples
 torchrun --standalone --nnodes=1 --nproc-per-node=4 hybrid_parallelism.py
 ```
 
-We did a small scale correctness test by comparing the training losses between a paralleized transformer and one kept by default, starting at identical checkpoints and training data. We will conduct rigorous large scale convergence and weak scaling law benchmarks against Megatron and DeepSpeed in the near future.
+We did a small scale correctness test by comparing the training losses between a paralleized transformer and one kept by default, starting at identical checkpoints and training data. We will conduct rigorous large scale convergence and weak scaling law benchmarks against Megatron and DeepSpeed in the near future if we manage to make it.
 - Data Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/smjfnm9g)
 - Tensor Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/iz17f50n)
 - Hybrid 2D Parallelism (TP+DP) [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/us31p3q1)
@@ -92,16 +90,6 @@ We did a small scale correctness test by comparing the training losses between a
 - ZeRO-1: Distributed Optimizer
 - Highly optimized CUDA kernels port from Megatron-LM, DeepSpeed
 - ...
-
-**Implementation Details**
-
-- Supports training `transformers` model in Megatron 3D parallelism and ZeRO-1 (write from scratch).
-- Implements parallel compute and data transfer using separate CUDA streams.
-- Gradient checkpointing will be implemented by enforcing virtual dependency in the backpropagation graph, ensuring that the activation for gradient checkpoint will be recomputed just in time for each (micro-batch, partition).
-- Custom algorithms for model partitioning with two default partitioning models based on elapsed time and GPU memory consumption per layer.
-- Potential support includes:
-    - Callbacks within the pipeline: `Callback(function, microbatch_idx, partition_idx)` for before and after the forward, backward, and recompute steps (for gradient checkpointing).
-    - Mixed precision training.
 
 **Appreciation**
 
