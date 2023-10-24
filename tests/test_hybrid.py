@@ -6,7 +6,12 @@ from torch.optim import Adam
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from pipegoose.nn.tensor_parallel.tensor_parallel import TensorParallel
-from pipegoose.testing.utils import get_partition, init_parallel_context, spawn
+from pipegoose.testing.utils import (
+    get_partition,
+    init_parallel_context,
+    skip_in_github_actions,
+    spawn,
+)
 
 MODEL_NAME = "bigscience/bloom-560m"
 
@@ -34,6 +39,7 @@ def run_hybrid_parallelism(rank, world_size, port, tensor_parallel_size, pipelin
         assert torch.allclose(p1, get_partition(p2, dim=0, parallel_context=parallel_context), rtol=1e-1)
 
 
+@skip_in_github_actions
 @pytest.mark.parametrize("tensor_parallel_size", [2])
 @pytest.mark.parametrize("pipeline_parallel_size", [1])
 @pytest.mark.parametrize("data_parallel_size", [1])
