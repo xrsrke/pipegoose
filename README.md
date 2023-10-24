@@ -82,9 +82,9 @@ torchrun --standalone --nnodes=1 --nproc-per-node=4 hybrid_parallelism.py
 ```
 
 We did a small scale correctness test by comparing the training losses between a paralleized transformer and one kept by default, starting at identical checkpoints and training data. We will conduct rigorous large scale convergence and weak scaling law benchmarks against Megatron and DeepSpeed in the near future.
-- Data Parallelism [link](https://wandb.ai/xariusdrake/pipegoose/runs/smjfnm9g)
-- Tensor Parallelism [link](https://wandb.ai/xariusdrake/pipegoose/runs/iz17f50n)
-- Hybrid 2D Parallelism (TP+DP) [link](https://wandb.ai/xariusdrake/pipegoose/runs/us31p3q1)
+- Data Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/smjfnm9g)
+- Tensor Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/iz17f50n)
+- Hybrid 2D Parallelism (TP+DP) [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/us31p3q1)
 
 **Features**
 - Megatron-style 3D parallelism
