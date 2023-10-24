@@ -9,11 +9,14 @@
 
 Honk honk honk! This project is actively under development. Check out my learning progress [here](https://twitter.com/xariusrke/status/1667999818554413057).
 
-⚠️ **The project is actively under development and not ready for use.**
+⚠️ **The project is actively under development.**
 
 ⚠️ **The APIs is still a work in progress and could change at any time. None of the public APIs are set in stone until we hit version 0.6.9.**
 
 ⚠️ **Support for hybrid 3D parallelism and distributed optimizer for 🤗 `transformers` will be available in the upcoming weeks (it's basically done, but it doesn't support 🤗 `transformers` yet)**
+
+⚠️ **This library is underperforming when compared to Megatron-LM and DeepSpeed (and not even achieving reasonable performance). We're actively pushing it to reach 180 TFLOPs and go beyond Megatron-LM.**
+
 
 ```diff
 from torch.utils.data import DataLoader
@@ -63,9 +66,30 @@ for epoch in range(100):
         optim.step()
 ```
 
+**Installation and try it out**
+
+You can install the package through the following command:
+
+```bash
+pip install pipegoose
+```
+
+And try out a hybrid tensor and data parallelism training script.
+
+```bash
+cd pipegoose/examples
+torchrun --standalone --nnodes=1 --nproc-per-node=4 hybrid_parallelism.py
+```
+
+We did a small scale correctness test by comparing the training losses between a paralleized transformer and one kept by default, starting at identical checkpoints and training data. We will conduct rigorous large scale convergence and weak scaling law benchmarks against Megatron and DeepSpeed in the near future.
+- Data Parallelism [link](https://wandb.ai/xariusdrake/pipegoose/runs/smjfnm9g)
+- Tensor Parallelism [link](https://wandb.ai/xariusdrake/pipegoose/runs/iz17f50n)
+- Hybrid 2D Parallelism (TP+DP) [link](https://wandb.ai/xariusdrake/pipegoose/runs/us31p3q1)
+
 **Features**
 - Megatron-style 3D parallelism
-- ZeRO-1: Distributed BF16 Optimizer
+- Sequence parallelism and Mixture of Experts that work in 3D parallelism
+- ZeRO-1: Distributed Optimizer
 - Highly optimized CUDA kernels port from Megatron-LM, DeepSpeed
 - ...
 

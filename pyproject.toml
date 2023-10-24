@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pipegoose"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["xrsrke <hello@xrs.wtf>"]
 license = "MIT"
