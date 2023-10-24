@@ -4,8 +4,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from pipegoose.distributed.parallel_context import ParallelContext
-from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.distributed import ParallelContext, ParallelMode
 from pipegoose.nn import DataParallel, TensorParallel
 
 if __name__ == "__main__":
@@ -22,7 +21,7 @@ if __name__ == "__main__":
     rank = parallel_context.get_global_rank()
 
     dataset = load_dataset("imdb", split="train[:100]")
-    dataset = dataset.map(lambda x: {"text": x["text"][:30]})
+    dataset = dataset.map(lambda x: {"text": x["text"][:30]})  # for demonstration purposes, you can remove this line
 
     dp_rank = parallel_context.get_local_rank(ParallelMode.DATA)
     sampler = DistributedSampler(dataset, num_replicas=DATA_PARALLEL_SIZE, rank=dp_rank, seed=69)

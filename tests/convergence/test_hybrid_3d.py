@@ -2,7 +2,6 @@ from copy import deepcopy
 
 import torch
 import torch.distributed as dist
-import wandb
 from datasets import load_dataset
 from torch.optim import SGD
 from torch.utils.data import DataLoader
@@ -24,6 +23,8 @@ def get_model_params_size(model, fp_bytes=4):
 
 
 if __name__ == "__main__":
+    import wandb
+
     DATA_PARALLEL_SIZE = 2
     TENSOR_PARALLEL_SIZE = 2
     PIPELINE_PARALLEL_SIZE = 1

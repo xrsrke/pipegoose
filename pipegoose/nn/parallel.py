@@ -12,8 +12,6 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 
 @dataclass
 class ParallelMetadata:
-    is_moved_to_device: bool = False
-
     device: int = None
     local_device: int = None
 
@@ -74,7 +72,6 @@ def _to_device(self, device: str):
 
     assert parallel_metadata is not None, "Module is not parallelized yet"
     assert device in SUPPORTED_DEVICES, f"Device must be one of {SUPPORTED_DEVICES}, got {device}"
-    assert parallel_metadata.is_moved_to_device is False, "Module is already moved to device"
     assert not is_specific_device(
         device
     ), f'Moving to a specific device {device} is not supported. pipegoose will handle device assignment automatically. Please use "cuda" instead'
@@ -90,8 +87,6 @@ def _to_device(self, device: str):
 
     for b in self.buffers():
         b.data = b.to(f"cuda:{local_device}")
-
-    parallel_metadata.is_moved_to_device = True
 
 
 def _to_cuda(self):
