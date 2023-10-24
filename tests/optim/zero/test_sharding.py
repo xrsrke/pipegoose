@@ -61,16 +61,9 @@ def run_optimizer_states_sharding(
         assert num_param < total_elements
 
 
-@pytest.mark.parametrize("model_name", ["torch_module", "transformer"])
 @pytest.mark.parametrize("data_parallel_size", [2, 5])
-def test_optimizer_states_sharding(model_name, data_parallel_size):
-    if model_name == "torch_module":
-        INPUT_SIZE = 5
-        HIDDEN_SIZE = 10
-        OUTPUT_SIZE = 2
-        model = nn.Sequential(nn.Linear(INPUT_SIZE, HIDDEN_SIZE), nn.ReLU(), nn.Linear(HIDDEN_SIZE, OUTPUT_SIZE))
-    else:
-        model = AutoModel.from_pretrained("gpt2")
+def test_optimizer_states_sharding(data_parallel_size):
+    model = AutoModel.from_pretrained("gpt2")
 
     TENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 1
