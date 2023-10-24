@@ -58,7 +58,7 @@ class Parallel:
 
 def _to_device(self, device: str):
     """Move a parallelized module to accelerators."""
-    SUPPORTED_DEVICES = ["cuda"]
+    SUPPORTED_DEVICES = ["cuda", "gpu"]
 
     def is_specific_device(device):
         import re
@@ -76,8 +76,8 @@ def _to_device(self, device: str):
         device
     ), f'Moving to a specific device {device} is not supported. pipegoose will handle device assignment automatically. Please use "cuda" instead'
 
-    if not torch.cuda.is_available():
-        raise RuntimeError("CUDA is not available")
+    if torch.cuda.device_count() == 0:
+        raise RuntimeError("There are no GPUs available.")
 
     local_device = parallel_metadata.local_device
     for p in self.parameters():
