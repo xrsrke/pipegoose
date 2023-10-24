@@ -23,14 +23,14 @@ class ParallelEmbedding(nn.Module):
         )
         self.world_size = world_size
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         if self.world_size > 1:
-            input_mask = (input < self.vocab_start_idx) | (input >= self.vocab_end_idx)
-            # align global embedding indices to local embedding indices
-            masked_input = input.clone() - self.vocab_start_idx
+            input_mask = (inputs < self.vocab_start_idx) | (inputs >= self.vocab_end_idx)
+            # NOTE: align global embedding indices to local embedding indices
+            masked_input = inputs.clone() - self.vocab_start_idx
             masked_input[input_mask] = 0
         else:
-            masked_input = input
+            masked_input = inputs
 
         parallel_output = F.embedding(masked_input, self.weight)
 
