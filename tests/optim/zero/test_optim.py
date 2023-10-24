@@ -22,14 +22,16 @@ def run_dist_optim(
     input,
     model,
     updated_model,
-    grads,
+    ref_grads,
     optimizer,
 ):
+    ORIG_UPDATED_MODEL = deepcopy(updated_model)
+    ORIG_OPTIM = deepcopy(optimizer)
+    REF_GRADS = ref_grads
+
     parallel_context = init_parallel_context(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
-    ORIG_UPDATED_MODEL = deepcopy(updated_model)
-    ORIG_OPTIM = deepcopy(optimizer)
     optimizer = optim.Adam(model.parameters())
     dist_optimizer = DistributedOptimizer(optimizer, parallel_context)
 
@@ -51,7 +53,7 @@ def run_dist_optim(
     # it's up to the user to call .zero_grad() or not
     # NOTE: dist_grads just means the gradients of the model parameters
     dist_grads = [p.grad for p in model.parameters()]
-    for p1, p2 in zip(dist_grads, grads):
+    for p1, p2 in zip(dist_grads, REF_GRADS):
         assert p1 is not None
         assert torch.allclose(p1, p2), f"p1: {p1}, p2: {p2}"
 
@@ -80,7 +82,7 @@ def test_dist_optim(data_parallel_size):
 
     model(input).sum().backward()
     optimizer.step()
-    GRADS = [p.grad for p in model.parameters()]
+    REF_GRADS = [p.grad for p in model.parameters()]
 
     spawn(
         run_dist_optim,
@@ -91,6 +93,6 @@ def test_dist_optim(data_parallel_size):
         input=ORIG_INPUT,
         model=ORIG_MODEL,
         updated_model=model,
-        grads=GRADS,
+        ref_grads=REF_GRADS,
         optimizer=optimizer,
     )

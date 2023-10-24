@@ -55,8 +55,6 @@ class DistributedOptimizer(BaseDistributedOptimizer):
         # NOTE: each rank updates its subset of parameters using the local optimizer
         self.optim.step(*args, **kwargs)
 
-        # NOTE: gather the full updated parameters from all ranks
-
         # NOTE: each model replicas broadcast the updated parameters to other model replicas
         for rank, param_groups in self._rank_to_param_groups.items():
             for param_group in param_groups:
