@@ -2,7 +2,6 @@ from copy import deepcopy
 
 import torch
 import torch.distributed as dist
-import wandb
 from datasets import load_dataset
 from torch.optim import SGD
 from torch.utils.data import DataLoader
@@ -11,8 +10,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.data_parallel.data_parallel import DataParallel
-from pipegoose.nn.tensor_parallel.tensor_parallel import TensorParallel
+from pipegoose.nn import DataParallel, TensorParallel
 
 
 def get_model_params_size(model, fp_bytes=4):
@@ -24,6 +22,8 @@ def get_model_params_size(model, fp_bytes=4):
 
 
 if __name__ == "__main__":
+    import wandb
+
     DATA_PARALLEL_SIZE = 2
     TENSOR_PARALLEL_SIZE = 2
     PIPELINE_PARALLEL_SIZE = 1
@@ -133,5 +133,4 @@ if __name__ == "__main__":
             step += 1
 
     wandb.finish()
-
-model.cpu()
+    model.cpu()
