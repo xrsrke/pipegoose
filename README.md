@@ -1,4 +1,4 @@
-# 🚧 PipeGoose: Training any 🤗 `transformers` in Megatron-LM 3D parallelism and ZeRO-1 out of the box
+# 🚧 PipeGoose: Training 🤗 `transformers` in Megatron-LM 3D parallelism and ZeRO-1 out of the box
 
 [<img src="https://img.shields.io/badge/license-MIT-blue">](https://github.com/xrsrke/pipegoose) [![tests](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml/badge.svg)](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml) [<img src="https://img.shields.io/discord/767863440248143916?label=discord">](https://discord.gg/s9ZS9VXZ3p) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [<img alt="Codecov" src="https://img.shields.io/codecov/c/github/xrsrke/pipegoose">](https://app.codecov.io/gh/xrsrke/pipegoose) [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
@@ -7,14 +7,13 @@
 <!-- [![docs](https://img.shields.io/github/deployments/Production?label=docs&logo=vercel)](https://docs.dev/) -->
 
 
-⚠️ **The project is actively under development, and we're actively seeking collaborators. Come join us: [[discord link]](https://discord.gg/s9ZS9VXZ3p)**
+⚠️ **The project is actively under development, and we're actively seeking collaborators. Come join us: [[discord link]](https://discord.gg/s9ZS9VXZ3p) [[roadmap]](https://github.com/users/xrsrke/projects/5) [[good first issue]](https://github.com/xrsrke/pipegoose/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)**
 
 ⚠️ **The APIs is still a work in progress and could change at any time. None of the public APIs are set in stone until we hit version 0.6.9.**
 
-⚠️ **Support for hybrid 3D parallelism and distributed optimizer for 🤗 `transformers` will be available in the upcoming weeks (it's basically done, but it doesn't support 🤗 `transformers` yet)**
+⚠️ **Currently only parallelize `bloom-560m` is supported. Support for hybrid 3D parallelism and distributed optimizer for 🤗 `transformers` will be available in the upcoming weeks (it's basically done, but it doesn't support 🤗 `transformers` yet)**
 
 ⚠️ **This library is underperforming when compared to Megatron-LM and DeepSpeed (and not even achieving reasonable performance). We're actively pushing it to reach 180 TFLOPs and go beyond Megatron-LM.**
-
 
 ```diff
 from torch.utils.data import DataLoader
