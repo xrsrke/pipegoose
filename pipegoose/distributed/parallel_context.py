@@ -17,7 +17,7 @@
 
 import os
 import random
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal
 
 import torch
 import torch.distributed as dist
