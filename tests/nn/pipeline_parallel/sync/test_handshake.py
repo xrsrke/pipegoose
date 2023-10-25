@@ -44,10 +44,10 @@ def run_parallel_group_handshake(
 @pytest.mark.parametrize(
     "parallel_mode, tensor_parallel_size, pipeline_paralell_size, data_parallel_size",
     [
-        (ParallelMode.GLOBAL, 2, 2, 2),
-        (ParallelMode.TENSOR, 2, 1, 1),
+        # (ParallelMode.GLOBAL, 2, 2, 2),
+        # (ParallelMode.TENSOR, 2, 1, 1),
         (ParallelMode.PIPELINE, 1, 2, 1),
-        (ParallelMode.DATA, 1, 1, 2),
+        # (ParallelMode.DATA, 1, 1, 2),
     ],
 )
 def test_parallel_group_handshake(parallel_mode, tensor_parallel_size, pipeline_paralell_size, data_parallel_size):

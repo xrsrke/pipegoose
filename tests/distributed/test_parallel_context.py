@@ -83,6 +83,7 @@ def init_parallel_context(
     assert parallel_context.tensor_parallel_size == tensor_parallel_size
     assert parallel_context.pipeline_parallel_size == pipeline_parallel_size
     assert parallel_context.data_parallel_size == data_parallel_size
+    assert ParallelContext.get_context() == parallel_context
 
     assert parallel_context.get_global_rank() == rank
 

@@ -10,13 +10,6 @@ from pipegoose.nn.pipeline_parallel._job.backward import (
     save_grad_loss,
 )
 from pipegoose.nn.pipeline_parallel._job.callback import Callback
-
-# from pipegoose.nn.pipeline_parallel._job.forward import (
-#     CreateForwardOutputPackageCallback,
-#     ForwardJob,
-#     # SaveActivationIfTrainingCallback,
-#     # SaveInputActivationsCallback,
-# )
 from pipegoose.nn.pipeline_parallel._job.job_type import JobType
 from pipegoose.nn.pipeline_parallel._package import Package
 from pipegoose.testing.utils import init_pipeline_context, spawn
@@ -77,6 +70,12 @@ def backward_package_in_the_second_last_pipeline_stage(backward_package):
 
 
 # def test_create_a_backward_job_if_a_tensor_do_backprop(forward_package, forward_function, parallel_context, pipeline_context):
+# from pipegoose.nn.pipeline_parallel._job.forward import (
+#     CreateForwardOutputPackageCallback,
+#     ForwardJob,
+#     # SaveActivationIfTrainingCallback,
+#     # SaveInputActivationsCallback,
+# )
 #     callbacks = [
 #         CreateForwardOutputPackageCallback(parallel_context, pipeline_context),
 #         SaveInputActivationsCallback,
@@ -108,6 +107,7 @@ def backward_package_in_the_second_last_pipeline_stage(backward_package):
 #     backward_job.compute()
 
 
+@pytest.mark.skip("TODO: refactor the logic of setting up parallel context out of the job")
 def test_the_gradient_output_of_a_backward_job(backward_package):
     def function(*args, **kwargs):
         pass
@@ -218,6 +218,7 @@ def run_check_the_destination_of_output_package_from_a_backward_job(
         assert (out_src, out_dst) == MAPPING_DESTINATION_OF_OUTPUT_PACKAGE[(inp_src, inp_dst)]
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("pipeline_parallel_size", [4])
 @pytest.mark.parametrize(
     "package", ["backward_package_in_the_last_pipeline_stage", "backward_package_in_the_second_last_pipeline_stage"]

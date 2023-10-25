@@ -4,7 +4,6 @@ from typing import Callable, Union
 import torch
 
 from pipegoose.distributed.parallel_context import ParallelContext
-from pipegoose.nn.pipeline_parallel._comm import get_pipeline_context
 from pipegoose.nn.pipeline_parallel._job.backward import (
     BackwardJob,
     CreateBackwardOutputPackageCallback,
@@ -149,8 +148,8 @@ def _create_backward_job_and_put_to_pending_queue(grad_input: torch.Tensor, meta
         pass
 
     # TODO: make parallel_context automatically set when it initialize
-    pipeline_context = get_pipeline_context()
-    parallel_context = pipeline_context.parallel_context
+    pipeline_context = PipelineContext.get_context()
+    parallel_context = ParallelContext.get_context()
 
     rank = parallel_context.get_global_rank()
     microbatch_idx = metadata.microbatch_idx
@@ -212,8 +211,8 @@ def _run_backward_execution(grad_input, metadata):
 
     dist.barrier()
 
-    pipeline_context = get_pipeline_context()
-    parallel_context = pipeline_context.parallel_context
+    pipeline_context = PipelineContext.get_context()
+    parallel_context = ParallelContext.get_context()
     pipeline_context.backward()
 
     from pipegoose.nn.pipeline_parallel.sync.handshake import get_progress_tracker

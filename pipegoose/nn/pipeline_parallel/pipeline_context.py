@@ -4,9 +4,10 @@ from typing import List
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
-from pipegoose.nn.pipeline_parallel._comm import set_pipeline_context
 from pipegoose.nn.pipeline_parallel._utils import get_partition_idx, is_last_stage
 from pipegoose.nn.pipeline_parallel.scheduler import BaseScheduler
+
+_PIPELINE_CONTEXT = None
 
 
 class TrainingState(Enum):
@@ -30,7 +31,15 @@ class PipelineContext:
         # NOTE: block CPU thread until the next clock cycle
         self._wait_new_clock_cycle = threading.Condition()
 
-        set_pipeline_context(pipeline_context=self)
+        self._set_context()
+
+    @staticmethod
+    def get_context() -> "PipelineContext":
+        return _PIPELINE_CONTEXT
+
+    def _set_context(self):
+        global _PIPELINE_CONTEXT
+        _PIPELINE_CONTEXT = self
 
     @property
     def state(self) -> TrainingState:

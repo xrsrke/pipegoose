@@ -8,19 +8,6 @@ from pipegoose.nn.pipeline_parallel._package import Package
 
 RECV_QUEUE = Queue()
 
-# TODO: refactor to a singleton class
-# NOTE: save parallel context for backward job
-_PIPELINE_CONTEXT = None
-
-
-def set_pipeline_context(pipeline_context):
-    global _PIPELINE_CONTEXT
-    _PIPELINE_CONTEXT = pipeline_context
-
-
-def get_pipeline_context():
-    return _PIPELINE_CONTEXT
-
 
 def _send_data(data: Any, src: int, dst: int, parallel_context: ParallelContext):
     dst_worker_name = parallel_context.get_worker_name(dst)

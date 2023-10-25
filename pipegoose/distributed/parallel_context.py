@@ -17,7 +17,7 @@
 
 import os
 import random
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Optional
 
 import torch
 import torch.distributed as dist
@@ -37,6 +37,9 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 
 DistributedBackend = Literal["gloo", "mpi", "nccl"]
 RanksToDevice = Dict[ParallelMode, int]
+
+
+_PARALLEL_CONTEXT = None
 
 
 class ParallelContext:
@@ -131,6 +134,17 @@ class ParallelContext:
         self.init_rpc_workers(host, port)
 
         # self.set_seed(seed)
+
+        self._set_context()
+
+    def _set_context(self):
+        global _PARALLEL_CONTEXT
+        _PARALLEL_CONTEXT = self
+
+    @staticmethod
+    def get_context() -> "ParallelContext":
+        "Return the initialized parallel context."
+        return _PARALLEL_CONTEXT
 
     def init_global_dist(self, rank: int, world_size: int, backend: DistributedBackend, host: str, port: int):
         """Initialize the global distributed group.

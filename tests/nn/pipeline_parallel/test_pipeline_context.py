@@ -2,7 +2,6 @@ import threading
 
 import pytest
 
-from pipegoose.nn.pipeline_parallel._comm import get_pipeline_context
 from pipegoose.nn.pipeline_parallel.pipeline_context import (
     PipelineContext,
     TrainingState,
@@ -57,7 +56,7 @@ def run_pipeline_context(rank, world_size, port, tensor_parallel_size, pipeline_
     pipeline_context = PipelineContext(scheduler, parallel_context)
     pipeline_context.forward()
 
-    assert get_pipeline_context() == pipeline_context
+    assert PipelineContext.get_context() == pipeline_context
     assert isinstance(pipeline_context.partition_idx, int)
 
     assert pipeline_context.clock_idx == 0

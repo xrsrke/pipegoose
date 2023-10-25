@@ -118,14 +118,13 @@ class BackwardJob(Job):
         self.is_scheduled: bool = is_scheduled
 
     def run_compute(self) -> torch.Tensor:
-        from pipegoose.nn.pipeline_parallel._comm import get_pipeline_context
-
         microbatch_idx = self.input.metadata.microbatch_idx
         partition_idx = self.input.metadata.partition_idx
         prev_grad = self.input.data
 
-        pipeline_context = get_pipeline_context()
-        rank = pipeline_context.parallel_context.get_global_rank()
+        parallel_context = ParallelContext.get_context()
+        pipeline_context = PipelineContext.get_context()
+        rank = parallel_context.get_global_rank()
 
         input = get_input_activations(microbatch_idx, partition_idx)
         output = get_output_activations(microbatch_idx, partition_idx, self.is_scheduled)
