@@ -55,4 +55,4 @@ if __name__ == "__main__":
 
             print(f"rank={rank}, loss={outputs.loss}")
 
-model.cpu()
+    model.cpu()
