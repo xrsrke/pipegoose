@@ -95,3 +95,17 @@ We did a small scale correctness test by comparing the training losses between a
 - Big thanks to 🤗 [Hugging Face](https://huggingface.co/) for sponsoring this project with 8x A100 GPUs for testing! And [Zach Schrier](https://twitter.com/zach_schrier) for monthly twitch donations
 
 - The library's APIs are inspired by [OSLO](https://github.com/EleutherAI/oslo)'s and [ColossalAI](https://github.com/hpcaitech/ColossalAI)'s APIs.
+
+**Citing `pipegoose`**
+
+```
+@software{pipegoose,
+  title = {{pipegoose: Large-scale 4D parallelism pre-training for `transformers`}},
+  author = {},
+  url = {https://github.com/xrsrke/pipegoose},
+  doi = {},
+  month = {},
+  year = {2024},
+  version = {},
+}
+```
