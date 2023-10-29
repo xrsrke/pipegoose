@@ -14,7 +14,7 @@
 
 ⚠️ **Currently only parallelize `bloom-560m` is supported. Support for hybrid 3D parallelism and distributed optimizer for 🤗 `transformers` will be available in the upcoming weeks (it's basically done, but it doesn't support 🤗 `transformers` yet)**
 
-⚠️ **This library is underperforming when compared to Megatron-LM and DeepSpeed (and not even achieving reasonable performance). We're actively pushing it to reach 180 TFLOPs and go beyond Megatron-LM.**
+⚠️ **This library is underperforming when compared to Megatron-LM and DeepSpeed (and not even achieving reasonable performance yet).**
 
 ```diff
 from torch.utils.data import DataLoader
