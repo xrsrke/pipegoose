@@ -7,3 +7,5 @@ class ParallelMode(Enum):
     TENSOR = "tensor"
     PIPELINE = "pipeline"
     DATA = "data"
+
+    SEQUENCE = "sequence"
