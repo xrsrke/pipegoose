@@ -5,7 +5,10 @@ from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.optim.base_optim import BaseDistributedOptimizer
 from pipegoose.optim.zero.sharding import OptimizerStateSharding
-from pipegoose.optim.zero.utils import flatten_a_list_tensor
+from pipegoose.optim.zero.utils import (
+    copy_flatten_tensor_to_unflatten_tensors,
+    flatten_a_list_tensor,
+)
 
 
 class DistributedOptimizer(BaseDistributedOptimizer):
@@ -60,6 +63,7 @@ class DistributedOptimizer(BaseDistributedOptimizer):
             for param_group in param_groups:
                 flatten_params = flatten_a_list_tensor(param_group["params"])
                 broadcast(flatten_params, src=rank, parallel_context=self.parallel_context, parallel_mode=ParallelMode.DATA)
+                copy_flatten_tensor_to_unflatten_tensors(flatten_params, param_group["params"])
 
     def zero_grad(self):
         """Zero out gradients."""

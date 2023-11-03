@@ -4,7 +4,7 @@ import pytest
 import torch
 from torch import nn, optim
 
-from pipegoose.optim.zero.optim import DistributedOptimizer
+from pipegoose.optim import DistributedOptimizer
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 

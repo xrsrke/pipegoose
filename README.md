@@ -18,12 +18,13 @@
 ```diff
 from torch.utils.data import DataLoader
 + from torch.utils.data.distributed import DistributedSampler
-from torch.optim import SGD
+from torch.optim import Adam
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_dataset
 
 + from pipegoose.distributed import ParallelContext, ParallelMode
 + from pipegoose.nn import DataParallel, TensorParallel
++ from pipegoose.optim import DistributedOptimizer
 
 model = AutoModelForCausalLM.from_pretrained("bigscience/bloom-560m")
 tokenizer = AutoTokenizer.from_pretrained("bigscience/bloom-560m")
@@ -41,7 +42,8 @@ BATCH_SIZE = 4
 model.to("cuda")
 + device = next(model.parameters()).device
 
-optim = SGD(model.parameters(), lr=1e-3)
+optim = Adam(model.parameters(), lr=1e-3)
++ optim = DistributedOptimizer(optim, parallel_context)
 
 dataset = load_dataset("imdb", split="train")
 + dp_rank = parallel_context.get_local_rank(ParallelMode.DATA)
@@ -78,10 +80,11 @@ cd pipegoose/examples
 torchrun --standalone --nnodes=1 --nproc-per-node=4 hybrid_parallelism.py
 ```
 
-We did a small scale correctness test by comparing the training losses between a paralleized transformer and one kept by default, starting at identical checkpoints and training data. We will conduct rigorous large scale convergence and weak scaling law benchmarks against Megatron and DeepSpeed in the near future if we manage to make it.
-- Data Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/smjfnm9g)
-- Tensor Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/iz17f50n)
-- Hybrid 2D Parallelism (TP+DP) [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/us31p3q1)
+We did a small scale correctness test by comparing the validation losses between a paralleized transformer and one kept by default, starting at identical checkpoints and training data. We will conduct rigorous large scale convergence and weak scaling law benchmarks against Megatron and DeepSpeed in the near future if we manage to make it.
+- Data Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/t5cr56xd?workspace)
+- ~~Tensor Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/iz17f50n)~~ (We've found a bug in convergence, and we are fixing it)
+- ~~Hybrid 2D Parallelism (TP+DP) [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/us31p3q1)~~
+- Distributed Optimizer ZeRO-1 Convergence: [[sgd link]](https://wandb.ai/xariusdrake/pipegoose/runs/fn4t9as4?workspace) [[adam link]](https://wandb.ai/xariusdrake/pipegoose/runs/yn4m2sky)
 
 **Features**
 - Megatron-style 3D parallelism
