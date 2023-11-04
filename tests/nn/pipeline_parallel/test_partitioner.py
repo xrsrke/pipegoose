@@ -36,14 +36,12 @@ def run_model_partitioner(
     partitions = UniformPartitioner(module, parallel_context).split()
     # partition = get_model_partition(module, policy, parallel_context)
 
-    """
     i = 0
     for p in partitions:
+        print("------------------------------------------------")
         print("partition: ", i)
         print(p)
         i += 1
-    
-    """
 
 
 @pytest.mark.parametrize("pipeline_parallel_size", [2])

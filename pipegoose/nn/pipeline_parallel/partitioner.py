@@ -57,11 +57,6 @@ class UniformPartitioner(BasePartitioner):
             partitions.append(nn.Sequential(*prepared_model[start:end]))
             start = end
 
-        for partition in partitions:
-            print("--------------------------------------------------")
-            print(partition)
-            print("--------------------------------------------------")
-
         return partitions
 
 
