@@ -26,34 +26,41 @@ class UniformPartitioner(BasePartitioner):
         self.parallel_context = parallel_context
 
     def split(self) -> List[nn.Module]:
-        module = self.module
         n_partitions = self.parallel_context.pipeline_parallel_size
-
-        # NOTE: BLOOM-560
-        # embedding_module = module.transformer.word_embeddings
-        # transformer_blocks = module.transformer.h
-        # lm_head = module.lm_head
-
-        # NOTE: For sshleifer/tiny-gpt2
-        embed_module = module.transformer.wte
-        pos_embed_module = module.transformer.wpe
-        drop_module = module.transformer.drop
-        transformer_blocks = module.transformer.h
-        ln_f = module.transformer.ln_f
-        lm_head = module.lm_head
-
-        # NOTE: Calculate the number of transformer blocks per partition
-        blocks_per_partition = len(transformer_blocks) // n_partitions
+        module = self.module
         partitions = []
+        start = 0
+        end = 0
 
-        for i in range(n_partitions):
-            start = i * blocks_per_partition
-            # NOTE: if it's the last partition, get all remaining blocks
-            end = start + blocks_per_partition if i < n_partitions - 1 else None
-            partitions.append(nn.Sequential(*transformer_blocks[start:end]))
+        def _flatten_model(model, parent_name=""):
+            model_list = []
+            for name, child_module in model.named_children():
+                # Form the full name of the module
+                full_name = f"{parent_name}.{name}" if parent_name else name
+                if (
+                    full_name == "transformer.h"
+                ):  # Check if the module is the 'h' attribute
+                    # If it's the 'h' ModuleList, append each of its blocks as a whole
+                    for block in child_module:
+                        model_list.append(block)
+                elif len(list(child_module.children())) == 0:
+                    # If it's a leaf node, append the module itself
+                    model_list.append(child_module)
+                else:
+                    # Otherwise, continue flattening its children
+                    model_list.extend(_flatten_model(child_module, full_name))
+            return model_list
 
-        partitions[0] = nn.Sequential(embed_module, pos_embed_module, drop_module, partitions[0])
-        partitions[-1] = nn.Sequential(ln_f, lm_head, partitions[-1])
+        prepared_model = _flatten_model(module)
+        for p in range(n_partitions):
+            end = start + len(prepared_model) // n_partitions
+            partitions.append(nn.Sequential(*prepared_model[start:end]))
+            start = end
+
+        for partition in partitions:
+            print("--------------------------------------------------")
+            print(partition)
+            print("--------------------------------------------------")
 
         return partitions
 
@@ -67,7 +74,9 @@ def _get_partitioner(policy: PartitionPolicy) -> BasePartitioner:
     return policy_to_partitioner[policy]
 
 
-def get_model_partition(module: nn.Module, policy: PartitionPolicy, parallel_context: ParallelContext) -> nn.Module:
+def get_model_partition(
+    module: nn.Module, policy: PartitionPolicy, parallel_context: ParallelContext
+) -> nn.Module:
     """Get the corresponding partition of the current process."""
     partitioner = _get_partitioner(policy)
     partitions = partitioner(module, parallel_context).split()
