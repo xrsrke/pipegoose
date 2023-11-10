@@ -25,7 +25,10 @@ class _Broadcast(Function):
 
         all_reduce(grad, parallel_context=parallel_context, parallel_mode=ParallelMode.TENSOR)
 
-        return (grad, None, None)
+        return (
+            grad,
+            None,
+        )
 
 
 class _Gather(Function):

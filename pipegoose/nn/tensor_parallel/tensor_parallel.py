@@ -6,10 +6,7 @@ from torch import nn
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.parallel import Parallel
 from pipegoose.nn.tensor_parallel.parallelizer import (
-    EmbeddingParallelizer,
-    LayerNormParallelizer,
     LinearParallelizer,
-    LMHeadParallelizer,
     ModuleParallelizer,
 )
 
@@ -17,7 +14,8 @@ from pipegoose.nn.tensor_parallel.parallelizer import (
 class TensorParallel(Parallel):
     """Turn a 🤗 transformers model into a tensor parallel model."""
 
-    PARALLELIZERS = [EmbeddingParallelizer, LinearParallelizer, LayerNormParallelizer, LMHeadParallelizer]
+    # PARALLELIZERS = [EmbeddingParallelizer, LinearParallelizer, LayerNormParallelizer, LMHeadParallelizer]
+    PARALLELIZERS = [LinearParallelizer]
 
     def __init__(self, module: nn.Module, parallel_context: ParallelContext):
         self.module = module
@@ -33,6 +31,11 @@ class TensorParallel(Parallel):
             # multiple times. so we filter out and retain the non-repetitive modules (leaf modules)
             leaf_modules = self._get_leaf_modules(module)
             for module_name, leaf_module in leaf_modules:
+                # NOTE: just skip parallelizing query_key_value in attention
+                # for debugging purposes
+                if "query_key_value" in module_name:
+                    continue
+
                 parallelizer = self._find_parallelizer(module_name, leaf_module)
                 if parallelizer is not None:
                     parallelizer(module_name, leaf_module, module, self.parallel_context).parallelize()
