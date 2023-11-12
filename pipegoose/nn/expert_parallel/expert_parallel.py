@@ -10,9 +10,9 @@ from pipegoose.nn.parallel import Parallel
 
 class ExpertParallel(Parallel):
     """
-    Turn a module into an Mixture of Experts module.
+    Turn a model into an Mixture of Experts model.
 
-    NOTE: The architecture is based on "A Flexible MoE Implementation with Pipeline Parallelism" by Xin Chen et al.
+    NOTE: The architecture is based on "Pipeline MoE: A Flexible MoE Implementation with Pipeline Parallelism" by Xin Chen et al.
     https://arxiv.org/abs/2304.11414
     """
 

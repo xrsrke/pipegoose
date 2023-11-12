@@ -10,8 +10,7 @@ class ExpertLayer(nn.Module):
     """
     An expert layer.
 
-    NOTE:
-    Switch Transformer: https://arxiv.org/abs/2101.03961
+    NOTE: Switch Transformer: https://arxiv.org/abs/2101.03961
     """
 
     def __init__(
@@ -24,11 +23,16 @@ class ExpertLayer(nn.Module):
     ):
         super().__init__()
         self.router = router
-        self.experts = Experts(num_experts, expert, enable_tensor_parallel, parallel_context)
+        self._experts = Experts(num_experts, expert, enable_tensor_parallel, parallel_context)
+        self.parallel_context = parallel_context
+
+    @property
+    def experts(self) -> nn.ModuleList:
+        return self._experts.experts
 
     def forward(
         self, inputs: TensorType["batch_size", "seq_len", "d_model"]
     ) -> TensorType["batch_size", "seq_len", "d_model"]:
-        dispatching_order, _, _ = self.router(inputs, self.experts)
-        outputs = self.experts(inputs, dispatching_order)
+        dispatching_order, _, _ = self.router(inputs)
+        outputs = self._experts(inputs, dispatching_order)
         return outputs
