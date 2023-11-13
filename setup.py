@@ -48,8 +48,7 @@ setup(
     long_description=fetch_readme(),
     long_description_content_type="text/markdown",
     license="MIT License",
-    install_requires=fetch_requirements("requirements/requirements.txt"),
-    python_requires=">=3.6",
+    install_requires=fetch_requirements("requirements.txt"),
     classifiers=[
         "Programming Language :: Python :: 3",
         "Environment :: GPU :: NVIDIA CUDA",
