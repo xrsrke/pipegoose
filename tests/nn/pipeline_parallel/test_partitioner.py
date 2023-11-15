@@ -6,8 +6,8 @@ from pipegoose.nn.pipeline_parallel.partitioner import (  # PartitionPolicy,; ge
 )
 from pipegoose.testing.utils import init_parallel_context, spawn
 
-# MODEL_NAME = "sshleifer/tiny-gpt2"
-MODEL_NAME = "bigscience/bloom-560m"
+MODEL_NAME = "sshleifer/tiny-gpt2"
+# MODEL_NAME = "bigscience/bloom-560m"
 
 
 def run_model_partitioner(
@@ -35,13 +35,6 @@ def run_model_partitioner(
     # policy = PartitionPolicy.UNIFORM
     partitions = UniformPartitioner(module, parallel_context).split()
     # partition = get_model_partition(module, policy, parallel_context)
-
-    i = 0
-    for p in partitions:
-        print("------------------------------------------------")
-        print("partition: ", i)
-        print(p)
-        i += 1
 
 
 @pytest.mark.parametrize("pipeline_parallel_size", [2])
