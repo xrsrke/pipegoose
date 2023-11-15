@@ -9,13 +9,14 @@ class DistributedLogger:
         # Initialize file handling and logging configurations
 
     def _should_log(self, rank, parallel_mode):
-        current_rank = self.parallel_context.get_rank()  # Assuming such a method exists (ASK IF IT DOES OR HOW THIS WORKS)
-        current_mode = self.parallel_context.get_parallel_mode()  # Assuming such a method exists
-
+        current_rank = self.parallel_context.get_global_rank()
         rank_check = (rank is None or rank == current_rank)
-        mode_check = (parallel_mode == ParallelMode.GLOBAL or parallel_mode == current_mode)
+
+        # Check if the current parallel mode is initialized and if the current process is part of it
+        mode_check = self.parallel_context.is_initialized(parallel_mode)
 
         return rank_check and mode_check
+
     
     def _save_log(self, path, log):
         # Add code to save the log file to the specified path
