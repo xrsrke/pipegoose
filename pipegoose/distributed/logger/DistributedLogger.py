@@ -32,7 +32,7 @@ class DistributedLogger:
                 f.write(log)
         else:
             with open(path + log_name, 'a') as f:
-                f.write(log)
+                f.write(", " +log)
 
 
     def _log_message(self, message, level, rank=None, parallel_mode=ParallelMode.GLOBAL):
