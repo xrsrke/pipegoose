@@ -60,23 +60,6 @@ def _create_shard_to_param_count(
     return shard_to_param_count
 
 
-class _ExtendedLeafTracer(torch.fx.Tracer):
-    def __init__(self, leaf_modules: Set[torch.nn.Module]):
-        super().__init__()
-        self.leaf_modules = leaf_modules
-
-    def is_leaf_module(self, m: torch.nn.Module, model_qualified_name: str) -> bool:
-        return super().is_leaf_module(m, model_qualified_name) or m in self.leaf_modules
-
-
-def _trace(
-    model: torch.nn.Module, leaf_modules: Set[torch.nn.Module]
-) -> torch.fx.GraphModule:
-    tracer = _ExtendedLeafTracer(leaf_modules)
-    graph = tracer.trace(model)
-    return torch.fx.GraphModule(model, graph)
-
-
 class UniformPartitioner(BasePartitioner):
     def __init__(self, module: nn.Module, parallel_context: ParallelContext):
         self.module = module
