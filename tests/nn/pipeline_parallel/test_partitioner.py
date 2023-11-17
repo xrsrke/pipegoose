@@ -33,8 +33,14 @@ def run_model_partitioner(
     inputs = tokenizer(text, return_tensors="pt", padding=True)
 
     # policy = PartitionPolicy.UNIFORM
-    partitions = UniformPartitioner(module, parallel_context).split()
+    partitions = UniformPartitioner(module, parallel_context).split(["input_ids"])
+
     # partition = get_model_partition(module, policy, parallel_context)
+
+    for p in partitions:
+        print("==================")
+        print(p)
+        print("==================")
 
 
 @pytest.mark.parametrize("pipeline_parallel_size", [2])
