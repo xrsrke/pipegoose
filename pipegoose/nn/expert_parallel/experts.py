@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Tuple
 
 import torch
 import torch.distributed as dist
@@ -6,9 +7,9 @@ from einops import rearrange
 from torch import nn
 from torchtyping import TensorType
 
-from pipegoose.distributed.functional import all_reduce
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.nn.tensor_parallel._functional import all_reduce
 
 
 class Experts(nn.Module):
@@ -39,11 +40,18 @@ class Experts(nn.Module):
         self,
         inputs: TensorType["batch_size", "seq_len", "d_model"],
         dispatch_order: TensorType["batch_size * seq_len"],
+        *args,
+        **kwargs,
     ) -> TensorType["batch_size", "seq_len", "d_model"]:
         outputs = torch.zeros_like(inputs)
         for expert_idx, expert in enumerate(self.experts):
+            print(f"expert_idx={expert_idx}")
             dispatched_inputs, indices = self._get_dispatch_inputs(inputs, dispatch_order, expert_idx)
-            outputs.view(-1, outputs.size(-1))[indices] = expert(dispatched_inputs)
+            if dispatched_inputs.numel() == 0:
+                # NOTE: if there are no tokens to dispatch to the expert, skip the expert
+                continue
+
+            outputs.view(-1, outputs.size(-1))[indices] = expert(dispatched_inputs, *args[1][:, indices], **kwargs)
 
         all_reduce(
             outputs,
@@ -56,10 +64,10 @@ class Experts(nn.Module):
 
     def _get_dispatch_inputs(
         self,
-        inputs: torch.Tensor,
-        dispatch_order: torch.TensorType,
+        inputs: TensorType["batch_size", "seq_len", "d_model"],
+        dispatch_order: TensorType["batch_size * seq_len"],
         expert_idx: int,
-    ) -> torch.Tensor:
+    ) -> Tuple[TensorType["batch_size * seq_len", "d_model"], TensorType["batch_size * seq_len"]]:
         """Dispatch embeddings to the corresponding expert."""
 
         def get_global_expert_idx(expert_idx: int) -> int:

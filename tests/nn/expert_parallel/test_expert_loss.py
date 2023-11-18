@@ -22,6 +22,3 @@ def test_expert_loss():
 
     assert expert_loss.get_aux_loss() == [1.01, 1.02]
     assert expert_loss.get_z_loss() == [2.01, 2.02]
-
-    # TODO: add return the final loss as the sum of all losses
-    # TODO: add reset to reset the aux and z losses

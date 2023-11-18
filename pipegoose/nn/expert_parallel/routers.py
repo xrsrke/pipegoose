@@ -1,10 +1,10 @@
+import math
 from abc import ABC
 from typing import Tuple
-import math
 
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 from torchtyping import TensorType
 
 
@@ -22,7 +22,7 @@ class _TopKRouter(Router):
         alpha: float = 0.01,
         eps: float = 0.1,
         aux_loss_weight: float = 1.0,
-        z_loss_weight: float = 1.0
+        z_loss_weight: float = 1.0,
     ):
         super().__init__()
         self.top_k = top_k
@@ -37,7 +37,7 @@ class _TopKRouter(Router):
     def _aux_loss(
         self,
         router_prob: TensorType["batch_size*seq_len", "num_experts"],
-        expert_mask: TensorType["batch_size*seq_len", "num_experts"]
+        expert_mask: TensorType["batch_size*seq_len", "num_experts"],
     ) -> TensorType["1"]:
         """
         Auxiliary Load Balancing Loss as described in
@@ -52,16 +52,13 @@ class _TopKRouter(Router):
 
         return aux_loss
 
-    def _z_loss(
-        self,
-        router_logits: TensorType["batch_size*seq_len", "num_experts"]
-    ) -> TensorType["1"]:
+    def _z_loss(self, router_logits: TensorType["batch_size*seq_len", "num_experts"]) -> TensorType["1"]:
         """
-        z-loss as described in 
+        z-loss as described in
         ST-MoE: Designing Stable and Transferable Sparse Expert Models
         by Zoph et al.
         """
-        return (torch.log(router_logits.exp().sum(dim=-1))**2).mean()
+        return (torch.log(router_logits.exp().sum(dim=-1)) ** 2).mean()
 
     def _expert_capacity(self, total_tokens: int) -> int:
         c = self.expert_capacity[0 if self.training else 1]
@@ -69,12 +66,9 @@ class _TopKRouter(Router):
         return expert_capacity
 
     def forward(
-        self,
-        inputs: TensorType["batch_size", "seq_len", "d_model"]
+        self, inputs: TensorType["batch_size", "seq_len", "d_model"]
     ) -> Tuple[
-        TensorType["batch_size*seq_len", "num_experts"],
-        TensorType["batch_size*seq_len", "num_experts"],
-        TensorType["1"]
+        TensorType["batch_size*seq_len", "num_experts"], TensorType["batch_size*seq_len", "num_experts"], TensorType["1"]
     ]:
         orig_dtype = inputs.dtype
         total_tokens = inputs.shape[0] * inputs.shape[1]
@@ -83,9 +77,9 @@ class _TopKRouter(Router):
         router_logits = self.gate(inputs.float()).reshape(-1, self.num_experts)
         if self.training:
             # exploration with noise sampled from [1-eps, 1+eps] during training
-            noise = torch.rand_like(router_logits) # between [0, 1)
-            noise = noise * self.eps * 2 # between [0, 2*eps)
-            noise += 1 - self.eps # between [1-eps, 1+eps)
+            noise = torch.rand_like(router_logits)  # between [0, 1)
+            noise = noise * self.eps * 2  # between [0, 2*eps)
+            noise += 1 - self.eps  # between [1-eps, 1+eps)
             router_logits += noise
 
         router_prob = F.softmax(router_logits, dim=-1)
@@ -98,8 +92,9 @@ class _TopKRouter(Router):
         expert_mask = expert_mask.scatter_(1, topk_idxs, True)
 
         # calculate router loss
-        loss = self.aux_loss_weight * self._aux_loss(router_prob, expert_mask) + \
-            self.z_loss_weight * self._z_loss(router_logits)
+        loss = self.aux_loss_weight * self._aux_loss(router_prob, expert_mask) + self.z_loss_weight * self._z_loss(
+            router_logits
+        )
 
         # limit the number of tokens per expert
         position_in_expert = torch.cumsum(expert_mask, dim=0) * expert_mask
@@ -125,7 +120,7 @@ class Top1Router(_TopKRouter):
         alpha: float = 0.01,
         eps: float = 0.1,
         aux_loss_weight: float = 1.0,
-        z_loss_weight: float = 1.0
+        z_loss_weight: float = 1.0,
     ):
         super().__init__(
             top_k=1,
@@ -135,7 +130,7 @@ class Top1Router(_TopKRouter):
             alpha=alpha,
             eps=eps,
             aux_loss_weight=aux_loss_weight,
-            z_loss_weight=z_loss_weight
+            z_loss_weight=z_loss_weight,
         )
 
 
@@ -148,7 +143,7 @@ class Top2Router(_TopKRouter):
         alpha: float = 0.01,
         eps: float = 0.1,
         aux_loss_weight: float = 1.0,
-        z_loss_weight: float = 1.0
+        z_loss_weight: float = 1.0,
     ):
         super().__init__(
             top_k=2,
@@ -158,5 +153,5 @@ class Top2Router(_TopKRouter):
             alpha=alpha,
             eps=eps,
             aux_loss_weight=aux_loss_weight,
-            z_loss_weight=z_loss_weight
+            z_loss_weight=z_loss_weight,
         )

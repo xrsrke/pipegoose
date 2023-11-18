@@ -30,9 +30,9 @@ class ExpertLayer(nn.Module):
     def experts(self) -> nn.ModuleList:
         return self._experts.experts
 
-    def forward(
-        self, inputs: TensorType["batch_size", "seq_len", "d_model"]
-    ) -> TensorType["batch_size", "seq_len", "d_model"]:
+    def forward(self, *args, **kwargs) -> TensorType["batch_size", "seq_len", "d_model"]:
+        # TODO: use torch.fx to extract the inputs from args, and kwargs
+        inputs = args[0]
         dispatching_order, _, _ = self.router(inputs)
-        outputs = self._experts(inputs, dispatching_order)
+        outputs = self._experts(inputs, dispatching_order, *args, **kwargs)
         return outputs

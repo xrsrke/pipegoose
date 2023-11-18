@@ -39,11 +39,6 @@ def run_expert_layer(
         data_parallel_size,
     )
 
-    # TODO: remove after adding support for seed in parallel context
-    SEED = 69
-    torch.manual_seed(SEED)
-    torch.cuda.manual_seed(SEED)
-
     expert_layer = ExpertLayer(
         num_experts,
         expert,
