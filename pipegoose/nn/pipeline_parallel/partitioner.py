@@ -15,6 +15,25 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 from transformers.utils.fx import symbolic_trace
 
 
+def _snake_case(s: str) -> str:
+    """
+    Transforms the given string ``s`` to a Python-style variable name
+
+    Examples:
+        ``mod.snake_case`` -> ``mod.snake_case``
+        ``mod.pascalCase``-> ``mod.pascal_case``
+        ``mod.ALL_CAPS`` -> ``mod.all_caps``
+    """
+    chars = []
+    prev_lower = False
+    for c in s:
+        if prev_lower and c.isupper():
+            chars.append("_")
+        chars.append(c.lower())
+        prev_lower = c.islower()
+    return "".join(chars)
+
+
 class PartitionPolicy(Enum):
     UNIFORM = auto()
 
@@ -61,89 +80,56 @@ def _create_shard_to_param_count(
 
 
 class UniformPartitioner(BasePartitioner):
-    def __init__(self, module: nn.Module, parallel_context: ParallelContext):
+    def __init__(self, module: nn.Module, parallel_context):
         self.module = module
         self.parallel_context = parallel_context
 
-    def _split_nodes(
-        self, traced_graph_module: torch.fx.GraphModule, shard_count: int = 3
-    ) -> Dict:
-        """Utility used to trace a graph and identify shard cutpoints."""
-
-        node_name_to_shard_id: Dict[str, int] = {}
+    def _split_nodes(self, traced_graph_module, shard_count) -> Dict[str, int]:
+        node_name_to_shard_id = {}
         shard_id = 0
-        nodes_so_far = []
-        param_count: Dict[str, int] = {}
-        shard_to_param_count = {}
+        param_count = {}
+        shard_to_param_count = [0] * shard_count
 
-        # Find the total number of params in the model and
-        # the number of params per shard we are aiming for.
+        # Calculate the number of params for each module
         for name, module in traced_graph_module.named_modules():
-            name = name.replace(".", "_")
-            param_count[name] = sum([x.numel() for x in module.parameters()])
-        print(f"Total number of params are {param_count['']}")
-        per_shard_param = param_count[""] // shard_count
-        print(f"Per shard param count {per_shard_param}")
+            name = _snake_case(name).replace(".", "_")
+            param_count[name] = sum(p.numel() for p in module.parameters())
+
+        # Calculate the number of params per shard
+        print(f"param_count: {param_count}")
+        total_params = param_count[""]
+        per_shard_param = total_params // shard_count
+        remainder = total_params % shard_count
 
         for node in traced_graph_module.graph.nodes:
-            if node.op == "placeholder":
-                node_name_to_shard_id[node.name] = shard_id
-                nodes_so_far.append(node.name)
-            elif node.op in ["get_attr", "call_function", "call_method", "call_module"]:
-                min_shard_id = shard_id
-                min_node_name = ""
-                # For each of the args of a given node, find the arg that is not the
-                # last node we traversed. This is to help us find skip connections
-                # across shards.
-                for arg in node.args:
-                    # If the node has args that are inputs to the forward function, they
-                    # may not have explicit names.
-                    if not hasattr(arg, "name"):
-                        continue
+            if node.op in ["output", "placeholder"]:
+                continue
 
-                    if (
-                        arg.name in node_name_to_shard_id
-                        and arg.name != nodes_so_far[-1]
-                    ):
-                        if node_name_to_shard_id[arg.name] < min_shard_id:
-                            min_shard_id = node_name_to_shard_id[arg.name]
-                            min_node_name = arg.name
+            node_name = _snake_case(node.name).replace(".", "_")
+            node_param_count = param_count.get(node_name, 0)
 
-                # If there is an input that is not from the previous shard,
-                # we collapse all the shards in between to be part of 1 shard.
-                # and update the param count per shard accordingly.
-                if min_shard_id < shard_id:
-                    for node_name in reversed(nodes_so_far):
-                        node_name_to_shard_id[node_name] = min_shard_id
-                        if node_name == min_node_name:
-                            break
-                    shard_id = min_shard_id
-                    # TODO(anj-s): Find a way to raise an error early if this can cause OOM errors.
-                    shard_to_param_count = _create_shard_to_param_count(
-                        param_count, node_name_to_shard_id
-                    )
+            # Print node type and parameter count
+            print(f"Node '{node_name}' ({node.op}) has {node_param_count} parameters")
 
-                # Update state that is tracking node -> shard id and shard id -> param count.
-                node_name_to_shard_id[node.name] = shard_id
-                nodes_so_far.append(node.name)
-                # TODO(anj): This could just be an update, we don't need to recreate the map.
-                shard_to_param_count = _create_shard_to_param_count(
-                    param_count, node_name_to_shard_id
-                )
-                # If we have gone over the number of params per shard count that we want to
-                # achieve, we should add a new shard.
-                # The shard_id may not have been updated in the map if we are at a node that does not
-                # have params.
-                if (
-                    shard_id in shard_to_param_count
-                    and shard_to_param_count[shard_id] > per_shard_param
-                ):
+            if node.op in ["get_attr", "call_function", "call_method", "call_module"]:
+                # Handle specific node types here
+
+                # Move to the next shard if the limit is exceeded and it's not the last shard
+                if shard_id < shard_count - 1 and shard_to_param_count[
+                    shard_id
+                ] + node_param_count > per_shard_param + (1 if remainder > 0 else 0):
+                    remainder -= 1
                     shard_id += 1
-            elif node.op == "output":
-                break
+
+                node_name_to_shard_id[node.name] = shard_id
+                shard_to_param_count[shard_id] += node_param_count
+
+        for i, count in enumerate(shard_to_param_count):
+            print(f"Shard {i} has {count} parameters")
+
         return node_name_to_shard_id
 
-    def split(self, input_names) -> List[nn.Module]:
+    def split(self) -> List[nn.Module]:
         n_partitions = self.parallel_context.pipeline_parallel_size
         model = self.module
         leaf_modules = set()
@@ -159,6 +145,11 @@ class UniformPartitioner(BasePartitioner):
         prev_shard_node = None
 
         node_name_to_shard_id = self._split_nodes(symbolic_traced_module, n_partitions)
+
+        print(f"node_name_to_shard_id: {node_name_to_shard_id}")
+
+        # for i, node in enumerate(node_name_to_shard_id):
+        #   print(f"Node {i} is {node} and shard id is {node_name_to_shard_id[node]}")
 
         prev_shard_id = 1000
         prev_node = None
@@ -205,7 +196,7 @@ class UniformPartitioner(BasePartitioner):
                 module_list.append(torch.fx.GraphModule(model, new_graph))
                 break
             prev_node = new_node
-            prev_shard_id = node_name_to_shard_id[node.name]
+            # prev_shard_id = node_name_to_shard_id[node.name]
 
         return module_list
 

@@ -27,23 +27,19 @@ def run_model_partitioner(
         data_parallel_size,
     )
     module = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+    print(module)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     tokenizer.pad_token = tokenizer.eos_token
     text = ["Hello world", "How are you?"]
     inputs = tokenizer(text, return_tensors="pt", padding=True)
 
     # policy = PartitionPolicy.UNIFORM
-    partitions = UniformPartitioner(module, parallel_context).split(["input_ids"])
+    partitions = UniformPartitioner(module, parallel_context).split()
 
     # partition = get_model_partition(module, policy, parallel_context)
 
-    for p in partitions:
-        print("==================")
-        print(p)
-        print("==================")
 
-
-@pytest.mark.parametrize("pipeline_parallel_size", [2])
+@pytest.mark.parametrize("pipeline_parallel_size", [4])
 def test_naive_partitioning(pipeline_parallel_size):
     TENSOR_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
