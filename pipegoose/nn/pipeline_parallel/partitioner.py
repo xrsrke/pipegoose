@@ -193,7 +193,7 @@ class UniformPartitioner(BasePartitioner):
                 module_list.append(torch.fx.GraphModule(model, new_graph))
                 break
             prev_node = new_node
-            # prev_shard_id = node_name_to_shard_id[node.name]
+            prev_shard_id = node_name_to_shard_id[node.name]
 
         return module_list
 
