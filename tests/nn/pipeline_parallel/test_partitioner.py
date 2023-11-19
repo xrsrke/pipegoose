@@ -7,7 +7,7 @@ from pipegoose.nn.pipeline_parallel.partitioner import (  # PartitionPolicy,; ge
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 
-def get_small_gpt2_and_tokenizer(n_layer=12):
+def get_gpt2_and_tokenizer(n_layer=12):
     return GPT2LMHeadModel(
         GPT2Config(
             n_layer=n_layer
@@ -35,7 +35,7 @@ def run_model_partitioner(
     torch.manual_seed(0)
     batch_sentences = ["hello world from pipegoose"]
 
-    model, tokenizer = get_small_gpt2_and_tokenizer()
+    model, tokenizer = get_gpt2_and_tokenizer()
     model.eval()
     tokenizer.pad_token = tokenizer.eos_token
     inputs = tokenizer(batch_sentences, padding=True, return_tensors="pt")

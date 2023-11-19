@@ -66,9 +66,7 @@ class UniformPartitioner(BasePartitioner):
             name = name.replace(".", "_")
             param_count[name] = sum([x.numel() for x in module.parameters()])
 
-        print(f"Total number of params are {total_param_count}")
         per_shard_param = total_param_count // shard_count
-        print(f"Per shard param count {per_shard_param}")
 
         node_name_to_shard_id: Dict[str, int] = {}
         shard_id = 0
@@ -82,27 +80,19 @@ class UniformPartitioner(BasePartitioner):
 
             if node.op in ("call_module", "get_attr"):
                 # call_module and get_attr are the two operations which involve accessing parameters
-                print(f"\n{node.name} = {node.op} target={node.target} args={node.args} ===> {shard_id}")
-                print(f"Args and their shards: {[(arg.name, node_name_to_shard_id[arg.name]) for arg in node.args if hasattr(arg, 'name')]}")
-
                 current_param_count = param_count.get(node.name, 0)
-
-                # if shard_id_to_param_count[shard_id] >= per_shard_param and (shard_id + 1) < shard_count:
-                print(shard_id_to_param_count[shard_id] >= per_shard_param, shard_id_to_param_count[shard_id], per_shard_param)
                 if (shard_id_to_param_count[shard_id] + current_param_count) >= per_shard_param and (shard_id + 1) < shard_count:
                     shard_id += 1
 
                 shard_id_to_param_count[shard_id] += current_param_count
-                print(f"shard_id_to_param_count = {shard_id_to_param_count}")
 
-            # we need to collect the nodes from the previous shard which are needed in the
-            # current shard because the previous shard needs to output them
+            # we need to collect the nodes from the previous shards which are needed in the
+            # current shard because we need to propagate them until the current shard
             if hasattr(node, "args"):
                 for arg in node.args:
                     if not hasattr(arg, "name"): 
                         continue
 
-                    # the input to the current node is from the previous shard. remember it!
                     arg_shard_id = node_name_to_shard_id.get(arg.name, shard_id)
                     if arg_shard_id < shard_id:
                         # propagate the input from arg_shard_id until shard_id
