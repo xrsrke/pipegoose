@@ -49,10 +49,12 @@ def fused_bias_gelu(x):
 
 
 @torch.jit.script
-def fused_bias_dropout_train(input, bias, dropout_prob):
+def fused_bias_dropout_train(input: Tensor, bias: Tensor, dropout_prob: float) -> Tensor:
+     # type: (Tensor, Tensor, float) -> Tensor
     return F.dropout(input + bias, p=dropout_prob, training=True)
 
 
 @torch.jit.script
-def fused_bias_dropout_eval(input, bias, dropout_prob):
+def fused_bias_dropout_eval(input: Tensor, bias: Tensor, dropout_prob: float) -> Tensor:
+     # type: (Tensor, Tensor, float) -> Tensor
     return F.dropout(input + bias, p=dropout_prob, training=False)
