@@ -13,30 +13,46 @@ Some decisions that need to be made:
     2. How should the automatic replacement be done?  
 """
 
+
+@torch.jit.script
+def _fused_bias_gelu_fwd(input, bias):
+    x = input + bias
+    return x * 0.5 * (1.0 + torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x)))
+
+
+@torch.jit.script
+def _fused_bias_gelu_bwd(g, input, bias):
+    x = input + bias
+    tanh_out = torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x))
+    ff = 0.5 * x * (
+        (1 - tanh_out * tanh_out) * (0.79788456 + 0.1070322243 * x * x)
+    ) + 0.5 * (1 + tanh_out)
+    return ff * g
+
+
 class _FusedBiasGelu(torch.autograd.Function):
     """Fused gelu + bias addition function."""
 
     @staticmethod
-    def forward(ctx, input):
-        pass
+    def forward(ctx, input, bias):
+        ctx.save_for_backward(input, bias)
+        return _fused_bias_gelu_fwd(input, bias)
 
     @staticmethod
     def backward(ctx, grad_output):
-        pass
+        input, bias = ctx.saved_tensors
+        return (x := _fused_bias_gelu_bwd(grad_output, input, bias)), x
 
-class _FusedBiasDropout(torch.autograd.Function):
-    """Fused bias + dropout function."""
-
-    @staticmethod
-    def forward(ctx, input):
-        pass
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        pass
 
 def fused_bias_gelu(x):
-    pass
+    return _FusedBiasGelu.apply(x)
 
-def fused_bias_dropout():
-    pass
+
+@torch.jit.script
+def fused_bias_dropout_train(input, bias, dropout_prob):
+    return F.dropout(input + bias, p=dropout_prob, training=True)
+
+
+@torch.jit.script
+def fused_bias_dropout_eval(input, bias, dropout_prob):
+    return F.dropout(input + bias, p=dropout_prob, training=False)
