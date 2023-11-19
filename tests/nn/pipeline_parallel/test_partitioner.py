@@ -25,6 +25,7 @@ def get_bloom_and_tokenizer(n_layer=12):
     ), AutoTokenizer.from_pretrained("bigscience/bloom-560m")
 
 
+# TODO: Also add a function for a generic nn.Transformer model
 def run_model_partitioner(
     rank,
     world_size,
