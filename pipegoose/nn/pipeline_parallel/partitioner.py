@@ -11,6 +11,25 @@ from pipegoose.distributed.parallel_mode import ParallelMode
 from transformers.utils.fx import symbolic_trace
 
 
+def _snake_case(s: str) -> str:
+    """
+    Transforms the given string ``s`` to a Python-style variable name
+
+    Examples:
+        ``mod.snake_case`` -> ``mod.snake_case``
+        ``mod.pascalCase``-> ``mod.pascal_case``
+        ``mod.ALL_CAPS`` -> ``mod.all_caps``
+    """
+    chars = []
+    prev_lower = False
+    for c in s:
+        if prev_lower and c.isupper():
+            chars.append("_")
+        chars.append(c.lower())
+        prev_lower = c.islower()
+    return "".join(chars)
+
+
 class PartitionPolicy(Enum):
     UNIFORM = auto()
 
@@ -27,6 +46,7 @@ class UniformPartitioner(BasePartitioner):
     def __init__(self, model: nn.Module, parallel_context: ParallelContext):
         self.model = model
         self.parallel_context = parallel_context
+
 
     def _split_nodes(
         self, traced_graph_module: torch.fx.GraphModule, shard_count: int = 3
@@ -127,6 +147,11 @@ class UniformPartitioner(BasePartitioner):
 
         nodes_per_shard = defaultdict(dict)
 
+        print(f"node_name_to_shard_id: {node_name_to_shard_id}")
+
+        # for i, node in enumerate(node_name_to_shard_id):
+        #   print(f"Node {i} is {node} and shard id is {node_name_to_shard_id[node]}")
+
         prev_shard_id = 1000
         prev_node = None
         for node in symbolic_traced_module.graph.nodes:
@@ -178,7 +203,7 @@ class UniformPartitioner(BasePartitioner):
                 module_list.append(torch.fx.GraphModule(model, new_graph))
                 break
             prev_node = new_node
-            prev_shard_id = node_name_to_shard_id[node.name]
+            # prev_shard_id = node_name_to_shard_id[node.name]
 
         return module_list
 
