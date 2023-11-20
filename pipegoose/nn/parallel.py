@@ -1,11 +1,11 @@
 from abc import abstractclassmethod
 from dataclasses import dataclass
 from functools import partial
-from typing import cast
+from typing import cast, List
 
 import torch
-from torch import nn
-
+from torch import nn, fx
+from pipegoose.nn.fusion import FusedLayer
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 
@@ -55,6 +55,27 @@ class Parallel:
         setattr(module, "to", partial(_to_device, module))
         setattr(module, "cuda", partial(_to_cuda, module))
 
+    def fuse(self, fused_layers: List[FusedLayer]) -> None:
+        """
+        In place fusion of the model's layers according to list of input layers defined in pipegoose.nn.fusion
+        """
+        fx_model = fx.symbolic_trace(self.module)
+        modules = dict(fx_model.named_modules())
+
+        for node in fx_model.graph.nodes:
+            if node.op != "call_module":
+                continue
+
+            for fused_layer in fused_layers:
+                if type(modules[node.target]) is fused_layer.represents:
+                    # Replace the layer with its fused counterpart
+                    *parent, name = node.target.rsplit(".", 1)
+                    setattr(modules[(parent[0] if parent else "")], name, fused_layer)
+
+        fx_model.graph.lint()
+        fx_model.recompile
+        return fx_model
+
 
 def _to_device(self, device: str):
     """Move a parallelized module to accelerators."""
@@ -71,7 +92,9 @@ def _to_device(self, device: str):
     parallel_metadata = cast(ParallelMetadata, getattr(self, "parallel_metadata", None))
 
     assert parallel_metadata is not None, "Module is not parallelized yet"
-    assert device in SUPPORTED_DEVICES, f"Device must be one of {SUPPORTED_DEVICES}, got {device}"
+    assert (
+        device in SUPPORTED_DEVICES
+    ), f"Device must be one of {SUPPORTED_DEVICES}, got {device}"
     assert not is_specific_device(
         device
     ), f'Moving to a specific device {device} is not supported. pipegoose will handle device assignment automatically. Please use "cuda" instead'
