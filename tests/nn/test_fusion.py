@@ -11,7 +11,7 @@ def test_FusedBiasDropout():
     fused_bias_dropout = FusedBiasDropout(
         dropout_p=dropout_p, inplace=inplace
     )
-
+    initial_seed = torch.initial_seed()
     input = torch.randn(20, 16)
     bias = torch.randn(16)
     torch.manual_seed(0)
@@ -25,6 +25,7 @@ def test_FusedBiasDropout():
     assert actual.size() == expected.size()
     assert torch.allclose(actual, expected)
     assert fused_bias_dropout.represents == Dropout
+    torch.manual_seed(initial_seed)
 
 
 def test_FusedBiasGelu():
