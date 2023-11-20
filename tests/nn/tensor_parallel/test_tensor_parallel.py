@@ -29,10 +29,19 @@ def tokenizer():
 
 
 def run_parallelize_a_transformers_and_inference(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, kwargs
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    kwargs,
 ):
     def is_parallelized(module):
-        return isinstance(module, (ParallelEmbedding, ColumnParallelLinear, RowParallelLinear, LayerNorm))
+        return isinstance(
+            module,
+            (ParallelEmbedding, ColumnParallelLinear, RowParallelLinear, LayerNorm),
+        )
 
     torch.use_deterministic_algorithms(True)
     torch.manual_seed(42)
@@ -53,10 +62,18 @@ def run_parallelize_a_transformers_and_inference(
 
     # NOTE: we don't parallelize dropout layers
     # and activation functions
-    SKIP_MODULES = {type(model.transformer.h[0].mlp.gelu_impl), type(model.transformer.h[0].self_attention.attention_dropout)}
+    SKIP_MODULES = {
+        type(model.transformer.h[0].mlp.gelu_impl),
+        type(model.transformer.h[0].self_attention.attention_dropout),
+    }
 
     parallel_context = init_parallel_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+        rank,
+        world_size,
+        port,
+        tensor_parallel_size,
+        pipeline_parallel_size,
+        data_parallel_size,
     )
 
     parallelized_model = TensorParallel(model, parallel_context).parallelize()
@@ -69,14 +86,23 @@ def run_parallelize_a_transformers_and_inference(
         if type(module) in SKIP_MODULES:
             continue
 
-        assert is_parallelized(module) is True, f"module {module_name} is not parallelized"
+        assert (
+            is_parallelized(module) is True
+        ), f"module {module_name} is not parallelized"
 
     generated_tokens = parallelized_model.generate(**input, **generation_configs)
     assert torch.allclose(generated_tokens, REF_GENERATED_TOKENS)
 
 
+def test_data_parllel_fused_bias_gelu_bias_dropout_fwd():
+    # TODO
+    pass
+
+
 @pytest.mark.parametrize("tensor_parallel_size", [2, 4])
-def test_parallelize_a_transformer_and_inference(model, tokenizer, tensor_parallel_size):
+def test_parallelize_a_transformer_and_inference(
+    model, tokenizer, tensor_parallel_size
+):
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 
@@ -119,7 +145,13 @@ def test_parallelize_a_transformer_and_inference(model, tokenizer, tensor_parall
 
 
 def run_backward_a_parallelized_transformers(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, kwargs
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    kwargs,
 ):
     model = deepcopy(kwargs["model"])
     lr = kwargs["lr"]
@@ -127,7 +159,12 @@ def run_backward_a_parallelized_transformers(
     labels = kwargs["labels"]
 
     parallel_context = init_parallel_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+        rank,
+        world_size,
+        port,
+        tensor_parallel_size,
+        pipeline_parallel_size,
+        data_parallel_size,
     )
 
     parallelized_model = TensorParallel(model, parallel_context).parallelize()
@@ -142,7 +179,9 @@ def run_backward_a_parallelized_transformers(
 
 
 @pytest.mark.parametrize("tensor_parallel_size", [2, 4])
-def test_backward_pass_a_parallelized_transformers(model, tokenizer, tensor_parallel_size):
+def test_backward_pass_a_parallelized_transformers(
+    model, tokenizer, tensor_parallel_size
+):
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
 
