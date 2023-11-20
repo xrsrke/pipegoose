@@ -68,5 +68,5 @@ class FusedBiasDropout(_DropoutNd, FusedLayer):
 
     def forward(self, input: Tensor, bias: Tensor):
         return fused_bias_dropout(
-            input, bias, self.dropout_p, self.training, self.inplace
+            input, bias, self.p, self.training, self.inplace
         )
