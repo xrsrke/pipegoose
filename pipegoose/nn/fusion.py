@@ -1,5 +1,5 @@
 import torch
-from typing import Any, Type
+from typing import Type
 from torch import Tensor
 from torch.nn import functional as F
 from torch.nn import GELU, Dropout, Module
@@ -45,21 +45,28 @@ class FusedBiasGelu(torch.autograd.Function, FusedLayer):
 
 @torch.jit.script
 def fused_bias_dropout(
-    input: Tensor, bias: Tensor, dropout_prob: float, training: bool, inplace: bool = False
+    input: Tensor,
+    bias: Tensor,
+    dropout_prob: float,
+    training: bool,
+    inplace: bool = False,
 ) -> Tensor:
     # type: (Tensor, Tensor, float, bool, bool) -> Tensor
     return F.dropout(input + bias, p=dropout_prob, training=training, inplace=inplace)
 
 
-class FusedBiasDropout(Module, FusedLayer):
-    """Fused dropout + bias function."""
+class FusedBiasDropout(_DropoutNd, FusedLayer):
+    """
+    Fused dropout + bias function.
+    See: https://pytorch.org/docs/stable/_modules/torch/nn/modules/dropout.html#Dropout
+    """
 
     represents = Dropout
 
     def __init__(self, dropout_p: float, inplace: bool = True):
-        super().__init__()
-        self.dropout_p = dropout_p
-        self.inplace = inplace
+        super().__init__(p=dropout_p, inplace=inplace)
 
     def forward(self, input: Tensor, bias: Tensor):
-        return fused_bias_dropout(input, bias, self.dropout_p, self.training, self.inplace)
+        return fused_bias_dropout(
+            input, bias, self.dropout_p, self.training, self.inplace
+        )
