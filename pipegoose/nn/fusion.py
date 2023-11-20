@@ -3,6 +3,7 @@ from typing import Any, Type
 from torch import Tensor
 from torch.nn import functional as F
 from torch.nn import GELU, Dropout, Module
+from torch.nn.modules.dropout import _DropoutNd
 
 
 class FusedLayer:
@@ -44,23 +45,21 @@ class FusedBiasGelu(torch.autograd.Function, FusedLayer):
 
 @torch.jit.script
 def fused_bias_dropout(
-    input: Tensor, bias: Tensor, dropout_prob: float, training: bool
+    input: Tensor, bias: Tensor, dropout_prob: float, training: bool, inplace: bool = False
 ) -> Tensor:
-    # type: (Tensor, Tensor, float, bool) -> Tensor
-    return F.dropout(input + bias, p=dropout_prob, training=training)
+    # type: (Tensor, Tensor, float, bool, bool) -> Tensor
+    return F.dropout(input + bias, p=dropout_prob, training=training, inplace=inplace)
 
 
-class FusedBiasDropout(torch.autograd.Function, FusedLayer):
+class FusedBiasDropout(Module, FusedLayer):
     """Fused dropout + bias function."""
 
     represents = Dropout
 
-    @staticmethod
-    def forward(ctx, input, bias, dropout_prob: float, training: bool):
-        return fused_bias_dropout(input, bias, dropout_prob, training)
+    def __init__(self, dropout_p: float, inplace: bool = True):
+        super().__init__()
+        self.dropout_p = dropout_p
+        self.inplace = inplace
 
-    @staticmethod
-    def backward(ctx, grad_output) -> Any:
-        # TODO: How should this behave during eval vs. training? And how do we detect which mode
-        #  we're in given that this is a static method?
-        return grad_output
+    def forward(self, input: Tensor, bias: Tensor):
+        return fused_bias_dropout(input, bias, self.dropout_p, self.training, self.inplace)
