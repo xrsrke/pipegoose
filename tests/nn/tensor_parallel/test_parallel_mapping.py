@@ -1,4 +1,4 @@
-from pipegoose.nn.tensor_parallel.parallel_mapping import ParallelMapping
+from pipegoose.nn.tensor_parallel.parallel_mapping import TensorParallelMapping
 
 
 def test_is_column_parallel_mapping(model):
@@ -7,7 +7,7 @@ def test_is_column_parallel_mapping(model):
     mappings = {}
 
     for name, _ in model.named_modules():
-        mappings[name] = ParallelMapping.is_column_parallel(name)
+        mappings[name] = TensorParallelMapping.is_column_parallel(name)
 
     for layer_idx in range(len(model.transformer.h)):
         assert mappings[BLOOM_DENSE_H_TO_4H_NAME.format(layer_idx)] is True
@@ -21,7 +21,7 @@ def test_is_row_parallel_mapping(model):
     mappings = {}
 
     for name, _ in model.named_modules():
-        mappings[name] = ParallelMapping.is_row_parallel(name)
+        mappings[name] = TensorParallelMapping.is_row_parallel(name)
 
     for layer_idx in range(len(model.transformer.h)):
         assert (
@@ -38,6 +38,6 @@ def test_is_lm_head_mapping(model):
     mappings = {}
 
     for name, _ in model.named_modules():
-        mappings[name] = ParallelMapping.is_lm_head(name)
+        mappings[name] = TensorParallelMapping.is_lm_head(name)
 
     assert mappings[BLOOM_LM_HEAD_NAME] is True, f"{BLOOM_LM_HEAD_NAME} is not language model head"
