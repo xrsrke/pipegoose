@@ -17,8 +17,11 @@ def test_FusedBiasDropout():
     torch.manual_seed(0)
 
     expected = Dropout(p=dropout_p, inplace=inplace)(input + bias)
+    # Reset manual seed after each random operation
+    torch.manual_seed(0)
+
     actual = fused_bias_dropout(input, bias)
-    
+    import pdb; pdb.set_trace()
     assert actual.size() == expected.size()
     assert torch.allclose(actual, expected)
     assert fused_bias_dropout.represents == Dropout
