@@ -4,8 +4,7 @@ from transformers import (
     AutoTokenizer,
     GPT2LMHeadModel,
     GPT2Config,
-    BloomForCausalLM,
-    BloomConfig,
+    AutoModelForCausalLM,
 )
 from pipegoose.nn.pipeline_parallel.partitioner import (  # PartitionPolicy,; get_model_partition,
     UniformPartitioner,
@@ -19,9 +18,9 @@ def get_gpt2_and_tokenizer(n_layer=12):
     )
 
 
-def get_bloom_and_tokenizer(n_layer=12):
-    return BloomForCausalLM(
-        BloomConfig(n_layer=n_layer)
+def get_bloom_and_tokenizer():
+    return AutoModelForCausalLM.from_pretrained(
+        "bigscience/bloom-560m"
     ), AutoTokenizer.from_pretrained("bigscience/bloom-560m")
 
 
