@@ -94,7 +94,7 @@ def run_parallelize_a_transformers_and_inference(
     assert torch.allclose(generated_tokens, REF_GENERATED_TOKENS)
 
 
-def test_data_parllel_fused_bias_gelu_bias_dropout_fwd():
+def test_tensor_parallel_fused_bias_gelu_bias_dropout_fwd():
     # TODO
     pass
 

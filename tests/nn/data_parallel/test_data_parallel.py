@@ -59,7 +59,7 @@ def run_parallelize_a_transformers_and_inference(
     assert torch.allclose(outputs["loss"], REF_LOSS)
 
 
-def test_data_parllel_fused_bias_gelu_bias_dropout_fwd():
+def test_data_parallel_fused_bias_gelu_bias_dropout_fwd():
     # TODO
     pass
 
