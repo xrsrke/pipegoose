@@ -52,21 +52,23 @@ class UniformPartitioner(BasePartitioner):
             name = name.replace(".", "_")
             param_count[name] = param.numel()
 
-        total_param_count = 0
+        exclude_param_count = 0
         for name, module in traced_graph_module.named_modules():
-            if len(name) > 0 and name.count(".") == 0:
-                # also note that the parameters of the lm_head for some models (e.g. GPT2) are not
-                # considered in named_parameters(). therefore, we must count the parameters using
-                # named_modules.
-                # we recursively go deeper into the modules, we cannot naively count the parameters of each module,
-                # because we then would count the same parameter multiple times. hence, we only count the
-                # parameters of the top-level modules.
-                total_param_count += sum([x.numel() for x in module.parameters()])
+            # exclude embedding layers
+            if isinstance(module, nn.Embedding):
+                name = name.replace(".", "_")
+                exclude_param_count += sum([x.numel() for x in module.parameters()])
+                param_count[name] = 0
+                continue
 
             name = name.replace(".", "_")
             param_count[name] = sum([x.numel() for x in module.parameters()])
 
-        per_shard_param = total_param_count // shard_count
+        # Note that we use param_count[""] as total parameters which does not include the
+        # lm_head. We want to exclude the lm_head and the embeddings here because they
+        # usually cause high skew which does not lead to equal partitioning of the
+        # transformer blocks.
+        per_shard_param = (param_count[""] - exclude_param_count) // shard_count
 
         node_name_to_shard_id: Dict[str, int] = {}
         shard_id = 0
@@ -81,7 +83,8 @@ class UniformPartitioner(BasePartitioner):
             if node.op in ("call_module", "get_attr"):
                 # call_module and get_attr are the two operations which involve accessing parameters
                 current_param_count = param_count.get(node.name, 0)
-                if (
+
+                if shard_id_to_param_count[shard_id] > 0 and (
                     shard_id_to_param_count[shard_id] + current_param_count
                 ) >= per_shard_param and (shard_id + 1) < shard_count:
                     shard_id += 1
