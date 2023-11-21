@@ -39,6 +39,9 @@ def run_expert_layer(
         data_parallel_size,
     )
 
+    torch.manual_seed(42)
+    torch.cuda.manual_seed(42)
+
     expert_layer = ExpertLayer(
         num_experts,
         expert,
@@ -66,9 +69,9 @@ def test_expert_layer(tensor_parallel_size, num_experts, enable_tensor_parallel)
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
     WORLD_SIZE = tensor_parallel_size * PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE
-    HIDDEN_SIZE = 64
+    BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE = 5, 10, 64
 
-    inputs = torch.randn(5, 10, HIDDEN_SIZE)
+    inputs = torch.randn(BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE)
     expert = nn.Sequential(
         nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE * 4),
         nn.ReLU(),

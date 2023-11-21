@@ -4,6 +4,7 @@ from torchtyping import TensorType
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.nn.expert_parallel.experts import Experts
 from pipegoose.nn.expert_parallel.routers import Router
+from pipegoose.nn.expert_parallel.utils import get_num_local_experts
 
 
 class ExpertLayer(nn.Module):
@@ -23,7 +24,12 @@ class ExpertLayer(nn.Module):
     ):
         super().__init__()
         self.router = router
-        self._experts = Experts(num_experts, expert, enable_tensor_parallel, parallel_context)
+        if enable_tensor_parallel is True:
+            self.num_local_experts = num_experts
+        else:
+            self.num_local_experts = get_num_local_experts(num_experts, parallel_context)
+
+        self._experts = Experts(self.num_local_experts, expert, enable_tensor_parallel, parallel_context)
         self.parallel_context = parallel_context
 
     @property

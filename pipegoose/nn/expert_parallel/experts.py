@@ -17,24 +17,18 @@ class Experts(nn.Module):
 
     def __init__(
         self,
-        num_experts: int,
+        num_local_experts: int,
         expert: nn.Module,
         enable_tensor_parallel: bool,
         parallel_context: ParallelContext,
     ):
         super().__init__()
-        self.num_experts = num_experts
         self.enable_tensor_parallel = enable_tensor_parallel
         self.parallel_context = parallel_context
 
-        if enable_tensor_parallel is True:
-            self.num_local_experts = num_experts
-        else:
-            expert_parallel_size = parallel_context.get_world_size(ParallelMode.TENSOR)
-            self.num_local_experts = num_experts // expert_parallel_size
-
         expert = expert() if not isinstance(expert, nn.Module) else expert
-        self.experts = nn.ModuleList([deepcopy(expert) for _ in range(self.num_local_experts)])
+        self.num_local_experts = num_local_experts
+        self.experts = nn.ModuleList([deepcopy(expert) for _ in range(num_local_experts)])
 
     def forward(
         self,
@@ -44,14 +38,24 @@ class Experts(nn.Module):
         **kwargs,
     ) -> TensorType["batch_size", "seq_len", "d_model"]:
         outputs = torch.zeros_like(inputs)
+
         for expert_idx, expert in enumerate(self.experts):
-            print(f"expert_idx={expert_idx}")
             dispatched_inputs, indices = self._get_dispatch_inputs(inputs, dispatch_order, expert_idx)
             if dispatched_inputs.numel() == 0:
                 # NOTE: if there are no tokens to dispatch to the expert, skip the expert
                 continue
 
-            outputs.view(-1, outputs.size(-1))[indices] = expert(dispatched_inputs, *args[1][:, indices], **kwargs)
+            if len(args) > 1:
+                # NOTE: In some transformers models, it also passes last
+                # hidden states or other arguments to the MLP expert.
+                # how do we detect this and pass the corresponding arguments to the expert?
+                # For example, hidden_states.shape = (batch_size, seq_len, hidden_size),
+                # but we need to dispatch the hidden_states to the corresponding expert
+                expert_output = expert(dispatched_inputs, *args[1][:, indices], **kwargs)
+            else:
+                expert_output = expert(dispatched_inputs)
+
+            outputs.view(-1, outputs.size(-1))[indices] = expert_output
 
         all_reduce(
             outputs,
@@ -62,6 +66,7 @@ class Experts(nn.Module):
 
         return outputs
 
+    @torch.no_grad()
     def _get_dispatch_inputs(
         self,
         inputs: TensorType["batch_size", "seq_len", "d_model"],
