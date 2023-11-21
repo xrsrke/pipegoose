@@ -42,6 +42,8 @@ class DistributedLogger:
             print(log)
             # Add code to save the message to a file
             self._save_log("logs/", log)
+        else:
+            print(f"Process {self.parallel_context.get_global_rank()} is not part of the {parallel_mode} parallel mode")
             
 
 
