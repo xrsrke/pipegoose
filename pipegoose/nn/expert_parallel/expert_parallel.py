@@ -29,13 +29,13 @@ class ExpertParallel(Parallel):
         enable_tensor_parallelism: bool = False,
         parallel_context: ParallelContext = None,
     ):
-        expert_parallel_size = parallel_context.get_world_size(ParallelMode.TENSOR)
+        tensor_parallel_size = parallel_context.get_world_size(ParallelMode.TENSOR)
         assert parallel_context is not None, "parallel_context must be provided"
-        assert num_experts % expert_parallel_size == 0, "The number of experts must be divisible by the tensor parallel size."
+        assert num_experts % tensor_parallel_size == 0, "The number of experts must be divisible by the tensor parallel size."
         num_layers = module.config.num_hidden_layers
         assert [
             0 <= i < num_layers for i in mapping
-        ], "fThere is a layer index that out of range. Expected range: [0, {num_layers}-1]"
+        ], f"There is a layer index that out of range. Expected range: [0, {num_layers}-1]"
 
         if mapping is None:
             # NOTE: default mapping is to parallelize all MLP layers

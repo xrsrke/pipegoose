@@ -4,6 +4,7 @@ from functools import partial
 import numpy as np
 import pytest
 import torch
+from torch.optim import Adam
 from transformers import AutoTokenizer, BloomConfig, BloomForCausalLM
 
 from pipegoose.nn import ExpertParallel
@@ -48,12 +49,33 @@ def run_expert_parallel(
     mapping = kwargs["mapping"]
     router = kwargs["router"]
     REF_LOSS = kwargs["ref_loss"]
+    REF_LOGITS = kwargs["ref_logits"]
     NUM_EXPERTS = kwargs["num_experts"]
 
+    # TODO: remove after adding seed to parallel_context
     random.seed(42)
     np.random.seed(42)
     torch.manual_seed(42)
-    torch.use_deterministic_algorithms(True)
+
+    # NOTE: add hooks to all experts, and record which experts are routed to
+    # then check if the gradients are flowing to those routed experts
+    # and not flowing to other non-routed experts
+    routed_experts = set()
+
+    def get_layer_idx(name):
+        return int(name.split(".")[2])
+
+    def record_dispatch_experts(model):
+        def log_routed_expert(module, grad_input, grad_output, key):
+            if grad_output[0] is not None:
+                routed_experts.add(key)
+
+        for name, module in model.named_modules():
+            if isinstance(module, ExpertLayer):
+                layer_idx = get_layer_idx(name)
+                for expert_idx, expert in enumerate(module.experts):
+                    key = (layer_idx, expert_idx)
+                    expert.register_backward_hook(partial(log_routed_expert, key=key))
 
     parallel_context = init_parallel_context(
         rank,
@@ -70,6 +92,7 @@ def run_expert_parallel(
         router=router,
         parallel_context=parallel_context,
     ).parallelize()
+    optim = Adam(model.parameters(), lr=1e-3)
 
     # NOTE: check the specified layers are replaced with expert layers
     assert [isinstance(model.transformer.h[i].mlp, ExpertLayer) for i in mapping].count(True) == len(mapping)
@@ -86,21 +109,7 @@ def run_expert_parallel(
             num_experts = len(module.experts)
             assert num_experts == NUM_LOCAL_EXPERTS
 
-    # NOTE: add hooks to all experts, and record which experts are routed to
-    # then check if the gradients are flowing to those routed experts
-    # and not flowing to other non-routed experts
-    routed_experts = set()
-
-    def log_routed_expert(module, grad_input, grad_output, key):
-        if grad_output[0] is not None:
-            routed_experts.add(key)
-
-    for name, module in model.named_modules():
-        if isinstance(module, ExpertLayer):
-            layer_idx = int(name.split(".")[2])
-            for expert_idx, expert in enumerate(module.experts):
-                key = (layer_idx, expert_idx)
-                expert.register_backward_hook(partial(log_routed_expert, key=key))
+    record_dispatch_experts(model)
 
     # NOTE: test the parameters of the MoE model to be equal to
     # the original model without that parallelized expert layer,
@@ -111,14 +120,18 @@ def run_expert_parallel(
     outputs = model(**kwargs["input"], labels=kwargs["labels"])
 
     # assert torch.allclose(outputs.logits, REF_LOGITS)
+    assert outputs.logits.shape == REF_LOGITS.shape
     assert torch.allclose(outputs.loss, REF_LOSS)
 
+    optim.zero_grad()
     outputs.loss.backward()
+    optim.step()
 
-    # NOTE: After the backward pass, check if the gradients are updated for the routed experts
+    # NOTE: After the backward pass, check if the gradients flowing to the routed experts
+    # and not flowing to other non-routed experts
     for name, module in model.named_modules():
         if isinstance(module, ExpertLayer):
-            layer_idx = int(name.split(".")[2])
+            layer_idx = get_layer_idx(name)
             for expert_idx, expert in enumerate(module.experts):
                 if (layer_idx, expert_idx) in routed_experts:
                     assert all(p.grad is not None for p in expert.parameters())
@@ -126,23 +139,17 @@ def run_expert_parallel(
                     assert all(p.grad is None for p in expert.parameters())
 
 
-@pytest.mark.parametrize("tensor_parallel_size", [1, 2, 8])
-def test_expert_parallel(model, tokenizer, tensor_parallel_size):
+@pytest.mark.parametrize("tensor_parallel_size, num_experts", [(1, 1), (2, 2), (2, 4), (2, 8), (8, 8)])
+def test_expert_parallel(model, tokenizer, tensor_parallel_size, num_experts):
     PIPELINE_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
     WORLD_SIZE = tensor_parallel_size * PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE
 
     NUM_LAYERS = model.config.num_hidden_layers
-    NUM_EXPERTS = 8
     NUM_EXPERT_LAYERS = 2
 
-    random.seed(42)
-    np.random.seed(42)
-    torch.manual_seed(42)
-    torch.use_deterministic_algorithms(True)
-
     mapping = [layer_idx for layer_idx in random.sample(range(NUM_LAYERS - 1), NUM_EXPERT_LAYERS)]
-    router = DummyRouter(NUM_EXPERTS)
+    router = DummyRouter(num_experts)
 
     text = "Persistence is all you need."
     input = tokenizer(text, return_tensors="pt")
@@ -153,7 +160,7 @@ def test_expert_parallel(model, tokenizer, tensor_parallel_size):
         "labels": input["input_ids"],
         "model": model,
         "mapping": mapping,
-        "num_experts": NUM_EXPERTS,
+        "num_experts": num_experts,
         "router": router,
         "ref_logits": outputs.logits.detach(),
         "ref_loss": outputs.loss.detach(),
