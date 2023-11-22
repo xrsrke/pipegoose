@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, random_split
-from torchinfo import summary
 
 from pipegoose.utils.logger import Logger
 
@@ -12,13 +11,13 @@ def seed_everything(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 class NN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(self, input_size, output_size):
         super(NN, self).__init__()
-        self.out = nn.Linear(input_size, output_size)
+        self.debug_single_mlp = nn.Linear(input_size, output_size)
 
     def forward(self, x):
         x = torch.flatten(x, 1)
-        x = self.out(x)
+        x = self.debug_single_mlp(x)
         return x
 
 class MNISTloader:
@@ -99,12 +98,12 @@ class MNISTloader:
 
 if __name__ == "__main__":
     seed_everything(42)
-    LR = 0.0001
-    EPOCHS = 5
+    LR = 0.001
+    EPOCHS = 10
 
-    model = NN(input_size=32 * 32, hidden_size=512, output_size=10)
+    model = NN(input_size=32 * 32, output_size=10)
     device = torch.device("cuda")
-    optimizer = optim.Adam(model.parameters(), LR)
+    optimizer = optim.SGD(model.parameters(), LR)
     criterion = nn.CrossEntropyLoss()
     train_loader, _, _ = MNISTloader(train_val_split=0.).load()
 
