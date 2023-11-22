@@ -108,10 +108,10 @@ if __name__ == "__main__":
     DATA_PARALLEL_SIZE = 1
     TENSOR_PARALLEL_SIZE = 2
     PIPELINE_PARALLEL_SIZE = 1
-    NUM_EPOCHS = 10
+    NUM_EPOCHS = 30
     LR = 2e-1
     SEED = 42
-    BATCH_SIZE = 4
+    BATCH_SIZE = 1024
 
     torch.cuda.empty_cache()
     set_seed(SEED)
@@ -129,7 +129,16 @@ if __name__ == "__main__":
     Logger()(f"rank={rank}, initialized parallel_context")
 
     dp_rank = parallel_context.get_local_rank(ParallelMode.DATA)
-    train_dataloader, _, _ = MNISTloader(train_val_split=0.99).load()
+    # train_dataloader, _, _ = MNISTloader(batch_size=BATCH_SIZE).load()
+    # for batch_idx, (debug_batch, debug_target) in enumerate(train_dataloader):
+    #     break
+    # Dump batch of data to reload later
+    # torch.save(debug_batch, "debug_batch.pt")
+    # torch.save(debug_target, "debug_target.pt")
+
+    # Load batch of data
+    debug_batch = torch.load("debug_batch.pt")
+    debug_target = torch.load("debug_target.pt")
 
     model = NN(input_size=32 * 32, output_size=10)
     model.load_state_dict(torch.load("model.pt"))
@@ -180,44 +189,43 @@ if __name__ == "__main__":
             },
         )
 
+        # wandb log image
+        # wandb.log({"examples": [wandb.Image(img.numpy()) for img in debug_batch]})
+
     for epoch in range(NUM_EPOCHS):
         Logger()(f"rank={rank}, epoch={epoch}")
 
         train_loss_running, train_acc_running = 0, 0
-
-        for inputs, labels in train_dataloader:
             
-            inputs, labels = inputs.to(device), labels.to(device)
-            
-            outputs = model(inputs)
-            _, predictions = torch.max(outputs, dim=1)
-            loss = criterion(outputs, labels)
+        inputs, labels = debug_batch.to(device), debug_target.to(device)
+        
+        outputs = model(inputs)
+        _, predictions = torch.max(outputs, dim=1)
+        loss = criterion(outputs, labels)
 
-            ref_outputs = ref_model(inputs)
-            _, ref_predictions = torch.max(ref_outputs, dim=1)
-            ref_loss = ref_criterion(ref_outputs, labels)
+        ref_outputs = ref_model(inputs)
+        _, ref_predictions = torch.max(ref_outputs, dim=1)
+        ref_loss = ref_criterion(ref_outputs, labels)
 
-            optim.zero_grad()
-            loss.backward()
-            optim.step()
+        optim.zero_grad()
+        loss.backward()
+        optim.step()
 
-            ref_optim.zero_grad()
-            ref_loss.backward()
-            ref_optim.step()
+        ref_optim.zero_grad()
+        ref_loss.backward()
+        ref_optim.step()
 
-            Logger()(f"epoch={epoch}, step={step}, rank={rank}, train_loss={loss}, ref_train_loss={ref_loss}")
+        Logger()(f"epoch={epoch}, rank={rank}, train_loss={loss}, ref_train_loss={ref_loss}")
 
-            if rank == 0:
-                wandb.log(
-                    {
-                        "train_loss": loss,
-                        "ref_train_loss": ref_loss,
-                        "step": step,
-                        "epoch": epoch,
-                    }
-                )
+        if rank == 0:
+            wandb.log(
+                {
+                    "train_loss": loss,
+                    "ref_train_loss": ref_loss,
+                    "epoch": epoch,
+                }
+            )
 
-            step += 1
 
     dist.barrier()
     wandb.finish()

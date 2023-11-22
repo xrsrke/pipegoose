@@ -99,7 +99,7 @@ class MNISTloader:
 if __name__ == "__main__":
     seed_everything(42)
     LR = 0.001
-    EPOCHS = 10
+    EPOCHS = 30
 
     model = NN(input_size=32 * 32, output_size=10)
     device = torch.device("cuda")
@@ -135,5 +135,4 @@ if __name__ == "__main__":
 
         info = "Epoch: {:3}/{} \t train_loss: {:.3f} \t train_acc: {:.3f}"
         Logger()(info.format(epoch + 1, EPOCHS, train_loss, train_acc))
-
-    torch.save(model.state_dict(), "model.pt")
+        torch.save(model.state_dict(), "model.pt")
