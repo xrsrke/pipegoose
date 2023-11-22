@@ -1,0 +1,43 @@
+from typing import Callable
+
+import torch
+from torch import nn
+
+from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.nn.parallel import Parallel
+
+
+class ExpertParallel(Parallel):
+    """
+    Turn a module into an Mixture of Experts module.
+
+    NOTE: The architecture is based on "A Flexible MoE Implementation with Pipeline Parallelism" by Xin Chen et al.
+    https://arxiv.org/abs/2304.11414
+    """
+
+    def __init__(
+        self,
+        module: nn.Module,
+        num_experts: int,
+        expert: nn.Module,
+        router: Callable,
+        noise_poligy: Callable,
+        enable_tensor_parallelism: bool = True,
+        parallel_context: ParallelContext = None,
+    ):
+        assert parallel_context is not None, "parallel_context must be provided"
+        self.module = module
+        self.num_experts = num_experts
+        self.expert = expert
+        self.router = router
+        self.noise_policy = noise_poligy
+        self.enable_tensor_parallelism = enable_tensor_parallelism
+        self.parallel_context = parallel_context
+
+    @torch.no_grad()
+    def parallelize(self):
+        pass
+
+    @torch.no_grad()
+    def deparallelize(self):
+        pass
