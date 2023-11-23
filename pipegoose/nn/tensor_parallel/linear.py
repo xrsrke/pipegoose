@@ -32,17 +32,16 @@ class ColumnParallelLinear(nn.Module):
 
         if bias is True:
             self.bias = nn.Parameter(torch.randn(out_per_partition))
-
+        else:
+            self.bias = None
+    
     def _get_output_per_partition(self, out_features: int, parallel_context: ParallelContext) -> int:
         local_world_size = parallel_context.get_world_size(ParallelMode.TENSOR)
         return out_features // local_world_size
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         input_parallel = broadcast_to_tensor_group(input, self.parallel_context)
-        outputs = F.linear(input_parallel, self.weight)
-
-        if self.bias is not None:
-            outputs = outputs + self.bias
+        outputs = F.linear(input_parallel, self.weight, self.bias)
 
         if self.gather_output:
             outputs = gather_to_tensor_group(outputs, dim=-1, parallel_context=self.parallel_context)
