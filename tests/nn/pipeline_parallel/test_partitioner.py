@@ -1,23 +1,24 @@
 import pytest
 import torch
 from transformers import (
-    AutoTokenizer,
     AutoModelForCausalLM,
+    AutoTokenizer,
     BloomConfig,
-    BloomForCausalLM
+    BloomForCausalLM,
 )
-from pipegoose.nn.pipeline_parallel.partitioner import (  # PartitionPolicy,; get_model_partition,
-    UniformPartitioner,
-)
+
+from pipegoose.nn.pipeline_parallel.partitioner import UniformPartitioner
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 
 def get_gpt2_and_tokenizer():
-    return AutoModelForCausalLM.from_pretrained("gpt2"), AutoTokenizer.from_pretrained("gpt2")
+    MODEL_NAME = "gpt2"
+    return AutoModelForCausalLM.from_pretrained(MODEL_NAME), AutoTokenizer.from_pretrained(MODEL_NAME)
 
 
 def get_bloom_560m_and_tokenizer():
-    return AutoModelForCausalLM.from_pretrained("bigscience/bloom-560m"), AutoTokenizer.from_pretrained("bigscience/bloom-560m")
+    MODEL_NAME = "bigscience/bloom-560m"
+    return AutoModelForCausalLM.from_pretrained(MODEL_NAME), AutoTokenizer.from_pretrained(MODEL_NAME)
 
 
 def get_bloom_and_tokenizer_with_6_layers():
@@ -52,11 +53,13 @@ def run_model_partitioner(
     gt_logits = model(input_ids=inputs["input_ids"]).logits
 
     partitioned_model = UniformPartitioner(model, parallel_context).split(["input_ids"])
-    assert len(partitioned_model) == pipeline_parallel_size, f"Received model with {len(partitioned_model)} instead of {pipeline_parallel_size}"
+    assert (
+        len(partitioned_model) == pipeline_parallel_size
+    ), f"Received model with {len(partitioned_model)} instead of {pipeline_parallel_size}"
 
     for p in partitioned_model:
         print("==================")
-        print(sum([x.numel() for x in p.parameters()]))
+        print(sum(x.numel() for x in p.parameters()))
         print("==================")
 
     inputs = tokenizer(batch_sentences, padding=True, return_tensors="pt")
@@ -64,24 +67,16 @@ def run_model_partitioner(
     partitioned_model_result = inputs["input_ids"]
     for partition_id in range(pipeline_parallel_size):
         if type(partitioned_model_result) in (list, tuple):
-            partitioned_model_result = partitioned_model[partition_id](
-                *partitioned_model_result
-            )
+            partitioned_model_result = partitioned_model[partition_id](*partitioned_model_result)
         else:
-            partitioned_model_result = partitioned_model[partition_id](
-                partitioned_model_result
-            )
+            partitioned_model_result = partitioned_model[partition_id](partitioned_model_result)
 
     assert torch.allclose(gt_logits, partitioned_model_result), "Results are not close"
 
 
 @pytest.mark.parametrize("pipeline_parallel_size", [2, 3, 4, 5, 6])
 @pytest.mark.parametrize(
-    "model_retrieval_func", [
-        get_gpt2_and_tokenizer,
-        get_bloom_and_tokenizer_with_6_layers,
-        get_bloom_560m_and_tokenizer
-    ]
+    "model_retrieval_func", [get_gpt2_and_tokenizer, get_bloom_and_tokenizer_with_6_layers, get_bloom_560m_and_tokenizer]
 )
 def test_naive_partitioning(pipeline_parallel_size, model_retrieval_func):
     TENSOR_PARALLEL_SIZE = 1
