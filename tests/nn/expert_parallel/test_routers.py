@@ -1,6 +1,6 @@
 import torch
 
-from pipegoose.nn.expert_parallel import Top1Router, Top2Router
+from pipegoose.nn.expert_parallel import Top1Router, Top2Router, SwitchNoisePolicy
 
 
 def run_topk_router(
@@ -19,20 +19,44 @@ def run_topk_router(
     assert loss.shape == ()
 
     total_tokens = batch_size * seq_len
-    expert_capacity = router._expert_capacity(total_tokens)
 
-    for expert_id in range(num_experts):
-        assert dispatch_order[..., expert_id].sum().item() < expert_capacity
+    if hasattr(router, "_expert_capacity") and router.expert_capacity:
+        expert_capacity = router._expert_capacity(total_tokens)
 
-    for token_id in range(total_tokens):
-        assert dispatch_order[token_id, ...].sum().item() <= top_k
+        for expert_id in range(num_experts):
+            assert dispatch_order[..., expert_id].sum().item() < expert_capacity
+
+        for token_id in range(total_tokens):
+            assert dispatch_order[token_id, ...].sum().item() <= top_k
+
+    else:
+        for token_id in range(total_tokens):
+            assert dispatch_order[token_id, ...].sum().item() == top_k
 
 
 def test_top1_router():
     NUM_EXPERTS = 5
     BATCH_SIZE, SEQ_LEN, D_MODEL = 5, 10, 64
 
-    top1_router = Top1Router(NUM_EXPERTS, D_MODEL)
+    noise_policy = SwitchNoisePolicy()
+    top1_router = Top1Router(noise_policy, NUM_EXPERTS, D_MODEL)
+
+    run_topk_router(
+        top1_router,
+        BATCH_SIZE,
+        SEQ_LEN,
+        D_MODEL,
+        NUM_EXPERTS,
+        top_k=1
+    )
+
+
+def test_top1_router_with_expert_capacity():
+    NUM_EXPERTS = 5
+    BATCH_SIZE, SEQ_LEN, D_MODEL = 5, 10, 64
+
+    noise_policy = SwitchNoisePolicy()
+    top1_router = Top1Router(noise_policy, NUM_EXPERTS, D_MODEL, expert_capacity=(1.0, 2.0))
 
     run_topk_router(
         top1_router,
@@ -48,7 +72,25 @@ def test_top2_router():
     NUM_EXPERTS = 5
     BATCH_SIZE, SEQ_LEN, D_MODEL = 5, 10, 64
 
-    top2_router = Top2Router(NUM_EXPERTS, D_MODEL)
+    noise_policy = SwitchNoisePolicy()
+    top2_router = Top2Router(noise_policy, NUM_EXPERTS, D_MODEL)
+
+    run_topk_router(
+        top2_router,
+        BATCH_SIZE,
+        SEQ_LEN,
+        D_MODEL,
+        NUM_EXPERTS,
+        top_k=2
+    )
+
+
+def test_top2_router_with_expert_capacity():
+    NUM_EXPERTS = 5
+    BATCH_SIZE, SEQ_LEN, D_MODEL = 5, 10, 64
+
+    noise_policy = SwitchNoisePolicy()
+    top2_router = Top2Router(noise_policy, NUM_EXPERTS, D_MODEL, expert_capacity=(1.0, 2.0))
 
     run_topk_router(
         top2_router,
