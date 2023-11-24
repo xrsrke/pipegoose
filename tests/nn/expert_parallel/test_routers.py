@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 
 from pipegoose.nn.expert_parallel import Top1Router, Top2Router, SwitchNoisePolicy
 
@@ -11,7 +12,10 @@ def run_topk_router(
     num_experts,
     top_k
 ):
-    input = torch.randn(batch_size, seq_len, d_model)
+    router.train()
+
+    input = torch.randn(batch_size, seq_len, d_model, requires_grad=True)
+
     dispatch_order, gate_values, loss = router(input)
 
     assert dispatch_order.shape == (batch_size*seq_len, num_experts)
@@ -32,6 +36,20 @@ def run_topk_router(
     else:
         for token_id in range(total_tokens):
             assert dispatch_order[token_id, ...].sum().item() == top_k
+
+    # test backwardpass
+
+    target_gate_values = torch.randn_like(gate_values) # Random target for testing
+    loss += F.mse_loss(gate_values, target_gate_values)
+
+    loss.backward()
+
+    # check the gradients
+    assert input.grad is not None, "Input gradient should not be None"
+    assert not torch.all(input.grad == 0), "Input gradient should not be all zeros"
+    for param in router.parameters():
+        assert param.grad is not None, "Parameter gradient should not be None"
+        assert not torch.all(param.grad == 0), "Parameter gradient should not be all zeros"
 
 
 def test_top1_router():
