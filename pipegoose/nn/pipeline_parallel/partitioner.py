@@ -5,7 +5,7 @@ from torch import nn
 import torch
 from typing import Dict
 from collections import defaultdict
-
+import re
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from transformers.utils.fx import symbolic_trace
@@ -27,6 +27,14 @@ class UniformPartitioner(BasePartitioner):
     def __init__(self, model: nn.Module, parallel_context: ParallelContext):
         self.model = model
         self.parallel_context = parallel_context
+
+    def _matches_transformer_block_start(self, node_name: str) -> bool:
+        pattern = r"^transformer_h_\d+_input_layernorm$"
+        return re.match(pattern, node_name) is not None
+
+    def _matches_transformer_block_end(self, node_name: str) -> bool:
+        pattern = r"^transformer_h_\d+_mlp_dense_\d+h_to_h$"
+        return re.match(pattern, node_name) is not None
 
     def _split_nodes(
         self, traced_graph_module: torch.fx.GraphModule, shard_count: int = 3
@@ -69,26 +77,42 @@ class UniformPartitioner(BasePartitioner):
         # usually cause high skew which does not lead to equal partitioning of the
         # transformer blocks.
         per_shard_param = (param_count[""] - exclude_param_count) // shard_count
-
+        original_per_shard_param = per_shard_param
         node_name_to_shard_id: Dict[str, int] = {}
         shard_id = 0
         shard_id_to_param_count = [0 for _ in range(shard_count)]
 
         output_from_shard = {}
-
+        is_transformer_block_ended = True
         for node in traced_graph_module.graph.nodes:
             if node.op == "output":
                 break
 
+            ##While splitting the nodes, we have to check if a node of the transformer block is split into
+            # different shards.
             if node.op in ("call_module", "get_attr"):
+                if self._matches_transformer_block_start(
+                    node.name
+                ) and not self._matches_transformer_block_end(node.name):
+                    per_shard_param += 1
+                    print("started: ", node)
+                elif self._matches_transformer_block_end(node.name):
+                    per_shard_param += 2
+
+                    print("ended: ", node.name)
+
+                print(node.name, shard_id)
                 # call_module and get_attr are the two operations which involve accessing parameters
                 current_param_count = param_count.get(node.name, 0)
 
-                if shard_id_to_param_count[shard_id] > 0 and (
-                    shard_id_to_param_count[shard_id] + current_param_count
-                ) >= per_shard_param and (shard_id + 1) < shard_count:
+                if (
+                    shard_id_to_param_count[shard_id] > 0
+                    and (shard_id_to_param_count[shard_id] + current_param_count)
+                    >= per_shard_param
+                    and (shard_id + 1) < shard_count
+                ):
                     shard_id += 1
-
+                    per_shard_param = original_per_shard_param
                 shard_id_to_param_count[shard_id] += current_param_count
 
             # we need to collect the nodes from the previous shards which are needed in the
