@@ -4,6 +4,7 @@ from functools import partial
 import numpy as np
 import pytest
 import torch
+import torch.nn as nn
 from torch.optim import Adam
 from transformers import AutoTokenizer, BloomConfig, BloomForCausalLM
 
@@ -11,6 +12,8 @@ from pipegoose.nn import ExpertParallel
 from pipegoose.nn.expert_parallel.layers import ExpertLayer
 from pipegoose.nn.expert_parallel.utils import get_num_local_experts
 from pipegoose.testing.utils import init_parallel_context, spawn
+from pipegoose.nn.expert_parallel.routers import RouterOutput
+from pipegoose.nn.expert_parallel.loss import ExpertLoss
 
 MODEL_NAME = "bigscience/bloom-560m"
 
@@ -21,7 +24,12 @@ class DummyRouter:
 
     def __call__(self, inputs):
         n_tokens = inputs.shape[0] * inputs.shape[1]
-        return torch.randint(0, self.num_experts, (n_tokens,)), None, None
+        return RouterOutput(
+            torch.randint(0, self.num_experts, (n_tokens,)),
+            None,
+            torch.tensor(0.0),
+            torch.tensor(0.0),
+        )
 
 
 @pytest.fixture
@@ -77,6 +85,8 @@ def run_expert_parallel(
                     key = (layer_idx, expert_idx)
                     expert.register_backward_hook(partial(log_routed_expert, key=key))
 
+    loss_func = ExpertLoss(nn.CrossEntropyLoss(), aux_weight=0.1, z_weight=0.1)
+
     parallel_context = init_parallel_context(
         rank,
         world_size,
@@ -91,6 +101,7 @@ def run_expert_parallel(
         mapping=mapping,
         router=router,
         parallel_context=parallel_context,
+        expert_context=loss_func.expert_context
     ).parallelize()
     optim = Adam(model.parameters(), lr=1e-3)
 
@@ -117,14 +128,19 @@ def run_expert_parallel(
 
     # NOTE: we haven't go through any weight update yet
     # so the logits should be the same
-    outputs = model(**kwargs["input"], labels=kwargs["labels"])
+    outputs = model(**kwargs["input"])
+
+    # compute the loss
+    logits = outputs.logits[..., :-1, :].view(-1, outputs.logits.shape[-1])
+    labels = kwargs["labels"][..., 1:].view(-1).to(logits.device)
+    loss = loss_func(logits, labels)
 
     # assert torch.allclose(outputs.logits, REF_LOGITS)
     assert outputs.logits.shape == REF_LOGITS.shape
-    assert torch.allclose(outputs.loss, REF_LOSS)
+    assert torch.allclose(loss, REF_LOSS)
 
     optim.zero_grad()
-    outputs.loss.backward()
+    loss.backward()
     optim.step()
 
     # NOTE: After the backward pass, check if the gradients flowing to the routed experts
