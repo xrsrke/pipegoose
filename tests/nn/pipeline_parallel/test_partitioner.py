@@ -96,15 +96,17 @@ def run_model_partitioner(
 @pytest.mark.parametrize(
     "model_retrieval_func",
     [
-        # get_gpt2_and_tokenizer,
+        get_gpt2_and_tokenizer,
         get_bloom_and_tokenizer_with_6_layers,
-        # get_bloom_560m_and_tokenizer,
+        get_bloom_560m_and_tokenizer,
     ],
 )
 def test_naive_partitioning(pipeline_parallel_size, model_retrieval_func):
     TENSOR_PARALLEL_SIZE = 1
     DATA_PARALLEL_SIZE = 1
-
+    print(
+        f"Running test with pipeline_parallel_size={pipeline_parallel_size}, tensor_parallel_size={TENSOR_PARALLEL_SIZE}, data_parallel_size={DATA_PARALLEL_SIZE}"
+    )
     spawn(
         run_model_partitioner,
         world_size=pipeline_parallel_size,
