@@ -7,6 +7,7 @@ from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
+from pipegoose.nn.pipeline_parallel import microbatch
 from pipegoose.nn.pipeline_parallel._comm import RECV_QUEUE
 from pipegoose.nn.pipeline_parallel._job.creator import create_job
 from pipegoose.nn.pipeline_parallel._job.job_type import JobType
@@ -56,13 +57,14 @@ class PipelineEngine:
         self.parallel_context = parallel_context
         self.pipeline_context = PipelineContext(scheduler, parallel_context)
 
-    def run(self, inputs: torch.Tensor) -> torch.Tensor:
+    def run(self, input_ids: torch.LongTensor, attention_mask: torch.FloatTensor) -> torch.Tensor:
         self.worker_manager.spawn()
         self.pipeline_context.forward()
         n_microbatches = self.scheduler.n_microbatches
 
-        # microbatches = microbatch.split(inputs, n_microbatches=n_microbatches)
-        microbatches = torch.chunk(inputs, chunks=n_microbatches, dim=0)
+        inputs = {"input_ids": input_ids, "attention_mask": attention_mask}
+        microbatches = microbatch.split(inputs, n_microbatches=n_microbatches)
+        # microbatches = torch.chunk(inputs, chunks=n_microbatches, dim=0)
 
         # NOTE: add a callback to the progress tracker
         # that if the clock_idx is increased, then

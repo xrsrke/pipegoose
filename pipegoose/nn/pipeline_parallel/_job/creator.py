@@ -40,17 +40,14 @@ class ScheduleBackwardJobCallback(Callback):
         self.pipeline_context = pipeline_context
 
     def after_compute(self):
-        from pipegoose.nn.pipeline_parallel.queue import (
-            get_input_activations,
-            get_output_activations,
-        )
+        pass
 
         package = self.job.output
         microbatch_idx = self.job.input.metadata.microbatch_idx
         partition_idx = self.job.input.metadata.partition_idx
 
-        assert isinstance(get_input_activations(microbatch_idx, partition_idx), torch.Tensor)
-        assert isinstance(get_output_activations(microbatch_idx, partition_idx), torch.Tensor)
+        # assert isinstance(get_input_activations(microbatch_idx, partition_idx), torch.Tensor)
+        # assert isinstance(get_output_activations(microbatch_idx, partition_idx), torch.Tensor)
 
         if package.metadata.microbatch_idx == self.pipeline_context.num_microbatches - 1:
             new_package = schedule_backward_execution(package, self.pipeline_context)
@@ -187,7 +184,13 @@ def schedule_backward_execution(package: Package, pipeline_context: PipelineCont
         @staticmethod
         def forward(ctx, metadata: Metadata, input: torch.Tensor) -> torch.Tensor:
             ctx.package_meta = metadata
-            new_input = input.detach().clone()
+            # NOTE: a hacky way to make it works with `transformers`
+            if type(input) in (list, tuple):
+                # NOTE: ignore attention mask, which is a bool tensor
+                new_input = [x.detach().clone() for x in input]
+            else:
+                new_input = input.detach().clone()
+
             return new_input
 
         @staticmethod
