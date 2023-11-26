@@ -93,11 +93,6 @@ class UniformPartitioner(BasePartitioner):
                 current_param_count = param_count.get(node.name, 0)
                 new_transformer_block_id = self._get_transformer_block_id(node.name)
                 # Check if a new transformer block has started
-                print(
-                    new_transformer_block_id,
-                    current_transformer_block,
-                    new_transformer_block_id != current_transformer_block,
-                )
                 if new_transformer_block_id != current_transformer_block:
                     # End the previous block and start a new one
                     current_transformer_block = new_transformer_block_id
@@ -132,7 +127,6 @@ class UniformPartitioner(BasePartitioner):
                             output_from_shard.setdefault(idx, dict())[arg.name] = None
 
             node_name_to_shard_id[node.name] = shard_id
-            print("node: ", node.name, shard_id)
         return node_name_to_shard_id, output_from_shard
 
     def split(self, input_names: List[str]) -> List[nn.Module]:

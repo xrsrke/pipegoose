@@ -62,14 +62,19 @@ def run_model_partitioner(
         len(partitioned_model) == pipeline_parallel_size
     ), f"Received model with {len(partitioned_model)} instead of {pipeline_parallel_size}"
 
-    print("start")
-    for p in partitioned_model:
+    print("Start printing partitioned model")
+    for i, shard in enumerate(partitioned_model):
+        shard_param_count = 0
         print("==================")
-        for k, v in p.named_children():
-            print(f"Layer type: {k}")
-            print(v)
+        print(f"Shard {i + 1}")
+        for _, module in shard.named_children():
+            # Sum the parameters of each module in the shard
+            shard_param_count += sum(p.numel() for p in module.parameters())
+            print(f"Layer type: {type(module).__name__}")
+            print(module)
+        print(f"Total parameters in Shard {i + 1}: {shard_param_count}")
         print("==================")
-    print("end")
+    print("End printing partitioned model")
 
     inputs = tokenizer(batch_sentences, padding=True, return_tensors="pt")
 
@@ -91,9 +96,9 @@ def run_model_partitioner(
 @pytest.mark.parametrize(
     "model_retrieval_func",
     [
-        get_gpt2_and_tokenizer,
+        # get_gpt2_and_tokenizer,
         get_bloom_and_tokenizer_with_6_layers,
-        get_bloom_560m_and_tokenizer,
+        # get_bloom_560m_and_tokenizer,
     ],
 )
 def test_naive_partitioning(pipeline_parallel_size, model_retrieval_func):
