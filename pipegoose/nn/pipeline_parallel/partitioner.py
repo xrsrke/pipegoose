@@ -10,6 +10,8 @@ from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 from transformers.utils.fx import symbolic_trace
 
+from typing import Optional
+
 
 class PartitionPolicy(Enum):
     UNIFORM = auto()
@@ -28,13 +30,9 @@ class UniformPartitioner(BasePartitioner):
         self.model = model
         self.parallel_context = parallel_context
 
-    def _matches_transformer_block_start(self, node_name: str) -> bool:
-        pattern = r"^transformer_h_\d+_input_layernorm$"
-        return re.match(pattern, node_name) is not None
-
-    def _matches_transformer_block_end(self, node_name: str) -> bool:
-        pattern = r"^transformer_h_\d+_mlp_dense_\d+h_to_h$"
-        return re.match(pattern, node_name) is not None
+    def _get_transformer_block_id(self, node_name: str) -> Optional[str]:
+        match = re.match(r"transformer_h_(\d+)", node_name)
+        return match.group(1) if match else None
 
     def _split_nodes(
         self, traced_graph_module: torch.fx.GraphModule, shard_count: int = 3
@@ -81,38 +79,42 @@ class UniformPartitioner(BasePartitioner):
         node_name_to_shard_id: Dict[str, int] = {}
         shard_id = 0
         shard_id_to_param_count = [0 for _ in range(shard_count)]
-
         output_from_shard = {}
-        is_transformer_block_ended = True
+        transformer_block_ended = False
+        current_transformer_block = 0
+
         for node in traced_graph_module.graph.nodes:
             if node.op == "output":
                 break
 
-            ##While splitting the nodes, we have to check if a node of the transformer block is split into
-            # different shards.
+            # While splitting the nodes, we have to check if a node of the transformer block is detected
+            # If so, we have to force it in the current shard
             if node.op in ("call_module", "get_attr"):
-                if self._matches_transformer_block_start(
-                    node.name
-                ) and not self._matches_transformer_block_end(node.name):
-                    per_shard_param += 1
-                    print("started: ", node)
-                elif self._matches_transformer_block_end(node.name):
-                    per_shard_param += 2
-
-                    print("ended: ", node.name)
-
-                print(node.name, shard_id)
-                # call_module and get_attr are the two operations which involve accessing parameters
                 current_param_count = param_count.get(node.name, 0)
+                new_transformer_block_id = self._get_transformer_block_id(node.name)
+                # Check if a new transformer block has started
+                print(
+                    new_transformer_block_id,
+                    current_transformer_block,
+                    new_transformer_block_id != current_transformer_block,
+                )
+                if new_transformer_block_id != current_transformer_block:
+                    # End the previous block and start a new one
+                    current_transformer_block = new_transformer_block_id
+                    transformer_block_ended = True
+                else:
+                    # We are still in the same transformer block
+                    transformer_block_ended = False
 
                 if (
                     shard_id_to_param_count[shard_id] > 0
                     and (shard_id_to_param_count[shard_id] + current_param_count)
                     >= per_shard_param
                     and (shard_id + 1) < shard_count
+                    and transformer_block_ended
                 ):
                     shard_id += 1
-                    per_shard_param = original_per_shard_param
+                    transformer_block_ended = False
                 shard_id_to_param_count[shard_id] += current_param_count
 
             # we need to collect the nodes from the previous shards which are needed in the
@@ -130,7 +132,7 @@ class UniformPartitioner(BasePartitioner):
                             output_from_shard.setdefault(idx, dict())[arg.name] = None
 
             node_name_to_shard_id[node.name] = shard_id
-
+            print("node: ", node.name, shard_id)
         return node_name_to_shard_id, output_from_shard
 
     def split(self, input_names: List[str]) -> List[nn.Module]:

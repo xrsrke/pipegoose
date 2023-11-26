@@ -62,7 +62,6 @@ def run_model_partitioner(
         len(partitioned_model) == pipeline_parallel_size
     ), f"Received model with {len(partitioned_model)} instead of {pipeline_parallel_size}"
 
-    """
     print("start")
     for p in partitioned_model:
         print("==================")
@@ -71,9 +70,6 @@ def run_model_partitioner(
             print(v)
         print("==================")
     print("end")
-
-
-    """
 
     inputs = tokenizer(batch_sentences, padding=True, return_tensors="pt")
 
@@ -95,7 +91,9 @@ def run_model_partitioner(
 @pytest.mark.parametrize(
     "model_retrieval_func",
     [
-        get_bloom_560m_and_tokenizer,
+        # get_gpt2_and_tokenizer,
+        get_bloom_and_tokenizer_with_6_layers,
+        # get_bloom_560m_and_tokenizer,
     ],
 )
 def test_naive_partitioning(pipeline_parallel_size, model_retrieval_func):
