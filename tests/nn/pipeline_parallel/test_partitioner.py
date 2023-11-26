@@ -87,13 +87,13 @@ def run_model_partitioner(
     assert torch.allclose(gt_logits, partitioned_model_result), "Results are not close"
 
 
-@pytest.mark.parametrize("pipeline_parallel_size", [5])
+@pytest.mark.parametrize("pipeline_parallel_size", [2, 3, 4, 5, 6])
 @pytest.mark.parametrize(
     "model_retrieval_func",
     [
-        # get_gpt2_and_tokenizer,
+        get_gpt2_and_tokenizer,
         get_bloom_and_tokenizer_with_6_layers,
-        # get_bloom_560m_and_tokenizer,
+        get_bloom_560m_and_tokenizer,
     ],
 )
 def test_naive_partitioning(pipeline_parallel_size, model_retrieval_func):
