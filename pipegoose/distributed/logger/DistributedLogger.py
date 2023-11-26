@@ -28,7 +28,7 @@ class DistributedLogger:
         
         # check if log file exists
         if not os.path.isfile(path + log_name):
-            with open(os.path.join(path, log_name), 'w') as f:
+            with open(os.path.join(path, log_name), 'a') as f:
                 f.write(log)
         else:
             with open(os.path.join(path, log_name), 'a') as f:
@@ -42,7 +42,7 @@ class DistributedLogger:
             print(log)
             # Add code to save the message to a file
             self._save_log("logs/", log)
-        # else: # uncomment this else block to see the error message 
+        # else:
         #     print(f"Process {self.parallel_context.get_global_rank()} is not part of the {parallel_mode} parallel mode")
             
 
