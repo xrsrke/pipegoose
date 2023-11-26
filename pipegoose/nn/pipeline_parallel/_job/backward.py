@@ -21,7 +21,14 @@ class _SaveGradLossFunction(torch.autograd.Function):
     def forward(ctx: Any, key, metadata, tensor: torch.Tensor):
         ctx.key = key
         ctx.package_metadata = metadata
-        new_tensor = tensor.detach().clone()
+        # NOTE: a hacky way to work around with `transformers`
+        if isinstance(tensor, torch.Tensor):
+            new_tensor = tensor.detach().clone()
+        elif isinstance(tensor, tuple):
+            new_tensor = tuple(t.detach().clone() for t in tensor)
+        else:
+            raise ValueError(f"tensor must be an instance of torch.Tensor or tuple, got {type(tensor)}")
+
         return new_tensor
 
     @staticmethod
@@ -45,8 +52,6 @@ class _SaveGradLossFunction(torch.autograd.Function):
 def save_grad_loss(package: Package) -> Package:
     key = (package.metadata.microbatch_idx, package.metadata.partition_idx)
     package.data = _SaveGradLossFunction.apply(key, package.metadata, package.data)
-    if package.metadata.partition_idx == 3:
-        assert 1 == 1
     return package
 
 
