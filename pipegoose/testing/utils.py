@@ -37,6 +37,7 @@ def spawn(func: Callable, world_size: int = 1, **kwargs):
         kwargs.pop("port")
 
     wrapped_func = partial(func, world_size=world_size, port=port, **kwargs)
+
     mp.spawn(wrapped_func, nprocs=world_size)
 
 

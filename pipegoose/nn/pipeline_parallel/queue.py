@@ -73,7 +73,13 @@ class InputActivations:
         """Get the saved activations for a given key for backward job."""
         # NOTE: because a partition can have multiple microbatches,
         input = _INPUT_ACTIVATIONS[key]
-        return input.requires_grad_(True)
+
+        # return input.requires_grad_(True)
+        # TODO: add support regular non-transformers model
+        if isinstance(input, torch.Tensor):
+            return input.requires_grad_(True)
+        else:
+            return input
 
     def save_activations(key: ActivationKey, data: torch.Tensor):
         """Save forward job's activations for backward job."""

@@ -14,8 +14,18 @@ from pipegoose.nn.pipeline_parallel.sync.handshake import get_progress_tracker
 class ForwardJob(Job):
     def run_compute(self) -> torch.Tensor:
         is_training = self.input.metadata.training.is_training
+
         with torch.set_grad_enabled(is_training):
-            output = self.function(self.input.data)
+            # TODO: a hacky way to work around with `transformers`
+            if isinstance(self.input.data, torch.Tensor):
+                output = self.function(self.input.data)
+            elif type(self.input.data) in (list, tuple):
+                output = self.function(*self.input.data)
+            elif "input_ids" in self.input.data:
+                output = self.function(self.input.data["input_ids"])
+            else:
+                output = self.function(self.input.data)
+
         return output
 
 
