@@ -16,11 +16,12 @@ def run_topk_router(
 
     input = torch.randn(batch_size, seq_len, d_model, requires_grad=True)
 
-    dispatch_order, gate_values, loss = router(input)
+    router_output = router(input)
 
-    assert dispatch_order.shape == (batch_size*seq_len, num_experts)
-    assert gate_values.shape == (batch_size*seq_len, num_experts)
-    assert loss.shape == ()
+    assert router_output.dispatching_order.shape == (batch_size*seq_len, num_experts)
+    assert router_output.weight.shape == (batch_size*seq_len, num_experts)
+    assert router_output.aux_loss.shape == ()
+    assert router_output.z_loss.shape == ()
 
     total_tokens = batch_size * seq_len
 
@@ -28,19 +29,21 @@ def run_topk_router(
         expert_capacity = router._expert_capacity(total_tokens)
 
         for expert_id in range(num_experts):
-            assert dispatch_order[..., expert_id].sum().item() < expert_capacity
+            assert router_output.dispatching_order[..., expert_id].sum().item() < expert_capacity
 
         for token_id in range(total_tokens):
-            assert dispatch_order[token_id, ...].sum().item() <= top_k
+            assert router_output.dispatching_order[token_id, ...].sum().item() <= top_k
 
     else:
         for token_id in range(total_tokens):
-            assert dispatch_order[token_id, ...].sum().item() == top_k
+            assert router_output.dispatching_order[token_id, ...].sum().item() == top_k
 
     # test backwardpass
 
-    target_gate_values = torch.randn_like(gate_values) # Random target for testing
-    loss += F.mse_loss(gate_values, target_gate_values)
+    target_weight = torch.randn_like(router_output.weight) # Random target for testing
+
+    loss = router_output.aux_loss + router_output.z_loss
+    loss += F.mse_loss(router_output.weight, target_weight)
 
     loss.backward()
 
