@@ -50,9 +50,9 @@ def run_model_partitioner(
     model.eval()
     tokenizer.pad_token = tokenizer.eos_token
     inputs = tokenizer(batch_sentences, padding=True, return_tensors="pt")
-    gt_logits = model(input_ids=inputs["input_ids"]).logits
+    gt_logits = model(**inputs).logits
 
-    partitioned_model = UniformPartitioner(model, parallel_context).split(["input_ids"])
+    partitioned_model = UniformPartitioner(model, parallel_context).split()
     assert (
         len(partitioned_model) == pipeline_parallel_size
     ), f"Received model with {len(partitioned_model)} instead of {pipeline_parallel_size}"
@@ -71,14 +71,12 @@ def run_model_partitioner(
         print("==================")
     print("End printing partitioned model")
 
-    inputs = tokenizer(batch_sentences, padding=True, return_tensors="pt")
-
-    partitioned_model_result = inputs["input_ids"]
+    partitioned_model_result = inputs
     for partition_id in range(pipeline_parallel_size):
         if type(partitioned_model_result) in (list, tuple):
             partitioned_model_result = partitioned_model[partition_id](*partitioned_model_result)
         else:
-            partitioned_model_result = partitioned_model[partition_id](partitioned_model_result)
+            partitioned_model_result = partitioned_model[partition_id](**partitioned_model_result)
 
     assert torch.allclose(gt_logits, partitioned_model_result), "Results are not close"
 

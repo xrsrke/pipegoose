@@ -11,6 +11,8 @@ from transformers.utils.fx import symbolic_trace
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 
+INPUT_NAMES = ["input_ids", "attention_mask"]
+
 
 class PartitionPolicy(Enum):
     UNIFORM = auto()
@@ -141,7 +143,7 @@ class UniformPartitioner(BasePartitioner):
             node_name_to_shard_id[node.name] = shard_id
         return node_name_to_shard_id, output_from_shard
 
-    def split(self, input_names: List[str]) -> List[nn.Module]:
+    def split(self, input_names: List[str] = INPUT_NAMES) -> List[nn.Module]:
         n_partitions = self.parallel_context.pipeline_parallel_size
         model = self.model
         module_list: List[torch.fx.GraphModule] = []
