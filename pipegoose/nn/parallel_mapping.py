@@ -8,9 +8,6 @@ class ParallelInfo:
 
 
 class ParallelMapping:
-    # def __init__(self, mapping: Dict):
-    #     self.mapping = mapping
-
     @staticmethod
     def _search(module_name: str) -> Optional[ParallelInfo]:
         """
@@ -18,13 +15,6 @@ class ParallelMapping:
         """
         module_name = ParallelMapping._extract_module_name(module_name)
         for child_class in ParallelMapping.__subclasses__():
-            from pipegoose.nn.tensor_parallel.parallel_mapping import (
-                TensorParallelMapping,
-            )
-
-            if child_class == TensorParallelMapping:
-                continue
-
             if hasattr(child_class, "__MAPPING__"):
                 for items in child_class.__MAPPING__.values():
                     for item in items:
@@ -33,12 +23,6 @@ class ParallelMapping:
                             return item
                 # NOTE: only search the first subclass of the current instance
                 break
-
-        # for items in self.mapping.values():
-        #     for item in items:
-        #         item = cast(ParallelInfo, item)
-        #         if any(module_name in mapping_name for mapping_name in item.module_name):
-        #             return item
 
         return None
 
