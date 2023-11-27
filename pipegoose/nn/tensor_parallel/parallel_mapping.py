@@ -1,25 +1,19 @@
-from typing import Optional, Tuple
+from pipegoose.nn.parallel_mapping import ParallelInfo, ParallelMapping
 
 
-class TensorParallelInformation:
-    def __init__(self, module_name: Tuple[str], **kwargs):
-        self.module_name = module_name
-        self.kwargs = kwargs
-
-
-class Column(TensorParallelInformation):
+class Column(ParallelInfo):
     pass
 
 
-class Row(TensorParallelInformation):
+class Row(ParallelInfo):
     pass
 
 
-class LMHead(TensorParallelInformation):
+class LMHead(ParallelInfo):
     pass
 
 
-class ParallelMapping:
+class TensorParallelMapping(ParallelMapping):
     """
     NOTE: Inspired from OSLO's Parallel Mapping
     https://github.com/EleutherAI/oslo/blob/d7c4e32e766a99cc9d56533bc090570360dc8b2a/oslo/torch/nn/parallel/tensor_parallel/mapping.py#L43
@@ -38,43 +32,21 @@ class ParallelMapping:
 
     @staticmethod
     def is_column_parallel(module_name: str) -> bool:
-        item = ParallelMapping._search(module_name)
+        item = TensorParallelMapping._search(module_name)
         if item is None:
             return False
         return isinstance(item, Column)
 
     @staticmethod
     def is_row_parallel(module_name: str) -> bool:
-        item = ParallelMapping._search(module_name)
+        item = TensorParallelMapping._search(module_name)
         if item is None:
             return False
         return isinstance(item, Row)
 
     @staticmethod
     def is_lm_head(module_name: str) -> bool:
-        item = ParallelMapping._search(module_name)
+        item = TensorParallelMapping._search(module_name)
         if item is None:
             return False
         return isinstance(item, LMHead)
-
-    @staticmethod
-    def _search(module_name: str) -> Optional[TensorParallelInformation]:
-        """
-        Search for module_name in mappings.
-        """
-        module_name = ParallelMapping._extract_module_name(module_name)
-        for items in ParallelMapping.__MAPPING__.values():
-            for item in items:
-                if any(module_name in mapping_name for mapping_name in item.module_name):
-                    return item
-        return None
-
-    @staticmethod
-    def _extract_module_name(module_name: str) -> str:
-        if "." in module_name:
-            # NOTE: transformer.h.0.self_attention.dense -> self_attention.dense
-            SEPARATOR = "."
-            sections = module_name.split(SEPARATOR)
-            return SEPARATOR.join(sections[-2:])
-
-        return module_name

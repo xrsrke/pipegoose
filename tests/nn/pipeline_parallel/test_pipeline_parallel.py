@@ -4,7 +4,7 @@ from transformers import AutoTokenizer, BloomConfig, BloomForCausalLM
 
 from pipegoose.nn.pipeline_parallel._utils import get_partition_idx
 from pipegoose.nn.pipeline_parallel.pipeline_parallel import PipelineParallel
-from pipegoose.testing.utils import init_parallel_context, spawn
+from pipegoose.testing.utils import count_model_parameters, init_parallel_context, spawn
 
 
 def generate_expected_timeline(num_microbatches, partition_idx):
@@ -13,10 +13,6 @@ def generate_expected_timeline(num_microbatches, partition_idx):
     forward_timeline = [(microbatch_idx, partition_idx) for microbatch_idx in range(num_microbatches)]
     backward_timeline = [(microbatch_idx, partition_idx) for microbatch_idx in range(num_microbatches - 1, -1, -1)]
     return forward_timeline, backward_timeline
-
-
-def count_parameters(model):
-    return sum(p.numel() for p in model.parameters())
 
 
 def run_pipeline_parallel(
@@ -64,8 +60,8 @@ def run_pipeline_parallel(
     # optim = SGD(parallelized_model.parameters(), LR)
 
     assert isinstance(parallelized_model, nn.Module)
-    # assert count_parameters(parallelized_model) < count_parameters(model)
-    # assert count_parameters(parallelized_model) == count_parameters(model[partition_idx])
+    assert count_model_parameters(parallelized_model) < count_model_parameters(model)
+    assert count_model_parameters(parallelized_model) == count_model_parameters(model[partition_idx])
 
     parallelized_model(**INPUTS)
 
