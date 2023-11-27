@@ -1,33 +1,28 @@
 import pytest
 import torch
 from transformers import (
-    AutoTokenizer,
     AutoModelForCausalLM,
+    AutoTokenizer,
     BloomConfig,
     BloomForCausalLM,
 )
-from pipegoose.nn.pipeline_parallel.partitioner import (  # PartitionPolicy,; get_model_partition,
-    UniformPartitioner,
-)
+
+from pipegoose.nn.pipeline_parallel.partitioner import UniformPartitioner
 from pipegoose.testing.utils import init_parallel_context, spawn
 
 
 def get_gpt2_and_tokenizer():
-    return AutoModelForCausalLM.from_pretrained("gpt2"), AutoTokenizer.from_pretrained(
-        "gpt2"
-    )
+    return AutoModelForCausalLM.from_pretrained("gpt2"), AutoTokenizer.from_pretrained("gpt2")
 
 
 def get_bloom_560m_and_tokenizer():
-    return AutoModelForCausalLM.from_pretrained(
+    return AutoModelForCausalLM.from_pretrained("bigscience/bloom-560m"), AutoTokenizer.from_pretrained(
         "bigscience/bloom-560m"
-    ), AutoTokenizer.from_pretrained("bigscience/bloom-560m")
+    )
 
 
 def get_bloom_and_tokenizer_with_6_layers():
-    return BloomForCausalLM(BloomConfig(n_layer=6)), AutoTokenizer.from_pretrained(
-        "bigscience/bloom-560m"
-    )
+    return BloomForCausalLM(BloomConfig(n_layer=6)), AutoTokenizer.from_pretrained("bigscience/bloom-560m")
 
 
 # TODO: Also add a function for a generic nn.Transformer model
@@ -81,13 +76,9 @@ def run_model_partitioner(
     partitioned_model_result = inputs["input_ids"]
     for partition_id in range(pipeline_parallel_size):
         if type(partitioned_model_result) in (list, tuple):
-            partitioned_model_result = partitioned_model[partition_id](
-                *partitioned_model_result
-            )
+            partitioned_model_result = partitioned_model[partition_id](*partitioned_model_result)
         else:
-            partitioned_model_result = partitioned_model[partition_id](
-                partitioned_model_result
-            )
+            partitioned_model_result = partitioned_model[partition_id](partitioned_model_result)
 
     assert torch.allclose(gt_logits, partitioned_model_result), "Results are not close"
 
