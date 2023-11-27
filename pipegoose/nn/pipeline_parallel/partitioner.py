@@ -30,9 +30,29 @@ class UniformPartitioner(BasePartitioner):
         self.model = model
         self.parallel_context = parallel_context
 
+    def _find_transformer_block_prefix(self):
+        # Since there is no standarized way to find the name of the transformer block, we have to find the name first
+        transformer_attr_name = self.model.base_model_prefix
+
+        transformer_block_name = None
+        transformer = getattr(self.model, transformer_attr_name)
+        for attr_name in dir(transformer):
+            part = getattr(transformer, attr_name)
+            if isinstance(part, nn.ModuleList):
+                transformer_block_name = attr_name
+                break
+
+        transformer_block_prefix = (
+            rf"{transformer_attr_name}_{transformer_block_name}_(\d+)"
+        )
+
+        print(f"transformer_block_prefix: {transformer_block_prefix}")
+        return transformer_block_prefix
+
     def _get_transformer_block_id(self, node_name: str) -> Optional[str]:
-        match = re.match(r"transformer_h_(\d+)", node_name)
-        return match.group(1) if match else None
+        pattern = self._find_transformer_block_prefix()
+        match = re.match(pattern, node_name)
+        return match.group() if match else None
 
     def _split_nodes(
         self, traced_graph_module: torch.fx.GraphModule, shard_count: int = 3
