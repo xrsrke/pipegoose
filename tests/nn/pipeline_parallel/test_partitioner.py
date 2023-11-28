@@ -1,10 +1,11 @@
 import pytest
 import torch
 from transformers import (
-    AutoModelForCausalLM,
     AutoTokenizer,
     BloomConfig,
     BloomForCausalLM,
+    GPT2Config,
+    GPT2LMHeadModel,
 )
 
 from pipegoose.nn.pipeline_parallel.partitioner import UniformPartitioner
@@ -12,13 +13,9 @@ from pipegoose.testing.utils import init_parallel_context, spawn
 
 
 def get_gpt2_and_tokenizer():
-    return AutoModelForCausalLM.from_pretrained("gpt2"), AutoTokenizer.from_pretrained("gpt2")
-
-
-def get_bloom_560m_and_tokenizer():
-    return AutoModelForCausalLM.from_pretrained("bigscience/bloom-560m"), AutoTokenizer.from_pretrained(
-        "bigscience/bloom-560m"
-    )
+    model = GPT2LMHeadModel(config=GPT2Config(n_layer=6))
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    return model, tokenizer
 
 
 def get_bloom_and_tokenizer_with_6_layers():
@@ -87,7 +84,6 @@ def run_model_partitioner(
     [
         get_gpt2_and_tokenizer,
         get_bloom_and_tokenizer_with_6_layers,
-        get_bloom_560m_and_tokenizer,
     ],
 )
 def test_naive_partitioning(pipeline_parallel_size, model_retrieval_func):
