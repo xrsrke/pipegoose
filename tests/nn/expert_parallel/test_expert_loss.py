@@ -3,6 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from pipegoose.nn.expert_parallel import ExpertLoss
+from pipegoose.nn.expert_parallel.expert_context import ExpertContext
 
 
 def test_expert_loss():
@@ -13,7 +14,7 @@ def test_expert_loss():
     loss_func = nn.MSELoss()
 
     expert_loss = ExpertLoss(loss_func, aux_weight=0.1, z_weight=0.2)
-    expert_context = expert_loss.expert_context
+    expert_context = ExpertContext.get_instance()
 
     assert expert_loss.aux_weight == 0.1
     assert expert_loss.z_weight == 0.2

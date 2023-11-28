@@ -100,8 +100,7 @@ def run_expert_parallel(
         NUM_EXPERTS,
         mapping=mapping,
         router=router,
-        parallel_context=parallel_context,
-        expert_context=loss_func.expert_context
+        parallel_context=parallel_context
     ).parallelize()
     optim = Adam(model.parameters(), lr=1e-3)
 

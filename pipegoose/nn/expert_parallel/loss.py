@@ -9,7 +9,6 @@ class ExpertLoss:
         self.loss_func = loss_func
         self.aux_weight = aux_weight
         self.z_weight = z_weight
-        self._expert_context = ExpertContext()
 
     @property
     def expert_context(self) -> ExpertContext:
@@ -17,6 +16,7 @@ class ExpertLoss:
 
     def __call__(self, *args, **kwargs) -> TensorType:
         loss = self.loss_func(*args, **kwargs)
-        loss += self.aux_weight * sum(self._expert_context.pop_all_aux_loss())
-        loss += self.z_weight * sum(self._expert_context.pop_all_z_loss())
+        expert_context = ExpertContext.get_instance()
+        loss += self.aux_weight * sum(expert_context.pop_all_aux_loss())
+        loss += self.z_weight * sum(expert_context.pop_all_z_loss())
         return loss

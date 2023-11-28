@@ -6,7 +6,6 @@ from pipegoose.distributed.functional import all_reduce
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.expert_parallel.layers import ExpertLayer
 from pipegoose.testing.utils import count_model_parameters, init_parallel_context, spawn
-from pipegoose.nn.expert_parallel.expert_context import ExpertContext
 from pipegoose.nn.expert_parallel.routers import RouterOutput
 
 
@@ -35,7 +34,6 @@ def run_expert_layer(
     num_experts,
     expert,
     router,
-    expert_context,
     enable_tensor_parallel,
 ):
     parallel_context = init_parallel_context(
@@ -55,8 +53,7 @@ def run_expert_layer(
         expert,
         router,
         enable_tensor_parallel,
-        parallel_context,
-        expert_context
+        parallel_context
     )
 
     local_param_count = count_model_parameters(expert_layer)
@@ -87,7 +84,6 @@ def test_expert_layer(tensor_parallel_size, num_experts, enable_tensor_parallel)
         nn.Linear(HIDDEN_SIZE * 4, HIDDEN_SIZE),
     )
     router = DummyRouter(num_experts)
-    expert_context = ExpertContext()
 
     spawn(
         run_expert_layer,
@@ -99,6 +95,5 @@ def test_expert_layer(tensor_parallel_size, num_experts, enable_tensor_parallel)
         num_experts=num_experts,
         expert=expert,
         router=router,
-        expert_context=expert_context,
         enable_tensor_parallel=enable_tensor_parallel,
     )

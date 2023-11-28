@@ -21,8 +21,7 @@ class ExpertLayer(nn.Module):
         expert: nn.Module,
         router: Router,
         enable_tensor_parallel: bool,
-        parallel_context: ParallelContext,
-        expert_context: ExpertContext
+        parallel_context: ParallelContext
     ):
         super().__init__()
         self.router = router
@@ -33,7 +32,6 @@ class ExpertLayer(nn.Module):
 
         self._experts = Experts(self.num_local_experts, expert, enable_tensor_parallel, parallel_context)
         self.parallel_context = parallel_context
-        self.expert_context = expert_context
 
     @property
     def experts(self) -> nn.ModuleList:
@@ -43,7 +41,8 @@ class ExpertLayer(nn.Module):
         # TODO: use torch.fx to extract the inputs from args, and kwargs
         inputs = args[0]
         router_output = self.router(inputs)
-        self.expert_context.push_aux_loss(router_output.aux_loss)
-        self.expert_context.push_z_loss(router_output.z_loss)
+        expert_context = ExpertContext.get_instance()
+        expert_context.push_aux_loss(router_output.aux_loss)
+        expert_context.push_z_loss(router_output.z_loss)
         outputs = self._experts(inputs, router_output.dispatching_order, *args, **kwargs)
         return outputs

@@ -1,9 +1,12 @@
+from __future__ import annotations
 from typing import List
 
 from torchtyping import TensorType
 
 
 class ExpertContext:
+    _instance = None
+    
     def __init__(self):
         self.aux_loss = []
         self.z_loss = []
@@ -21,3 +24,9 @@ class ExpertContext:
     def pop_all_z_loss(self) -> List[TensorType]:
         z_loss, self.z_loss = self.z_loss, []
         return z_loss
+
+    @classmethod
+    def get_instance(cls) -> ExpertContext:
+        if not cls._instance:
+            cls._instance = ExpertContext()
+        return cls._instance
