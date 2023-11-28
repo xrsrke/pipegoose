@@ -37,6 +37,7 @@ def spawn(func: Callable, world_size: int = 1, **kwargs):
         kwargs.pop("port")
 
     wrapped_func = partial(func, world_size=world_size, port=port, **kwargs)
+
     mp.spawn(wrapped_func, nprocs=world_size)
 
 
@@ -113,3 +114,7 @@ def calculate_parameter_similarity(module1: nn.Module, module2: nn.Module, rtol:
         equal_parameters += torch.sum(torch.isclose(flat_param1, flat_param2, rtol=rtol)).item()
 
     return equal_parameters / total_parameters
+
+
+def count_model_parameters(model):
+    return sum(p.numel() for p in model.parameters())

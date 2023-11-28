@@ -19,6 +19,7 @@ import os
 import random
 from typing import Dict, List, Literal
 
+import numpy as np
 import torch
 import torch.distributed as dist
 import torch.distributed.rpc as rpc
@@ -124,17 +125,12 @@ class ParallelContext:
 
         self.init_global_dist(rank, world_size, backend, host, port)
         self.init_parallel_groups()
-
-        # if torch.cuda.is_available():
-        #     self.set_device()
-
         self.map_rank_to_device()
 
         self.rpc_worker_map = {rank: WORKER_NAME.format(rank) for rank in self.get_ranks_in_group(ParallelMode.GLOBAL)}
         self.init_rpc_workers(host, port)
 
-        # self.set_seed(seed)
-
+        self.set_seed(seed)
         self._set_context()
 
     def _set_context(self):
@@ -253,11 +249,12 @@ class ParallelContext:
     def set_seed(self, seed: int):
         """Set seed for reproducibility."""
         random.seed(seed)
+        np.random.seed(seed)
         torch.manual_seed(seed)
 
-        # TODO: set GPU seed
-        # if torch.cuda.is_available():
-        #     pass
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
 
     def map_rank_to_device(self):
         """Map global rank to device."""
