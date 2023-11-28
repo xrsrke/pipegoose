@@ -21,7 +21,7 @@ WORKER_NAME = "RPC_GLOBAL_WORKER_{}"
 # ==================================================
 
 
-# NOTE: the minimum number of cocurrent worker threads that execute jobs
+# NOTE: the minimum number of concurrent worker threads that execute jobs
 # in the background of pipeline parallelism
 PIPELINE_MIN_WORKERS = 1
 PIPELINE_MAX_WORKERS = 1

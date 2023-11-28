@@ -75,7 +75,7 @@ class PipelineContext:
         return self._clock_idx
 
     def increase_a_clock_cycle(self):
-        """Increase the current clock cycle in the pipline by 1."""
+        """Increase the current clock cycle in the pipeline by 1."""
         # TODO: add assert maximum clock cycles
         with self._wait_new_clock_cycle:
             self._clock_idx += 1

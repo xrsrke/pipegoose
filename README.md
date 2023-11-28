@@ -80,7 +80,7 @@ cd pipegoose/examples
 torchrun --standalone --nnodes=1 --nproc-per-node=4 hybrid_parallelism.py
 ```
 
-We did a small scale correctness test by comparing the validation losses between a paralleized transformer and one kept by default, starting at identical checkpoints and training data. We will conduct rigorous large scale convergence and weak scaling law benchmarks against Megatron and DeepSpeed in the near future if we manage to make it.
+We did a small scale correctness test by comparing the validation losses between a parallelized transformer and one kept by default, starting at identical checkpoints and training data. We will conduct rigorous large scale convergence and weak scaling law benchmarks against Megatron and DeepSpeed in the near future if we manage to make it.
 - Data Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/t5cr56xd?workspace)
 - ~~Tensor Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/iz17f50n)~~ (We've found a bug in convergence, and we are fixing it)
 - ~~Hybrid 2D Parallelism (TP+DP) [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/us31p3q1)~~

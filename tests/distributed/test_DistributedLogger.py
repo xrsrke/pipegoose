@@ -1,48 +1,31 @@
 import os
-import pytest
-from unittest.mock import patch, mock_open
-from pipegoose.testing.utils import spawn, init_parallel_context, find_free_port
-from pipegoose.distributed import ParallelMode, ParallelContext
-from pipegoose.distributed.logger import DistributedLogger
-import torch.distributed as dist
 from multiprocessing import Process
+from unittest.mock import mock_open, patch
+
+import pytest
+import torch.distributed as dist
 
 from pipegoose.distributed import ParallelMode
-import os
-
-
-import socket
-import random
-
-
-## Had to add this function to find a free port as the other one was not working
-def find_free_port(min_port: int = 2000, max_port: int = 65000) -> int:
-    for _ in range(max_port - min_port):  # Limit the number of attempts
-        port = random.randint(min_port, max_port)
-        try:
-            with socket.socket() as sock:
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                sock.bind(("0.0.0.0", port))  # Binding to 0.0.0.0
-                return port
-        except OSError:
-            continue  # Ignore the error and try a different port
-    raise RuntimeError("No free port found in the specified range")
-
+from pipegoose.distributed.logger import DistributedLogger
+from pipegoose.testing.utils import find_free_port, init_parallel_context
 
 
 @pytest.fixture
 def logger(parallel_context):
     return DistributedLogger("test_logger", parallel_context)
 
+
 @pytest.fixture(params=[1, 1])
 def tensor_parallel_size(request):
     return request.param
+
 
 def should_log_test(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, logger_name):
     context = init_parallel_context(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size)
     logger = DistributedLogger(logger_name, context)
     assert logger._should_log(rank, ParallelMode.GLOBAL) == True
     dist.destroy_process_group()
+
 
 @pytest.mark.parametrize("tensor_parallel_size", [1, 1])
 @pytest.mark.parametrize("data_parallel_size", [1, 1])
@@ -53,15 +36,15 @@ def test_should_log(tensor_parallel_size, data_parallel_size, pipeline_parallel_
     processes = []
 
     for rank in range(world_size):
-        p = Process(target=should_log_test, args=(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, "test_logger"))
+        p = Process(
+            target=should_log_test,
+            args=(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, "test_logger"),
+        )
         p.start()
         processes.append(p)
 
     for p in processes:
         p.join()
-
-
-
 
 
 def test_save_log(logger):
@@ -104,6 +87,24 @@ def test_log_message(logger):
             with patch.object(logger, "_save_log") as mock_save_log:
                 logger._log_message("test message", "INFO")
                 mock_should_log.assert_called()  # Ensure _should_log is being called
+                mock_print.assert_not_called()
+                mock_save_log.assert_not_called()
+
+
+def test_log_message_with_rank_zero_global(logger):
+    # Test _log_message with rank=0 and parallel_mode=ParallelMode.GLOBAL
+    with patch.object(logger, "_should_log", return_value=True):
+        with patch("builtins.print") as mock_print:
+            with patch.object(logger, "_save_log") as mock_save_log:
+                logger._log_message("test message", "INFO", rank=0, parallel_mode=ParallelMode.GLOBAL)
+                mock_print.assert_called_once_with("[INFO] test message")
+                mock_save_log.assert_called_once_with("logs/", "[INFO] test message")
+
+    # You can also test the behavior when _should_log returns False
+    with patch.object(logger, "_should_log", return_value=False):
+        with patch("builtins.print") as mock_print:
+            with patch.object(logger, "_save_log") as mock_save_log:
+                logger._log_message("test message", "INFO", rank=0, parallel_mode=ParallelMode.GLOBAL)
                 mock_print.assert_not_called()
                 mock_save_log.assert_not_called()
 
