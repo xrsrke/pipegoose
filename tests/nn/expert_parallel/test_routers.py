@@ -1,25 +1,18 @@
 import torch
 import torch.nn.functional as F
 
-from pipegoose.nn.expert_parallel import Top1Router, Top2Router, SwitchNoisePolicy
+from pipegoose.nn.expert_parallel import SwitchNoisePolicy, Top1Router, Top2Router
 
 
-def run_topk_router(
-    router,
-    batch_size,
-    seq_len,
-    d_model,
-    num_experts,
-    top_k
-):
+def run_topk_router(router, batch_size, seq_len, d_model, num_experts, top_k):
     router.train()
 
     input = torch.randn(batch_size, seq_len, d_model, requires_grad=True)
 
     router_output = router(input)
 
-    assert router_output.dispatching_order.shape == (batch_size*seq_len, num_experts)
-    assert router_output.weight.shape == (batch_size*seq_len, num_experts)
+    assert router_output.dispatching_order.shape == (batch_size * seq_len, num_experts)
+    assert router_output.weight.shape == (batch_size * seq_len, num_experts)
     assert router_output.aux_loss.shape == ()
     assert router_output.z_loss.shape == ()
 
@@ -38,9 +31,9 @@ def run_topk_router(
         for token_id in range(total_tokens):
             assert router_output.dispatching_order[token_id, ...].sum().item() == top_k
 
-    # test backwardpass
+    # test backward pass
 
-    target_weight = torch.randn_like(router_output.weight) # Random target for testing
+    target_weight = torch.randn_like(router_output.weight)  # Random target for testing
 
     loss = router_output.aux_loss + router_output.z_loss
     loss += F.mse_loss(router_output.weight, target_weight)
@@ -62,14 +55,7 @@ def test_top1_router():
     noise_policy = SwitchNoisePolicy()
     top1_router = Top1Router(noise_policy, NUM_EXPERTS, D_MODEL)
 
-    run_topk_router(
-        top1_router,
-        BATCH_SIZE,
-        SEQ_LEN,
-        D_MODEL,
-        NUM_EXPERTS,
-        top_k=1
-    )
+    run_topk_router(top1_router, BATCH_SIZE, SEQ_LEN, D_MODEL, NUM_EXPERTS, top_k=1)
 
 
 def test_top1_router_with_expert_capacity():
@@ -79,14 +65,7 @@ def test_top1_router_with_expert_capacity():
     noise_policy = SwitchNoisePolicy()
     top1_router = Top1Router(noise_policy, NUM_EXPERTS, D_MODEL, expert_capacity=(1.0, 2.0))
 
-    run_topk_router(
-        top1_router,
-        BATCH_SIZE,
-        SEQ_LEN,
-        D_MODEL,
-        NUM_EXPERTS,
-        top_k=1
-    )
+    run_topk_router(top1_router, BATCH_SIZE, SEQ_LEN, D_MODEL, NUM_EXPERTS, top_k=1)
 
 
 def test_top2_router():
@@ -96,14 +75,7 @@ def test_top2_router():
     noise_policy = SwitchNoisePolicy()
     top2_router = Top2Router(noise_policy, NUM_EXPERTS, D_MODEL)
 
-    run_topk_router(
-        top2_router,
-        BATCH_SIZE,
-        SEQ_LEN,
-        D_MODEL,
-        NUM_EXPERTS,
-        top_k=2
-    )
+    run_topk_router(top2_router, BATCH_SIZE, SEQ_LEN, D_MODEL, NUM_EXPERTS, top_k=2)
 
 
 def test_top2_router_with_expert_capacity():
@@ -113,11 +85,4 @@ def test_top2_router_with_expert_capacity():
     noise_policy = SwitchNoisePolicy()
     top2_router = Top2Router(noise_policy, NUM_EXPERTS, D_MODEL, expert_capacity=(1.0, 2.0))
 
-    run_topk_router(
-        top2_router,
-        BATCH_SIZE,
-        SEQ_LEN,
-        D_MODEL,
-        NUM_EXPERTS,
-        top_k=2
-    )
+    run_topk_router(top2_router, BATCH_SIZE, SEQ_LEN, D_MODEL, NUM_EXPERTS, top_k=2)

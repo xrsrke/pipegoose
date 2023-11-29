@@ -1,4 +1,5 @@
 from typing import Callable
+
 from torchtyping import TensorType
 
 from pipegoose.nn.expert_parallel.expert_context import ExpertContext
@@ -9,10 +10,6 @@ class ExpertLoss:
         self.loss_func = loss_func
         self.aux_weight = aux_weight
         self.z_weight = z_weight
-
-    @property
-    def expert_context(self) -> ExpertContext:
-        return self._expert_context
 
     def __call__(self, *args, **kwargs) -> TensorType:
         loss = self.loss_func(*args, **kwargs)
