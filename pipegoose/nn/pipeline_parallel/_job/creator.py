@@ -46,15 +46,16 @@ class ScheduleBackwardJobCallback(Callback):
         microbatch_idx = self.job.input.metadata.microbatch_idx
         partition_idx = self.job.input.metadata.partition_idx
 
-        # assert isinstance(get_input_activations(microbatch_idx, partition_idx), torch.Tensor)
-        # assert isinstance(get_output_activations(microbatch_idx, partition_idx), torch.Tensor)
-
-        if package.metadata.microbatch_idx == self.pipeline_context.num_microbatches - 1:
-            new_package = schedule_backward_execution(package, self.pipeline_context)
-            self.job.output = new_package
+        # NOTE: only the last stage needs to save the gradient loss
+        if self.pipeline_context.is_last_stage:
+            if package.metadata.microbatch_idx == self.pipeline_context.num_microbatches - 1:
+                new_package = schedule_backward_execution(package, self.pipeline_context)
+                self.job.output = new_package
+            else:
+                new_package = save_grad_loss(package)
+                self.job.output = new_package
         else:
-            new_package = save_grad_loss(package)
-            self.job.output = new_package
+            new_package = self.job.output
 
         from pipegoose.nn.pipeline_parallel.queue import _SAVED_SCHEDULED_ACTIVATIONS
 
@@ -134,33 +135,8 @@ def create_job(
     return job
 
 
-def _create_backward_job_and_put_to_pending_queue(grad_input: torch.Tensor, metadata: Metadata):
-    """Create a backward job and put it to pending queue."""
-    # NOTE: construct backward package
-    package = Package(grad_input, metadata)
-    package.metadata.job_type = JobType.BACKWARD
-
-    # NOTE: construct backward job
-    def backward_function(self):
-        pass
-
-    # TODO: make parallel_context automatically set when it initialize
-    pipeline_context = PipelineContext.get_context()
-    parallel_context = ParallelContext.get_context()
-
-    rank = parallel_context.get_global_rank()
-    microbatch_idx = metadata.microbatch_idx
-
-    print(f"invoked create_backward_job_and_put_to_pending_queue, rank={rank}, microbatch_idx={microbatch_idx}")
-
-    backward_job = create_job(backward_function, package, parallel_context, pipeline_context)
-
-    # NOTE : put the backward job to pending queue
-    JobQueue.PENDING_JOBS.put(backward_job)
-
-
-def schedule_backward_job(package: Package, pipeline_context: PipelineContext) -> Package:
-    class Function(torch.autograd.Function):
+def schedule_backward_execution(package: Package, pipeline_context: PipelineContext) -> Package:
+    class BackwardCoordinationFunction(torch.autograd.Function):
         @staticmethod
         def forward(ctx, metadata: Metadata, input: torch.Tensor) -> torch.Tensor:
             ctx.package_meta = metadata
@@ -170,38 +146,11 @@ def schedule_backward_job(package: Package, pipeline_context: PipelineContext) -
         def backward(ctx, grad_input: torch.Tensor) -> (None, torch.Tensor):
             metadata = ctx.package_meta
             print("trigger creating backward job")
-            _create_backward_job_and_put_to_pending_queue(grad_input, metadata)
-            return (None, grad_input)
-
-    data = package.data
-    new_data = Function.apply(package.metadata, data)
-    package.data = new_data
-    return package
-
-
-def schedule_backward_execution(package: Package, pipeline_context: PipelineContext) -> Package:
-    class Function(torch.autograd.Function):
-        @staticmethod
-        def forward(ctx, metadata: Metadata, input: torch.Tensor) -> torch.Tensor:
-            ctx.package_meta = metadata
-            # NOTE: a hacky way to make it works with `transformers`
-            if type(input) in (list, tuple):
-                # NOTE: ignore attention mask, which is a bool tensor
-                new_input = [x.detach().clone() for x in input]
-            else:
-                new_input = input.detach().clone()
-
-            return new_input
-
-        @staticmethod
-        def backward(ctx, grad_input: torch.Tensor) -> (None, torch.Tensor):
-            metadata = ctx.package_meta
-            print("trigger creating backward job")
             _run_backward_execution(grad_input, metadata)
             return (None, None)
 
     data = package.data
-    new_data = Function.apply(package.metadata, data)
+    new_data = BackwardCoordinationFunction.apply(package.metadata, data)
     package.data = new_data
     return package
 

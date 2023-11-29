@@ -58,8 +58,16 @@ class CreateForwardOutputPackageCallback(Callback):
 
         microbatch_idx = self.job.input.metadata.microbatch_idx
         partition_idx = self.job.input.metadata.partition_idx
-        save_input_activations(self.job.input.data, microbatch_idx, partition_idx)
-        save_output_activations(self.job.output, microbatch_idx, partition_idx)
+
+        # NOTE: extract the output activations from `transformers`
+        # ignore all other interdimate outputs
+        input_data = self.job.input.data
+        input_data = input_data[0] if type(input_data) in [list, tuple] else input_data
+        save_input_activations(input_data, microbatch_idx, partition_idx)
+
+        output_data = self.job.output
+        output_data = output_data[0] if type(output_data) in [list, tuple] else output_data
+        save_output_activations(output_data, microbatch_idx, partition_idx)
 
     def _update_next_pipeline_stage(self, package: Package) -> Package:
         microbatch_idx = package.metadata.microbatch_idx

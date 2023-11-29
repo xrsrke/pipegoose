@@ -57,14 +57,16 @@ class PipelineEngine:
         self.parallel_context = parallel_context
         self.pipeline_context = PipelineContext(scheduler, parallel_context)
 
-    def run(self, input_ids: torch.LongTensor, attention_mask: torch.FloatTensor) -> torch.Tensor:
+    def run(self, input_ids: torch.LongTensor, attention_mask: torch.FloatTensor = None) -> torch.Tensor:
         self.worker_manager.spawn()
         self.pipeline_context.forward()
         n_microbatches = self.scheduler.n_microbatches
 
-        inputs = {"input_ids": input_ids, "attention_mask": attention_mask}
-        microbatches = microbatch.split(inputs, n_microbatches=n_microbatches)
-        # microbatches = torch.chunk(inputs, chunks=n_microbatches, dim=0)
+        if isinstance(input_ids, dict):
+            inputs = {"input_ids": input_ids, "attention_mask": attention_mask}
+            microbatches = microbatch.split(inputs, n_microbatches=n_microbatches)
+        else:
+            microbatches = torch.chunk(input_ids, chunks=n_microbatches, dim=0)
 
         # NOTE: add a callback to the progress tracker
         # that if the clock_idx is increased, then
@@ -89,7 +91,7 @@ class PipelineEngine:
         progress_tracker = ProgressTracker(
             self.MASTER_RANK, callbacks=callbacks, parallel_context=self.parallel_context, parallel_mode=ParallelMode.GLOBAL
         )
-        # # NOTE: wait for all ranks to be initiated
+        # NOTE: wait for all ranks to be initiated
         dist.barrier()
 
         if self.parallel_context.get_global_rank() == 0:
@@ -128,8 +130,32 @@ class PipelineEngine:
                 output = _SAVED_SCHEDULED_ACTIVATIONS[(microbatch_idx, self.pipeline_context.partition_idx)]
                 outputs.append(output)
         else:
-            output = _SAVED_SCHEDULED_ACTIVATIONS[(microbatch_idx, self.pipeline_context.partition_idx)]
-            outputs = [torch.zeros(1, requires_grad=True).float() for _ in range(n_microbatches - 1)] + [output]
+            from pipegoose.nn.pipeline_parallel._job.creator import (
+                schedule_backward_execution,
+            )
+
+            last_microbatch_idx = n_microbatches - 1
+            dummy_output = torch.tensor(69.0, requires_grad=True)
+
+            # TODO: refactor this out
+            metadata = Metadata(
+                microbatch_idx=last_microbatch_idx,
+                partition_idx=partition_idx,
+                job_type=JobType.FORWARD,
+                training=TrainingMetadata(
+                    is_training=True,
+                    is_grad_enabled=True,
+                ),
+                # NOTE: remove this, because not use in backward coordination
+                src=self.parallel_context.get_global_rank(),
+                dst=self.parallel_context.get_next_global_rank(ParallelMode.PIPELINE),
+            )
+            dummy_package = Package(dummy_output, metadata=metadata)
+            dummy_package = schedule_backward_execution(dummy_package, self.parallel_context)
+
+            outputs = [torch.zeros(1, requires_grad=True).float() for _ in range(n_microbatches - 1)] + [dummy_package.data]
+
+        dist.barrier()
 
         return outputs
 

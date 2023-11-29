@@ -27,9 +27,10 @@ class BasePartitioner(ABC):
 
 
 class UniformPartitioner(BasePartitioner):
-    def __init__(self, model: nn.Module, parallel_context: ParallelContext):
+    def __init__(self, model: nn.Module, n_partitions: int):
+        assert n_partitions > 1, "n_partitions must be greater than 1"
         self.model = model
-        self.parallel_context = parallel_context
+        self.n_partitions = n_partitions
 
     def _find_transformer_block_prefix(self):
         # Since there is no standardized way to find the name of the transformer block, we have to find the name first
@@ -144,7 +145,6 @@ class UniformPartitioner(BasePartitioner):
         return node_name_to_shard_id, output_from_shard
 
     def split(self, input_names: List[str] = INPUT_NAMES) -> List[nn.Module]:
-        n_partitions = self.parallel_context.pipeline_parallel_size
         model = self.model
         module_list: List[torch.fx.GraphModule] = []
         num_graphs = 0
@@ -152,7 +152,7 @@ class UniformPartitioner(BasePartitioner):
 
         symbolic_traced_module = symbolic_trace(model, input_names=input_names)
 
-        node_name_to_shard_id, output_from_shard = self._split_nodes(symbolic_traced_module, n_partitions)
+        node_name_to_shard_id, output_from_shard = self._split_nodes(symbolic_traced_module, self.n_partitions)
 
         nodes_per_shard = defaultdict(dict)
 

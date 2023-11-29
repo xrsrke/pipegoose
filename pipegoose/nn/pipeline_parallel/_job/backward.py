@@ -10,10 +10,6 @@ from pipegoose.nn.pipeline_parallel._job.job import Job
 from pipegoose.nn.pipeline_parallel._package import Package
 from pipegoose.nn.pipeline_parallel.exception import PipelineGradientFlowError
 from pipegoose.nn.pipeline_parallel.pipeline_context import PipelineContext
-from pipegoose.nn.pipeline_parallel.queue import (
-    get_input_activations,
-    get_output_activations,
-)
 
 
 class _SaveGradLossFunction(torch.autograd.Function):
@@ -127,27 +123,40 @@ class BackwardJob(Job):
         partition_idx = self.input.metadata.partition_idx
         prev_grad = self.input.data
 
-        parallel_context = ParallelContext.get_context()
-        pipeline_context = PipelineContext.get_context()
-        rank = parallel_context.get_global_rank()
-
-        input = get_input_activations(microbatch_idx, partition_idx)
-        output = get_output_activations(microbatch_idx, partition_idx, self.is_scheduled)
-
-        if pipeline_context.is_first_stage is False and input.requires_grad is False:
-            # NOTE: the input of the first pipeline stage is the input of the model
-            # which we don't need to compute gradients for
-            raise PipelineGradientFlowError(
-                f"Please set .requires_grad = True to input activations. Gradients can't flow back to the input of the pipeline stage, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
-            )
-
-        torch.autograd.backward(output, grad_tensors=prev_grad, retain_graph=True)
-
         if partition_idx == 0:
             # NOTE: the first pipeline stage is the end of the backward pass
             # no need to send the gradients to any other pipeline stage
             return
 
+        parallel_context = ParallelContext.get_context()
+        pipeline_context = PipelineContext.get_context()
+        rank = parallel_context.get_global_rank()
+
+        from pipegoose.nn.pipeline_parallel.queue import (
+            _INPUT_ACTIVATIONS,
+            _SAVED_ACTIVATIONS,
+        )
+
+        key = (microbatch_idx, partition_idx)
+        input = _INPUT_ACTIVATIONS[key]
+        output = _SAVED_ACTIVATIONS[key]
+
+        # input = get_input_activations(microbatch_idx, partition_idx)
+        # output = get_output_activations(microbatch_idx, partition_idx, self.is_scheduled)
+
+        assert (
+            input.is_leaf is True and input.requires_grad is True
+        ), f"microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
+        assert output.requires_grad is True
+
+        if pipeline_context.is_first_stage is False and input.is_leaf is False:
+            # NOTE: the input of the first pipeline stage is the input of the model
+            # which we don't need to compute gradients for
+            raise RuntimeError(
+                f"Input tensors aren't leaf tensors, gradient can't flow, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
+            )
+
+        torch.autograd.backward(output, grad_tensors=prev_grad, retain_graph=True)
         if input.grad is None:
             raise PipelineGradientFlowError(
                 "Gradients can't flow back to the input of the pipeline stage, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"

@@ -15,6 +15,6 @@ def test_expert_context():
 
     assert expert_context.pop_all_aux_loss() == [1.01, 1.02]
     assert expert_context.pop_all_aux_loss() == []
-    
+
     assert expert_context.pop_all_z_loss() == [2.01, 2.02]
     assert expert_context.pop_all_z_loss() == []

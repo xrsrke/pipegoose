@@ -73,13 +73,7 @@ class InputActivations:
         """Get the saved activations for a given key for backward job."""
         # NOTE: because a partition can have multiple microbatches,
         input = _INPUT_ACTIVATIONS[key]
-
-        # return input.requires_grad_(True)
-        # TODO: add support regular non-transformers model
-        if isinstance(input, torch.Tensor):
-            return input.requires_grad_(True)
-        else:
-            return input
+        return input
 
     def save_activations(key: ActivationKey, data: torch.Tensor):
         """Save forward job's activations for backward job."""
@@ -87,7 +81,6 @@ class InputActivations:
 
 
 def save_input_activations(input: torch.Tensor, microbatch_idx: int, partition_idx: int):
-    # input.requires_grad = True
     key = InputActivations.get_key(microbatch_idx, partition_idx)
     InputActivations.save_activations(key, input)
 
@@ -113,10 +106,7 @@ def get_output_activations(microbatch_idx: int, partition_idx: int, is_pipeline:
 
     try:
         output = _SAVED_ACTIVATIONS[key]
-        if is_pipeline is True:
-            return output.requires_grad_(True)
-        else:
-            return output.detach().requires_grad_(True)
+        return output
     except KeyError:
         raise PipelineNoSavedActivationError(
             f"Can't find saved activations to do backpropogation for \

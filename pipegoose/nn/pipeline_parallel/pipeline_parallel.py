@@ -27,10 +27,10 @@ class PipelineParallel(Parallel):
     def parallelize(self) -> nn.Module:
         if self.parallel_context.pipeline_parallel_size > 1:
             partition_idx = get_partition_idx(self.parallel_context)
-            partitions = UniformPartitioner(self.module, self.parallel_context).split(["input_ids"])
+            n_partitions = self.parallel_context.pipeline_parallel_size
+            partitions = UniformPartitioner(self.module, n_partitions=n_partitions).split(["input_ids"])
             module = partitions[partition_idx]
 
-            n_partitions = self.parallel_context.pipeline_parallel_size
             scheduler = GPipeScheduler(self.num_microbatches, n_partitions)
             worker_manager = WorkerManager()
 
