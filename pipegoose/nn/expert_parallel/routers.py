@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torchtyping import TensorType
+from dataclasses import dataclass
 
 
 class RouterExplorationNoisePolicy(ABC):
@@ -30,6 +31,14 @@ class SwitchNoisePolicy(RouterExplorationNoisePolicy):
         noise = noise * self.eps * 2  # between [0, 2*eps)
         noise += 1 - self.eps  # between [1-eps, 1+eps)
         return noise
+
+
+@dataclass
+class RouterOutput:
+    dispatching_order: TensorType["batch_size * seq_len", "num_experts"]
+    weight: TensorType["batch_size * seq_len", "num_experts"]
+    aux_loss: TensorType["1"]
+    z_loss: TensorType["1"]
 
 
 class Router(ABC, nn.Module):
@@ -93,9 +102,7 @@ class _TopKRouter(Router):
 
     def forward(
         self, inputs: TensorType["batch_size", "seq_len", "d_model"]
-    ) -> Tuple[
-        TensorType["batch_size*seq_len", "num_experts"], TensorType["batch_size*seq_len", "num_experts"], TensorType["1"]
-    ]:
+    ) -> RouterOutput:
         orig_dtype = inputs.dtype
         total_tokens = inputs.shape[0] * inputs.shape[1]
 
@@ -115,15 +122,19 @@ class _TopKRouter(Router):
         topk_expert_mask = topk_expert_mask.scatter_(1, topk_idxs, True)
 
         # calculate router loss
-        loss = self.aux_loss_weight * self._aux_loss(router_prob, topk_expert_mask) + self.z_loss_weight * self._z_loss(
-            router_logits
-        )
+        aux_loss = self._aux_loss(router_prob, topk_expert_mask)
+        z_loss = self._z_loss(router_logits)
 
         if not self.expert_capacity:
             # we don't limit the capacity of the experts
             topk_weight = router_prob * topk_expert_mask
             topk_weight = topk_weight.to(orig_dtype)
-            return topk_expert_mask, topk_weight, loss
+            return RouterOutput(
+                dispatching_order=topk_expert_mask,
+                weight=topk_weight,
+                aux_loss=aux_loss,
+                z_loss=z_loss
+            )
 
         # limit the number of tokens per expert
         position_in_expert = torch.cumsum(topk_expert_mask, dim=0) * topk_expert_mask
@@ -137,7 +148,12 @@ class _TopKRouter(Router):
         topk_weight = router_prob * capacity_limited_topk_expert_mask
         topk_weight = topk_weight.to(orig_dtype)
 
-        return capacity_limited_topk_expert_mask, topk_weight, loss
+        return RouterOutput(
+            dispatching_order=capacity_limited_topk_expert_mask,
+            weight=topk_weight,
+            aux_loss=aux_loss,
+            z_loss=z_loss
+        )
 
 
 class Top1Router(_TopKRouter):

@@ -6,6 +6,7 @@ from pipegoose.distributed.functional import all_reduce
 from pipegoose.distributed.parallel_mode import ParallelMode
 from pipegoose.nn.expert_parallel.layers import ExpertLayer
 from pipegoose.testing.utils import count_model_parameters, init_parallel_context, spawn
+from pipegoose.nn.expert_parallel.routers import RouterOutput
 
 
 class DummyRouter:
@@ -14,7 +15,12 @@ class DummyRouter:
 
     def __call__(self, inputs):
         n_tokens = inputs.shape[0] * inputs.shape[1]
-        return torch.randint(0, self.num_experts, (n_tokens,)), None, None
+        return RouterOutput(
+            torch.randint(0, self.num_experts, (n_tokens,)),
+            None,
+            None,
+            None
+        )
 
 
 def run_expert_layer(
@@ -47,7 +53,7 @@ def run_expert_layer(
         expert,
         router,
         enable_tensor_parallel,
-        parallel_context,
+        parallel_context
     )
 
     local_param_count = count_model_parameters(expert_layer)

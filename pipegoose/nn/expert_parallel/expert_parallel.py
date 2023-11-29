@@ -27,7 +27,7 @@ class ExpertParallel(Parallel):
         router: Union[int, Callable] = 1,
         # noise_poligy: Union[str, Callable],
         enable_tensor_parallelism: bool = False,
-        parallel_context: ParallelContext = None,
+        parallel_context: ParallelContext = None
     ):
         tensor_parallel_size = parallel_context.get_world_size(ParallelMode.TENSOR)
         assert parallel_context is not None, "parallel_context must be provided"
@@ -64,7 +64,7 @@ class ExpertParallel(Parallel):
                         module if self.expert is None else self.expert,
                         self.router,
                         self.enable_tensor_parallelism,
-                        self.parallel_context,
+                        self.parallel_context
                     )
                     getattr(self.module, "transformer").h[layer_idx].mlp = expert_layer
 

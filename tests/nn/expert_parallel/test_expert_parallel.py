@@ -4,11 +4,18 @@ from functools import partial
 import numpy as np
 import pytest
 import torch
+import torch.nn as nn
 from torch.optim import Adam
 from transformers import AutoTokenizer, BloomConfig, BloomForCausalLM
 
 from pipegoose.nn import ExpertParallel
 from pipegoose.nn.expert_parallel.layers import ExpertLayer
+from pipegoose.nn.expert_parallel.loss import ExpertLoss
+from pipegoose.nn.expert_parallel.routers import (
+    RouterOutput,
+    SwitchNoisePolicy,
+    Top1Router,
+)
 from pipegoose.nn.expert_parallel.utils import get_num_local_experts
 from pipegoose.testing.utils import init_parallel_context, spawn
 
@@ -21,7 +28,12 @@ class DummyRouter:
 
     def __call__(self, inputs):
         n_tokens = inputs.shape[0] * inputs.shape[1]
-        return torch.randint(0, self.num_experts, (n_tokens,)), None, None
+        return RouterOutput(
+            torch.randint(0, self.num_experts, (n_tokens,)),
+            None,
+            torch.tensor(0.0),
+            torch.tensor(0.0),
+        )
 
 
 @pytest.fixture
@@ -77,6 +89,8 @@ def run_expert_parallel(
                     key = (layer_idx, expert_idx)
                     expert.register_backward_hook(partial(log_routed_expert, key=key))
 
+    loss_func = ExpertLoss(nn.CrossEntropyLoss(), aux_weight=0.1, z_weight=0.1)
+
     parallel_context = init_parallel_context(
         rank,
         world_size,
@@ -85,13 +99,7 @@ def run_expert_parallel(
         pipeline_parallel_size,
         data_parallel_size,
     )
-    model = ExpertParallel(
-        model,
-        NUM_EXPERTS,
-        mapping=mapping,
-        router=router,
-        parallel_context=parallel_context,
-    ).parallelize()
+    model = ExpertParallel(model, NUM_EXPERTS, mapping=mapping, router=router, parallel_context=parallel_context).parallelize()
     optim = Adam(model.parameters(), lr=1e-3)
 
     # NOTE: check the specified layers are replaced with expert layers
@@ -117,14 +125,21 @@ def run_expert_parallel(
 
     # NOTE: we haven't go through any weight update yet
     # so the logits should be the same
-    outputs = model(**kwargs["input"], labels=kwargs["labels"])
+    outputs = model(**kwargs["input"])
 
-    # assert torch.allclose(outputs.logits, REF_LOGITS)
-    assert outputs.logits.shape == REF_LOGITS.shape
-    assert torch.allclose(outputs.loss, REF_LOSS)
+    assert all(key in outputs for key in ["logits", "past_key_values"])
+    # NOTE: why so high tolerance?
+    assert torch.allclose(outputs.logits, REF_LOGITS, rtol=1e-1)
+
+    # compute the loss
+    logits = outputs.logits[..., :-1, :].view(-1, outputs.logits.shape[-1])
+    labels = kwargs["labels"][..., 1:].view(-1).to(logits.device)
+    loss = loss_func(logits, labels)
+
+    assert torch.allclose(loss, REF_LOSS)
 
     optim.zero_grad()
-    outputs.loss.backward()
+    loss.backward()
     optim.step()
 
     # NOTE: After the backward pass, check if the gradients flowing to the routed experts
@@ -170,6 +185,89 @@ def test_expert_parallel(model, tokenizer, tensor_parallel_size, num_experts):
         run_expert_parallel,
         world_size=WORLD_SIZE,
         tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
+        data_parallel_size=DATA_PARALLEL_SIZE,
+        kwargs=kwargs,
+    )
+
+
+def run_expert_parallel_with_top1_router(
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    kwargs,
+):
+    model = kwargs["model"]
+    mapping = kwargs["mapping"]
+    router = kwargs["router"]
+    NUM_EXPERTS = kwargs["num_experts"]
+
+    # TODO: remove after adding seed to parallel_context
+    random.seed(42)
+    np.random.seed(42)
+    torch.manual_seed(42)
+
+    parallel_context = init_parallel_context(
+        rank,
+        world_size,
+        port,
+        tensor_parallel_size,
+        pipeline_parallel_size,
+        data_parallel_size,
+    )
+    model = ExpertParallel(model, NUM_EXPERTS, mapping=mapping, router=router, parallel_context=parallel_context).parallelize()
+    loss_func = ExpertLoss(nn.CrossEntropyLoss(), aux_weight=0.1, z_weight=0.1)
+    optim = Adam(model.parameters(), lr=1e-3)
+
+    outputs = model(**kwargs["input"])
+
+    assert all(key in outputs for key in ["logits", "past_key_values"])
+
+    logits = outputs.logits[..., :-1, :].view(-1, outputs.logits.shape[-1])
+    labels = kwargs["labels"][..., 1:].view(-1).to(logits.device)
+    loss = loss_func(logits, labels)
+
+    assert isinstance(loss, torch.Tensor)
+
+    optim.zero_grad()
+    loss.backward()
+    optim.step()
+
+
+def test_expert_parallel_with_top1_router(model, tokenizer):
+    TENSOR_PARALLEL_SIZE = 2
+    PIPELINE_PARALLEL_SIZE = 1
+    DATA_PARALLEL_SIZE = 1
+    WORLD_SIZE = TENSOR_PARALLEL_SIZE * PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE
+
+    NUM_EXPERTS = 2
+    NUM_EXPERT_LAYERS = 2
+    NUM_LAYERS = model.config.num_hidden_layers
+    D_MODEL = model.config.hidden_size
+
+    mapping = [layer_idx for layer_idx in random.sample(range(NUM_LAYERS - 1), NUM_EXPERT_LAYERS)]
+    noise_policy = SwitchNoisePolicy()
+    router = Top1Router(noise_policy, NUM_EXPERTS, D_MODEL)
+
+    text = "Persistence is all you need."
+    input = tokenizer(text, return_tensors="pt")
+
+    kwargs = {
+        "input": input,
+        "labels": input["input_ids"],
+        "model": model,
+        "mapping": mapping,
+        "num_experts": NUM_EXPERTS,
+        "router": router,
+    }
+
+    spawn(
+        run_expert_parallel_with_top1_router,
+        world_size=WORLD_SIZE,
+        tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
         data_parallel_size=DATA_PARALLEL_SIZE,
         kwargs=kwargs,

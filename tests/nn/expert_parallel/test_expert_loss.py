@@ -1,24 +1,35 @@
+import torch
 from torch import nn
+import torch.nn.functional as F
 
 from pipegoose.nn.expert_parallel import ExpertLoss
+from pipegoose.nn.expert_parallel.expert_context import ExpertContext
 
 
 def test_expert_loss():
-    loss_func = nn.CrossEntropyLoss()
+    torch.manual_seed(42)
+    logits = torch.randn((10, 5))
+    gt = torch.randn((10, 5))
 
-    expert_loss = ExpertLoss(loss_func, aux_weight=0.1)
+    loss_func = nn.MSELoss()
+
+    expert_loss = ExpertLoss(loss_func, aux_weight=0.1, z_weight=0.2)
+    expert_context = ExpertContext.get_instance()
 
     assert expert_loss.aux_weight == 0.1
+    assert expert_loss.z_weight == 0.2
     assert expert_loss.loss_func == loss_func
 
-    ExpertLoss.add_aux_loss(1.01)
-    ExpertLoss.add_z_loss(2.01)
+    expert_context.push_aux_loss(1.01)
+    expert_context.push_z_loss(2.01)
 
-    assert expert_loss.get_aux_loss() == [1.01]
-    assert expert_loss.get_z_loss() == [2.01]
+    expert_context.push_aux_loss(1.02)
+    expert_context.push_z_loss(2.02)
 
-    ExpertLoss.add_aux_loss(1.02)
-    ExpertLoss.add_z_loss(2.02)
+    expected_loss = F.mse_loss(logits, gt) + 0.1 * (1.01 + 1.02) + 0.2 * (2.01 + 2.02)
+    loss = expert_loss(logits, gt)
 
-    assert expert_loss.get_aux_loss() == [1.01, 1.02]
-    assert expert_loss.get_z_loss() == [2.01, 2.02]
+    assert torch.allclose(loss, expected_loss)
+
+    assert expert_context.aux_loss == []
+    assert expert_context.z_loss == []
