@@ -1,12 +1,12 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Tuple, Optional
+from dataclasses import dataclass
+from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
 from torch import nn
 from torchtyping import TensorType
-from dataclasses import dataclass
 
 
 class RouterExplorationNoisePolicy(ABC):
@@ -21,7 +21,8 @@ class SwitchNoisePolicy(RouterExplorationNoisePolicy):
     Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity
     by Fedus et al.
     """
-    def __init__(self, eps: float=0.1):
+
+    def __init__(self, eps: float = 0.1):
         super().__init__()
         self.eps = eps
 
@@ -100,9 +101,7 @@ class _TopKRouter(Router):
         expert_capacity = math.ceil((total_tokens / self.num_experts) * c)
         return expert_capacity
 
-    def forward(
-        self, inputs: TensorType["batch_size", "seq_len", "d_model"]
-    ) -> RouterOutput:
+    def forward(self, inputs: TensorType["batch_size", "seq_len", "d_model"]) -> RouterOutput:
         orig_dtype = inputs.dtype
         total_tokens = inputs.shape[0] * inputs.shape[1]
 
@@ -129,12 +128,7 @@ class _TopKRouter(Router):
             # we don't limit the capacity of the experts
             topk_weight = router_prob * topk_expert_mask
             topk_weight = topk_weight.to(orig_dtype)
-            return RouterOutput(
-                dispatching_order=topk_expert_mask,
-                weight=topk_weight,
-                aux_loss=aux_loss,
-                z_loss=z_loss
-            )
+            return RouterOutput(dispatching_order=topk_expert_mask, weight=topk_weight, aux_loss=aux_loss, z_loss=z_loss)
 
         # limit the number of tokens per expert
         position_in_expert = torch.cumsum(topk_expert_mask, dim=0) * topk_expert_mask
@@ -149,10 +143,7 @@ class _TopKRouter(Router):
         topk_weight = topk_weight.to(orig_dtype)
 
         return RouterOutput(
-            dispatching_order=capacity_limited_topk_expert_mask,
-            weight=topk_weight,
-            aux_loss=aux_loss,
-            z_loss=z_loss
+            dispatching_order=capacity_limited_topk_expert_mask, weight=topk_weight, aux_loss=aux_loss, z_loss=z_loss
         )
 
 

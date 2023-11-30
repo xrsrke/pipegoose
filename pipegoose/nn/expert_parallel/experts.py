@@ -51,7 +51,14 @@ class Experts(nn.Module):
                 # how do we detect this and pass the corresponding arguments to the expert?
                 # For example, hidden_states.shape = (batch_size, seq_len, hidden_size),
                 # but we need to dispatch the hidden_states to the corresponding expert
-                expert_output = expert(dispatched_inputs, *args[1][:, indices], **kwargs)
+
+                # NOTE: args[0] is the input embeddings
+                # args[1] is the hidden_states, so we pass the input embeddings along
+                # with the hidden_states to the expert
+                selected_embeddings = rearrange(args[1], "batch_size seq_len d_dim -> (batch_size seq_len) d_dim")[indices]
+                # selected_embeddings = rearrange(selected_embeddings, "(batch_size seq_len) d_dim -> batch_size seq_len d_dim", batch_size=inputs.shape[0])
+
+                expert_output = expert(dispatched_inputs, selected_embeddings, **kwargs)
             else:
                 expert_output = expert(dispatched_inputs)
 

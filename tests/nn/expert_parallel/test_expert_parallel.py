@@ -128,12 +128,12 @@ def run_expert_parallel(
     outputs = model(**kwargs["input"])
 
     assert all(key in outputs for key in ["logits", "past_key_values"])
-    # NOTE: why so high tolerance?
-    assert torch.allclose(outputs.logits, REF_LOGITS, rtol=1e-1)
+    # TODO: fail at tp_size=2, expert_size=4
+    assert torch.allclose(outputs.logits, REF_LOGITS)
 
     # compute the loss
-    logits = outputs.logits[..., :-1, :].view(-1, outputs.logits.shape[-1])
-    labels = kwargs["labels"][..., 1:].view(-1).to(logits.device)
+    logits = outputs.logits[..., :-1, :].contiguous().view(-1, outputs.logits.shape[-1])
+    labels = kwargs["labels"].view(-1).to(logits.device)
     loss = loss_func(logits, labels)
 
     assert torch.allclose(loss, REF_LOSS)
@@ -160,19 +160,20 @@ def test_expert_parallel(model, tokenizer, tensor_parallel_size, num_experts):
     DATA_PARALLEL_SIZE = 1
     WORLD_SIZE = tensor_parallel_size * PIPELINE_PARALLEL_SIZE * DATA_PARALLEL_SIZE
 
+    BATCH_SIZE = 4
     NUM_LAYERS = model.config.num_hidden_layers
     NUM_EXPERT_LAYERS = 2
 
     mapping = [layer_idx for layer_idx in random.sample(range(NUM_LAYERS - 1), NUM_EXPERT_LAYERS)]
     router = DummyRouter(num_experts)
 
-    text = "Persistence is all you need."
+    text = ["Persistence is all you need." for _ in range(BATCH_SIZE)]
     input = tokenizer(text, return_tensors="pt")
     outputs = model(**input, labels=input["input_ids"])
 
     kwargs = {
         "input": input,
-        "labels": input["input_ids"],
+        "labels": input["input_ids"][..., 1:].contiguous(),
         "model": model,
         "mapping": mapping,
         "num_experts": num_experts,
