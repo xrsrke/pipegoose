@@ -6,7 +6,7 @@ from pipegoose.nn.expert_parallel.expert_context import ExpertContext
 
 
 class ExpertLoss:
-    def __init__(self, loss_func: Callable, aux_weight: float, z_weight: float):
+    def __init__(self, loss_func: Callable, aux_weight: float = 0.01, z_weight: float = 0.1):
         self.loss_func = loss_func
         self.aux_weight = aux_weight
         self.z_weight = z_weight
