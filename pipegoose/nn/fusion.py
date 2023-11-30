@@ -2,13 +2,20 @@ import torch
 from typing import Type
 from torch import Tensor
 from torch.nn import functional as F
+
 from torch.nn import GELU, Dropout, Module
 from torch.nn.modules.dropout import _DropoutNd
+from transformers.models.bloom.modeling_bloom import BloomGelu
+
 
 
 class FusedLayer:
-    # Used to match layers in fx.GraphModule to their fused layer counterpart
-    represents: Type[Module]
+    # Used to match layers in Parallel.module to their fused layer counterpart
+    represents: list[Type[Module]]
+
+    # We pass the target_layer to give each fused layer the ability to copy its instantiation arguments
+    def __init__(self, target_layer: Module) -> None:
+        pass
 
 
 @torch.jit.script
@@ -27,10 +34,10 @@ def _fused_bias_gelu_bwd(g, input, bias):
     return ff * g
 
 
-class FusedBiasGelu(torch.autograd.Function, FusedLayer):
+class FusedBiasGelu(GELU, FusedLayer):
     """Fused gelu + bias function."""
 
-    represents = GELU
+    represents = [GELU, BloomGelu]
 
     @staticmethod
     def forward(ctx, input, bias):
@@ -61,9 +68,11 @@ class FusedBiasDropout(_DropoutNd, FusedLayer):
     See: https://pytorch.org/docs/stable/_modules/torch/nn/modules/dropout.html#Dropout
     """
 
-    represents = Dropout
+    represents = [Dropout]
 
-    def __init__(self, dropout_p: float, inplace: bool = True):
+    def __init__(self, target_layer: Dropout):
+        dropout_p = target_layer.p
+        inplace = target_layer.inplace
         super().__init__(p=dropout_p, inplace=inplace)
 
     def forward(self, input: Tensor, bias: Tensor):

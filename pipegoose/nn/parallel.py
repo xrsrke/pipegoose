@@ -4,7 +4,7 @@ from functools import partial
 from typing import cast, List
 
 import torch
-from torch import nn, fx
+from torch import nn
 from pipegoose.nn.fusion import FusedLayer
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
@@ -18,6 +18,9 @@ class ParallelMetadata:
 
 class Parallel:
     """A base class for a parallelized module."""
+    def __init__(self, module: nn.Module, parallel_context: ParallelContext):
+        self.module = module
+        self.parallel_context = parallel_context
 
     @abstractclassmethod
     def parallelize(self):
@@ -55,26 +58,20 @@ class Parallel:
         setattr(module, "to", partial(_to_device, module))
         setattr(module, "cuda", partial(_to_cuda, module))
 
-    def fuse(self, fused_layers: List[FusedLayer]) -> None:
+    def fuse(self, fused_layers: List[FusedLayer]) -> nn.Module:
         """
         In place fusion of the model's layers according to list of input layers defined in pipegoose.nn.fusion
         """
-        fx_model = fx.symbolic_trace(self.module)
-        modules = dict(fx_model.named_modules())
+        replacements: list[tuple[str, nn.Module]] = [
+            (name, fused_layer(child))
+            for name, child in self.module.named_modules()
+            for fused_layer in fused_layers
+            if any(map(lambda r: isinstance(child, r), fused_layer.represents))
+        ]
 
-        for node in fx_model.graph.nodes:
-            if node.op != "call_module":
-                continue
+        for name, replacement in replacements: setattr(self.module, name, replacement)
 
-            for fused_layer in fused_layers:
-                if type(modules[node.target]) is fused_layer.represents:
-                    # Replace the layer with its fused counterpart
-                    *parent, name = node.target.rsplit(".", 1)
-                    setattr(modules[(parent[0] if parent else "")], name, fused_layer)
-
-        fx_model.graph.lint()
-        fx_model.recompile
-        return fx_model
+        return self.module
 
 
 def _to_device(self, device: str):
