@@ -112,6 +112,8 @@ class ParallelContext:
         self.tensor_parallel_size = tensor_parallel_size
         self.pipeline_parallel_size = pipeline_parallel_size
         self.data_parallel_size = data_parallel_size
+        self.seed = seed
+        self.backend = backend
 
         self._global_ranks = {}
         self._local_ranks = {}
@@ -125,6 +127,7 @@ class ParallelContext:
 
         self.init_global_dist(rank, world_size, backend, host, port)
         self.init_parallel_groups()
+        self.set_device()
         self.map_rank_to_device()
 
         self.rpc_worker_map = {rank: WORKER_NAME.format(rank) for rank in self.get_ranks_in_group(ParallelMode.GLOBAL)}
@@ -241,9 +244,9 @@ class ParallelContext:
         self.add_ranks_in_group(parallel_mode, ranks_in_group)
 
     def set_device(self):
-        num_devices_per_node = torch.cuda.device_count()
-        if num_devices_per_node > 0:
-            device = self.get_global_rank() % num_devices_per_node
+        num_devices = torch.cuda.device_count()
+        if num_devices > 0:
+            device = self.get_global_rank() % num_devices
             torch.cuda.set_device(device)
 
     def set_seed(self, seed: int):
@@ -260,12 +263,15 @@ class ParallelContext:
         """Map global rank to device."""
         rank_tensor = torch.zeros(len(self._local_ranks), dtype=torch.long)
 
+        # NOTE: if the backend is nccl, all tensors in communication must
+        # be move to gpu memory
+        if self.backend == "nccl":
+            rank_tensor = rank_tensor.cuda()
+
         for idx, local_rank in enumerate(self._local_ranks.values()):
             rank_tensor[idx] = local_rank
 
-        rank_tensor_list = [
-            torch.zeros(rank_tensor.size(), dtype=torch.long) for _ in range(self.get_world_size(ParallelMode.GLOBAL))
-        ]
+        rank_tensor_list = [torch.zeros_like(rank_tensor) for _ in range(self.get_world_size(ParallelMode.GLOBAL))]
 
         dist.all_gather(tensor_list=rank_tensor_list, tensor=rank_tensor)
 
