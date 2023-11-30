@@ -116,7 +116,6 @@ def run_tensor_parallel_model_fuse_with_gelu_dropout(
     )
 
     parallelized_model = TensorParallel(model, parallel_context)
-    import pdb; pdb.set_trace()
     parallelized_model.fuse([FusedBiasGelu, FusedBiasDropout]) 
     # Check that all the Gelu and Dropout layers are their fused counterparts
 
