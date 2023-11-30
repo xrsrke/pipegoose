@@ -1,14 +1,16 @@
 #include <stdio.h>
 #include <torch/extension.h>
 
-__global__ void kernel_foward(const float X, const int N)
+__global__ void kernel_forward(float *X, float *Y)
 {
-    for (int i = 0; i < N; i++)
-        printf("%f\n", X[i]);
+    // Copy element of X into Y;
+    Y[threadIdx.x] = X[threadIdx.x];
 }
 
-void cuda_foward(float *X, int N)
+
+void cuda_forward(int64_t N, float *X, float *Y)
 {
-    kernel_foward<<<1,1>>>(X, N);
+    kernel_forward<<<1, N>>>(X, Y);
+    cudaDeviceSynchronize();
 }
 

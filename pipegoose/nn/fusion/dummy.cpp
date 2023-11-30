@@ -1,18 +1,16 @@
 #include <torch/extension.h>
 #include "ATen/ATen.h"
 
-void cuda_forward();
-void cuda_backward();
+void cuda_forward(int64_t N, float *X, float *Y);
 
-void forward(torch::Tensor &X, int N) {
-    cuda_forward(X.data_ptr<float>(), N);
+void forward(int64_t N, torch::Tensor &X, torch::Tensor &Y) {
+    cuda_forward(N, X.data_ptr<float>(), Y.data_ptr<float>());
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    // Docstring
     m.def("forward", &forward, "Function that does forward pass for FusedDummy");
 }
 
-TORCH_LIBRARY(wkv5, m) {
+TORCH_LIBRARY(torch_dummy, m) {
     m.def("forward", forward);
 }
