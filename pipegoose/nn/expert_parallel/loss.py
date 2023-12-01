@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, List
 
 from torchtyping import TensorType
 
@@ -10,6 +10,16 @@ class ExpertLoss:
         self.loss_func = loss_func
         self.aux_weight = aux_weight
         self.z_weight = z_weight
+
+    @property
+    def aux_loss(self) -> List[float]:
+        expert_context = ExpertContext.get_instance()
+        return expert_context.aux_loss
+
+    @property
+    def z_loss(self) -> List[float]:
+        expert_context = ExpertContext.get_instance()
+        return expert_context.z_loss
 
     def __call__(self, *args, **kwargs) -> TensorType:
         loss = self.loss_func(*args, **kwargs)
