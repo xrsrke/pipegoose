@@ -123,6 +123,7 @@ class BackwardJob(Job):
         partition_idx = self.input.metadata.partition_idx
         prev_grad = self.input.data
 
+        # TODO: not create this job in the first place
         if partition_idx == 0:
             # NOTE: the first pipeline stage is the end of the backward pass
             # no need to send the gradients to any other pipeline stage
@@ -144,10 +145,9 @@ class BackwardJob(Job):
         # input = get_input_activations(microbatch_idx, partition_idx)
         # output = get_output_activations(microbatch_idx, partition_idx, self.is_scheduled)
 
-        assert (
-            input.is_leaf is True and input.requires_grad is True
-        ), f"microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"
+        assert input.is_leaf is True and input.requires_grad is True
         assert output.requires_grad is True
+        assert output.device == prev_grad.device == input.device
 
         if pipeline_context.is_first_stage is False and input.is_leaf is False:
             # NOTE: the input of the first pipeline stage is the input of the model
@@ -157,6 +157,7 @@ class BackwardJob(Job):
             )
 
         torch.autograd.backward(output, grad_tensors=prev_grad, retain_graph=True)
+
         if input.grad is None:
             raise PipelineGradientFlowError(
                 "Gradients can't flow back to the input of the pipeline stage, rank={rank}, microbatch_idx={microbatch_idx}, partition_idx={partition_idx}"

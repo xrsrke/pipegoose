@@ -75,7 +75,7 @@ def run_pipeline_engine(
     if is_last_stage(parallel_context):
         # TODO: auto concat outputs
         assert torch.allclose(torch.cat(outputs, dim=0), ref_logits)
-        torch.allclose(torch.cat(outputs, dim=0).sum(), ref_loss)
+        assert torch.allclose(torch.cat(outputs, dim=0).sum(), ref_loss)
 
     optim.zero_grad()
 

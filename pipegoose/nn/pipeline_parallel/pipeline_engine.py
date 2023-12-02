@@ -52,21 +52,25 @@ class PipelineEngine:
 
         self.module = module
         self.module_fwd_function: Callback = copy.copy(self.module.forward)
-        self.scheduler = scheduler
+        self.scheduler: BaseScheduler = scheduler
         self.worker_manager = worker_manager
         self.parallel_context = parallel_context
         self.pipeline_context = PipelineContext(scheduler, parallel_context)
 
     def run(self, input_ids: torch.LongTensor, attention_mask: torch.FloatTensor = None) -> torch.Tensor:
-        self.worker_manager.spawn()
-        self.pipeline_context.forward()
         n_microbatches = self.scheduler.n_microbatches
+        assert (
+            n_microbatches // input_ids.shape[0] == 0
+        ), f"n_microbatches={n_microbatches} must be divisible by batch_size={input_ids.shape[0]}"
 
         if isinstance(input_ids, dict):
             inputs = {"input_ids": input_ids, "attention_mask": attention_mask}
             microbatches = microbatch.split(inputs, n_microbatches=n_microbatches)
         else:
             microbatches = torch.chunk(input_ids, chunks=n_microbatches, dim=0)
+
+        self.worker_manager.spawn()
+        self.pipeline_context.forward()
 
         # NOTE: add a callback to the progress tracker
         # that if the clock_idx is increased, then
