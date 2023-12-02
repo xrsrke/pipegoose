@@ -225,6 +225,8 @@ def run_expert_parallel_with_top1_router(
 
     outputs = model(**kwargs["input"])
 
+    assert len(loss_func.aux_loss) == NUM_EXPERTS
+    assert len(loss_func.z_loss) == NUM_EXPERTS
     assert all(key in outputs for key in ["logits", "past_key_values"])
 
     logits = outputs.logits[..., :-1, :].view(-1, outputs.logits.shape[-1])
@@ -232,6 +234,8 @@ def run_expert_parallel_with_top1_router(
     loss = loss_func(logits, labels)
 
     assert isinstance(loss, torch.Tensor)
+    assert len(loss_func.aux_loss) == 0
+    assert len(loss_func.z_loss) == 0
 
     optim.zero_grad()
     loss.backward()

@@ -56,8 +56,8 @@ class _TopKRouter(Router):
         expert_capacity: Optional[Tuple[float, float]] = None,
         alpha: float = 0.01,
         eps: float = 0.1,
-        aux_loss_weight: float = 1.0,
-        z_loss_weight: float = 1.0,
+        # aux_loss_weight: float = 1.0,
+        # z_loss_weight: float = 1.0,
     ):
         super().__init__()
         self.noise_policy = noise_policy
@@ -66,8 +66,8 @@ class _TopKRouter(Router):
         self.expert_capacity = expert_capacity
         self.alpha = alpha
         self.eps = eps
-        self.aux_loss_weight = aux_loss_weight
-        self.z_loss_weight = z_loss_weight
+        # self.aux_loss_weight = aux_loss_weight
+        # self.z_loss_weight = z_loss_weight
         self.gate = nn.Linear(d_model, num_experts)
 
     def _aux_loss(
@@ -156,8 +156,6 @@ class Top1Router(_TopKRouter):
         expert_capacity: Optional[Tuple[float, float]] = None,
         alpha: float = 0.01,
         eps: float = 0.1,
-        aux_loss_weight: float = 1.0,
-        z_loss_weight: float = 1.0,
     ):
         super().__init__(
             noise_policy=noise_policy,
@@ -167,8 +165,6 @@ class Top1Router(_TopKRouter):
             expert_capacity=expert_capacity,
             alpha=alpha,
             eps=eps,
-            aux_loss_weight=aux_loss_weight,
-            z_loss_weight=z_loss_weight,
         )
 
 
@@ -181,8 +177,6 @@ class Top2Router(_TopKRouter):
         expert_capacity: Optional[Tuple[float, float]] = None,
         alpha: float = 0.01,
         eps: float = 0.1,
-        aux_loss_weight: float = 1.0,
-        z_loss_weight: float = 1.0,
     ):
         super().__init__(
             noise_policy=noise_policy,
@@ -192,6 +186,4 @@ class Top2Router(_TopKRouter):
             expert_capacity=expert_capacity,
             alpha=alpha,
             eps=eps,
-            aux_loss_weight=aux_loss_weight,
-            z_loss_weight=z_loss_weight,
         )
