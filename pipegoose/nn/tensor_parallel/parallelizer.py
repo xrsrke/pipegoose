@@ -11,7 +11,7 @@ from pipegoose.nn.tensor_parallel._utils import VocabUtility
 from pipegoose.nn.tensor_parallel.embedding import ParallelEmbedding
 from pipegoose.nn.tensor_parallel.layer_norm import LayerNorm
 from pipegoose.nn.tensor_parallel.linear import ColumnParallelLinear, RowParallelLinear
-from pipegoose.nn.tensor_parallel.parallel_mapping import ParallelMapping
+from pipegoose.nn.tensor_parallel.parallel_mapping import TensorParallelMapping
 
 
 def _update_model_arguments(module: nn.Module, **kwargs):
@@ -61,14 +61,14 @@ class ModuleParallelizer(ABC):
 class LinearParallelizer(ModuleParallelizer):
     @staticmethod
     def is_parallelizable(module_name: str, module: nn.Module) -> bool:
-        return isinstance(module, nn.Linear) and ParallelMapping.is_lm_head(module_name) is False
+        return isinstance(module, nn.Linear) and TensorParallelMapping.is_lm_head(module_name) is False
 
     def parallelize(self) -> Union[ColumnParallelLinear, RowParallelLinear]:
         assert self.is_parallelizable(self.module_name, self.module), f"{self.module_name} can't be parallelized"
 
-        if ParallelMapping.is_column_parallel(self.module_name):
+        if TensorParallelMapping.is_column_parallel(self.module_name):
             module = self._parallelize_column_linear(self.module)
-        elif ParallelMapping.is_row_parallel(self.module_name):
+        elif TensorParallelMapping.is_row_parallel(self.module_name):
             module = self._parallelize_row_linear(self.module)
         else:
             raise ValueError(f"module {self.module_name} is not supported")
@@ -194,7 +194,7 @@ class LayerNormParallelizer(ModuleParallelizer):
 class LMHeadParallelizer(ModuleParallelizer):
     @staticmethod
     def is_parallelizable(module_name: str, module: nn.Module) -> bool:
-        return isinstance(module, nn.Linear) and ParallelMapping.is_lm_head(module_name) is True
+        return isinstance(module, nn.Linear) and TensorParallelMapping.is_lm_head(module_name) is True
 
     """Parallelize language model head."""
 
