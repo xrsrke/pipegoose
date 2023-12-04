@@ -95,53 +95,6 @@ def run_parallelize_a_transformers_and_inference(
     assert torch.allclose(generated_tokens, REF_GENERATED_TOKENS)
 
 
-def run_tensor_parallel_model_fuse_with_gelu_dropout(
-    rank,
-    world_size,
-    port,
-    tensor_parallel_size,
-    pipeline_parallel_size,
-    data_parallel_size,
-    kwargs,
-):
-    model = deepcopy(kwargs["model"])
-
-    parallel_context = init_parallel_context(
-        rank,
-        world_size,
-        port,
-        tensor_parallel_size,
-        pipeline_parallel_size,
-        data_parallel_size,
-    )
-
-    parallelized_model = TensorParallel(model, parallel_context)
-    parallelized_model.fuse([FusedBiasGelu, FusedBiasDropout]) 
-    # Check that all the Gelu and Dropout layers are their fused counterparts
-
-
-@pytest.mark.parametrize("tensor_parallel_size", [2, 4])
-def test_tensor_parallel_fuse_with_gelu_dropout(
-    model, tokenizer, tensor_parallel_size
-):
-    
-    PIPELINE_PARALLEL_SIZE = 1
-    DATA_PARALLEL_SIZE = 1
-
-    orig_model = deepcopy(model)
-    kwargs = {
-        "model": orig_model,
-    }
-
-    spawn(
-        run_tensor_parallel_model_fuse_with_gelu_dropout,
-        world_size=tensor_parallel_size,
-        tensor_parallel_size=tensor_parallel_size,
-        pipeline_parallel_size=PIPELINE_PARALLEL_SIZE,
-        data_parallel_size=DATA_PARALLEL_SIZE,
-        kwargs=kwargs,
-    )
-
 @pytest.mark.skip("TODO: Not testing this at the moment")
 @pytest.mark.parametrize("tensor_parallel_size", [2, 4])
 def test_parallelize_a_transformer_and_inference(

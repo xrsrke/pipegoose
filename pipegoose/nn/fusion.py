@@ -1,5 +1,6 @@
 import torch
-from typing import Type
+from typing import Type, Literal
+from multimethod import overload
 from torch import Tensor
 from torch.nn import functional as F
 
@@ -38,6 +39,16 @@ class FusedBiasGelu(GELU, FusedLayer):
     """Fused gelu + bias function."""
 
     represents = [GELU, BloomGelu]
+    approximate: str
+
+    @overload
+    def __init__(self, target_layer: GELU):
+        super().__init__()
+        self.approximate = target_layer.approximate
+
+    @overload
+    def __init__(self, target_layer: BloomGelu):
+        super().__init__()
 
     @staticmethod
     def forward(ctx, input, bias):

@@ -70,9 +70,8 @@ class Parallel:
         ]
 
         for name, replacement in replacements: setattr(self.module, name, replacement)
-
+            
         return self.module
-
 
 def _to_device(self, device: str):
     """Move a parallelized module to accelerators."""
