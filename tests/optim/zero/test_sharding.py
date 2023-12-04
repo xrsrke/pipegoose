@@ -41,9 +41,6 @@ def run_optimizer_states_sharding(
     assert len(sharded_params) == world_size
 
     for rank, shard in enumerate(sharded_params):
-        if rank == 4:
-            assert 1 == 1
-
         assert isinstance(shard, list)
         for param_group in shard:
             assert len(param_group["params"]) > 0
