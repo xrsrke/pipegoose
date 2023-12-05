@@ -7,9 +7,10 @@ from torch import nn
 from transformers import BloomConfig, BloomForCausalLM
 from transformers.models.bloom.modeling_bloom import BloomGelu
 
-from pipegoose.nn.fusion import FusedBiasDropout, FusedBiasGelu
+from pipegoose.nn.fusion import FusedBiasDropout, FusedBiasGelu, FusedGelu
 from pipegoose.nn.parallel import Parallel
 
+from torch.nn import GELU, Dropout, Module
 # Construct a very basic model that inherits nn.Module, using GeLU and Dropout
 BASE_MODEL = nn.Sequential(
     nn.Linear(10, 10),
@@ -20,6 +21,10 @@ BASE_MODEL = nn.Sequential(
     nn.Dropout(0.1),
     nn.Linear(10, 10)
 )
+from torch.fx import replace_pattern
+
+# replace_pattern(torch.fx.symbolic_trace(BASE_MODEL), GELU, FusedGelu)
+
 NESTED_MODEL = nn.Sequential(
     nn.Linear(10, 10),
     nn.Sequential(
@@ -37,6 +42,8 @@ NESTED_MODEL = nn.Sequential(
     nn.Linear(10, 10)
 )
 BLOOM_560M = BloomForCausalLM(BloomConfig())
+
+
 
 def test_parallel_fuse_with_gelu_dropout():
     base_model_parallel = Parallel(module=deepcopy(BASE_MODEL), parallel_context=MagicMock())

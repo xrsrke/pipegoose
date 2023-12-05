@@ -2,10 +2,13 @@ from abc import abstractclassmethod
 from dataclasses import dataclass
 from functools import partial
 from typing import cast, List
+from copy import deepcopy
 
 import torch
 from torch import nn
-from pipegoose.nn.fusion import FusedLayer
+import torch.fx as fx
+
+from pipegoose.nn.fusion import FusedLayer, should_fuse_layer, replace_layer_in_module
 from pipegoose.distributed.parallel_context import ParallelContext
 from pipegoose.distributed.parallel_mode import ParallelMode
 
@@ -58,7 +61,7 @@ class Parallel:
         setattr(module, "to", partial(_to_device, module))
         setattr(module, "cuda", partial(_to_cuda, module))
 
-    def fuse(self, fused_layers: List[FusedLayer]) -> nn.Module:
+    def fuse_md(self, fused_layers: List[FusedLayer]) -> nn.Module:
         """
         In place fusion of the model's layers according to list of input layers defined in pipegoose.nn.fusion
         """
@@ -72,6 +75,39 @@ class Parallel:
         for name, replacement in replacements: setattr(self.module, name, replacement)
             
         return self.module
+
+    def fuse(self, fused_layers: List[FusedLayer]) -> nn.Module:
+
+        # Collect functions to wrap in the tracer
+        autowrap_fns = tuple(set.union(*map(lambda l: set(l.wraps), fused_layers)))
+        # The arguments to the tracer should be configured based on the union of the 
+        #  FusedLayer's 'wraps' attribute, which defines the operations that their 
+        #  representations contain that are not torch.jitable, such as `len` in
+        #  BloomGelu
+        graph = fx.Tracer(autowrap_functions=autowrap_fns).trace(self.module)
+        graph_module = fx.GraphModule(self.module, graph)
+
+        modules = dict(graph_module.named_modules())
+        new_graph = deepcopy(graph_module.graph)
+
+        print(f'--------------------- Attempting to edit: ---------------------')
+        graph.print_tabular()
+        # A Graph is a data structure that represents a method on a GraphModule
+        for node in new_graph.nodes:
+            for candidate in fused_layers:
+                if should_fuse_layer(node, candidate, modules):
+                    if len(node.args[0].users) > 1:  # Output of conv is used by other nodes
+                        continue
+                    replace_layer_in_module(node.args[0], candidate, modules)
+                    # After replacing the node in-place, replace it in all other occurrences in the graph
+                    node.replace_all_uses_with(node.args[0])
+                    # NOTE We cannot erase the node until nobody is using it anymore
+                    new_graph.erase_node(node)
+                    break
+
+        graph.lint()
+        return torch.fx.GraphModule(self.module, new_graph)
+
 
 def _to_device(self, device: str):
     """Move a parallelized module to accelerators."""
