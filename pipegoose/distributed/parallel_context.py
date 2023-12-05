@@ -28,6 +28,9 @@ from pipegoose.constants import SEED, WORKER_NAME
 from pipegoose.distributed._initializers.initialize_data import (
     DataParallelGroupInitializer,
 )
+from pipegoose.distributed._initializers.initialize_expert import (
+    ExpertDataParallelGroupInitializer,
+)
 from pipegoose.distributed._initializers.initialize_pipeline import (
     PipelineParallelGroupInitializer,
 )
@@ -188,6 +191,7 @@ class ParallelContext:
             TensorParallelGroupInitializer(**params).init_dist_group(),
             PipelineParallelGroupInitializer(**params).init_dist_group(),
             DataParallelGroupInitializer(**params).init_dist_group(),
+            ExpertDataParallelGroupInitializer(**params).init_dist_group(),
         ]
 
         for result in results:
@@ -270,7 +274,16 @@ class ParallelContext:
         dist.all_gather(tensor_list=rank_tensor_list, tensor=rank_tensor)
 
         for _rank, _rank_tensor in enumerate(rank_tensor_list):
-            modes_and_ranks = {mode: rank for mode, rank in zip(self._local_ranks.keys(), _rank_tensor.tolist())}
+            # NOTE: In 3D parallelism for MoE, the gpu assignment only depends on
+            # tensor parallelism, pipeline parallelism and data parallelism.
+            # according to the paper: Pipeline MoE: A Flexible MoE Implementatio
+            #  with Pipeline Parallelism by Xin Chen et al
+            # https://arxiv.org/abs/2304.11414
+            modes_and_ranks = {
+                mode: rank
+                for mode, rank in zip(self._local_ranks.keys(), _rank_tensor.tolist())
+                if mode != ParallelMode.EXPERT
+            }
             self._ranks_to_device[tuple(modes_and_ranks.items())] = _rank
 
     def ranks2device(self, ranks: RanksToDevice) -> int:

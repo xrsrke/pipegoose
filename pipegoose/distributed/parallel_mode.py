@@ -7,3 +7,6 @@ class ParallelMode(Enum):
     TENSOR = "tensor"
     PIPELINE = "pipeline"
     DATA = "data"
+
+    # NOTE: for expert data parallelism
+    EXPERT = "expert"
