@@ -13,7 +13,7 @@ from pipegoose.nn import ExpertParallel
 from pipegoose.nn.data_parallel.data_parallel import DataParallel
 from pipegoose.nn.expert_parallel.loss import ExpertLoss
 from pipegoose.nn.expert_parallel.routers import SwitchNoisePolicy, Top1Router
-from pipegoose.testing.utils import init_parallel_context, spawn
+from pipegoose.testing.utils import get_microbatch, init_parallel_context, spawn
 
 MODEL_NAME = "bigscience/bloom-560m"
 
@@ -57,15 +57,20 @@ def run_expert_parallel_with_data_parallel(
         pipeline_parallel_size,
         data_parallel_size,
     )
+    # NOTE: each model replicas only train on a subset of data
+    input_ids, attention_mask, labels = get_microbatch(
+        kwargs["input"], kwargs["labels"], parallel_context, ParallelMode.EXPERT
+    )
+    loss_func = ExpertLoss(nn.CrossEntropyLoss())
+
     model = ExpertParallel(model, NUM_EXPERTS, mapping=mapping, router=router, parallel_context=parallel_context).parallelize()
     model = DataParallel(model, parallel_context).parallelize()
-    loss_func = ExpertLoss(nn.CrossEntropyLoss())
     optim = Adam(model.parameters(), lr=1e-3)
 
-    outputs = model(**kwargs["input"])
+    outputs = model(input_ids=input_ids, attention_mask=attention_mask)
 
     logits = outputs.logits[..., :-1, :].view(-1, outputs.logits.shape[-1])
-    labels = kwargs["labels"][..., 1:].view(-1).to(logits.device)
+    labels = labels[..., 1:].view(-1).to(logits.device)
     loss = loss_func(logits, labels)
 
     optim.zero_grad()
@@ -76,11 +81,7 @@ def run_expert_parallel_with_data_parallel(
     expert_grads = torch.chunk(expert_grads, chunks=data_parallel_size, dim=0)
 
     # NOTE: check if expert grads are the same across data parallel dimension
-    assert all(
-        torch.all(torch.eq(expert_grads[i], expert_grads[j]))
-        for i in range(len(expert_grads))
-        for j in range(i + 1, len(expert_grads))
-    )
+    assert torch.allclose(*expert_grads)
 
     optim.step()
 
@@ -100,8 +101,8 @@ def test_expert_parallel_with_data_parallel(model, tokenizer):
     noise_policy = SwitchNoisePolicy()
     router = Top1Router(noise_policy, NUM_EXPERTS, D_MODEL)
 
-    text = "Persistence is all you need."
-    input = tokenizer(text, return_tensors="pt")
+    text = ["Persistence is all you need.", "Attention is all you need."]
+    input = tokenizer(text, return_tensors="pt", padding=True)
 
     kwargs = {
         "input": input,
