@@ -29,6 +29,14 @@ class Experts(nn.Module):
         expert = expert() if not isinstance(expert, nn.Module) else expert
         self.num_local_experts = num_local_experts
         self.experts = nn.ModuleList([deepcopy(expert) for _ in range(num_local_experts)])
+        self._set_expert_attr(self.experts)
+
+    def _set_expert_attr(self, experts: nn.ModuleList):
+        # NOTE: for filtering out the expert parameters later on
+        # in data parallelism
+        for expert in experts:
+            for p in expert.parameters():
+                setattr(p, "is_expert", True)
 
     def forward(
         self,
