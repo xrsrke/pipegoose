@@ -39,5 +39,5 @@ class DataParallel(Parallel):
             grad,
             op=dist.ReduceOp.SUM,
             parallel_context=self.parallel_context,
-            parallel_mode=ParallelMode.EXPERT if is_expert else ParallelMode.DATA,
+            parallel_mode=ParallelMode.EXPERT_DATA if is_expert else ParallelMode.DATA,
         )

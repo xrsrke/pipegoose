@@ -23,7 +23,7 @@ class ExpertDataParallelGroupInitializer(ProcessGroupInitializer):
         process_group = None
         local_world_size = None
         ranks_in_group = None
-        parallel_mode = ParallelMode.EXPERT
+        parallel_mode = ParallelMode.EXPERT_DATA
 
         for i in range(num_tensor_parallel_groups):
             ranks = list(range(i * self.tensor_parallel_size, (i + 1) * self.tensor_parallel_size))

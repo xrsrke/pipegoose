@@ -277,12 +277,12 @@ class ParallelContext:
             # NOTE: In 3D parallelism for MoE, the gpu assignment only depends on
             # tensor parallelism, pipeline parallelism and data parallelism.
             # according to the paper: Pipeline MoE: A Flexible MoE Implementatio
-            #  with Pipeline Parallelism by Xin Chen et al
+            # with Pipeline Parallelism by Xin Chen et al
             # https://arxiv.org/abs/2304.11414
             modes_and_ranks = {
                 mode: rank
                 for mode, rank in zip(self._local_ranks.keys(), _rank_tensor.tolist())
-                if mode != ParallelMode.EXPERT
+                if mode != ParallelMode.EXPERT_DATA
             }
             self._ranks_to_device[tuple(modes_and_ranks.items())] = _rank
 

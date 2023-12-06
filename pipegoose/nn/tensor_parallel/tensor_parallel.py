@@ -4,6 +4,7 @@ import torch
 from torch import nn
 
 from pipegoose.distributed.parallel_context import ParallelContext
+from pipegoose.nn.expert_parallel.layers import ExpertLayer
 from pipegoose.nn.parallel import Parallel
 from pipegoose.nn.tensor_parallel.parallelizer import (
     EmbeddingParallelizer,
@@ -42,10 +43,29 @@ class TensorParallel(Parallel):
         return module
 
     def _get_leaf_modules(self, model: nn.Module) -> List[Tuple[str, nn.Module]]:
+        """Return non-expert leaf modules."""
         leaf_modules = []
+        expert_names = []
+
+        def is_child_of_expert(module_name):
+            # NOTE: suppose an mlp expert has name "transformer.h.0.mlp"
+            # then its children will have names like "transformer.h.0.mlp.{child_name}"
+            # so we can check if a module is a child of an expert by checking if its name
+            # starts with "transformer.h.0.mlp"
+            for expert_name in expert_names:
+                if module_name.startswith(expert_name):
+                    return True
+            return False
+
         for module_name, module in model.named_modules():
-            if list(module.children()):
+            if isinstance(module, ExpertLayer):
+                expert_names.append(module_name)
                 continue
+
+            # NOTE: skip leaf modules that belong to ExpertLayer
+            if is_child_of_expert(module_name) or list(module.children()):
+                continue
+
             leaf_modules.append((module_name, module))
 
         return leaf_modules

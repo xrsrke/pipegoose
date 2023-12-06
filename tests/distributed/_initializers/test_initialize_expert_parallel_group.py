@@ -43,7 +43,7 @@ def init_tensor_parallel_group(
     assert result["ranks_in_group"] == expected_ranks
     assert dist.get_process_group_ranks(result["process_group"]) == expected_ranks
 
-    assert result["parallel_mode"] == ParallelMode.EXPERT
+    assert result["parallel_mode"] == ParallelMode.EXPERT_DATA
 
     dist.barrier()
     dist.destroy_process_group(result["process_group"])

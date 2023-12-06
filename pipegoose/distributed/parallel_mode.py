@@ -9,4 +9,4 @@ class ParallelMode(Enum):
     DATA = "data"
 
     # NOTE: for expert data parallelism
-    EXPERT = "expert"
+    EXPERT_DATA = "expert"

@@ -17,14 +17,14 @@ backend = ["gloo", pytest.param("nccl", marks=skip_if_no_cuda)]
 LOCAL_RANK_TO_NEXT_RANK = {
     1: {
         ParallelMode.TENSOR: {0: 0},
-        ParallelMode.EXPERT: {0: 0},
+        ParallelMode.EXPERT_DATA: {0: 0},
         ParallelMode.PIPELINE: {0: 0},
         ParallelMode.DATA: {0: 0},
         ParallelMode.GLOBAL: {0: 0},
     },
     8: {
         ParallelMode.TENSOR: {0: 1, 1: 0},
-        ParallelMode.EXPERT: {0: 1, 1: 0},
+        ParallelMode.EXPERT_DATA: {0: 1, 1: 0},
         ParallelMode.PIPELINE: {
             0: 1,
             1: 0,
@@ -37,14 +37,14 @@ LOCAL_RANK_TO_NEXT_RANK = {
 LOCAL_RANK_TO_PREV_RANK = {
     1: {
         ParallelMode.TENSOR: {0: 0},
-        ParallelMode.EXPERT: {0: 0},
+        ParallelMode.EXPERT_DATA: {0: 0},
         ParallelMode.PIPELINE: {0: 0},
         ParallelMode.DATA: {0: 0},
         ParallelMode.GLOBAL: {0: 0},
     },
     8: {
         ParallelMode.TENSOR: {0: 1, 1: 0},
-        ParallelMode.EXPERT: {0: 1, 1: 0},
+        ParallelMode.EXPERT_DATA: {0: 1, 1: 0},
         ParallelMode.PIPELINE: {
             0: 1,
             1: 0,
