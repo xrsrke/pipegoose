@@ -17,7 +17,12 @@ from pipegoose.nn.tensor_parallel.parallelizer import (
 class TensorParallel(Parallel):
     """Turn a 🤗 transformers model into a tensor parallel model."""
 
-    PARALLELIZERS = [EmbeddingParallelizer, LinearParallelizer, LayerNormParallelizer, LMHeadParallelizer]
+    PARALLELIZERS = [
+        EmbeddingParallelizer,
+        LinearParallelizer,
+        LayerNormParallelizer,
+        LMHeadParallelizer,
+    ]
 
     def __init__(self, module: nn.Module, parallel_context: ParallelContext):
         self.module = module
@@ -35,7 +40,9 @@ class TensorParallel(Parallel):
             for module_name, leaf_module in leaf_modules:
                 parallelizer = self._find_parallelizer(module_name, leaf_module)
                 if parallelizer is not None:
-                    parallelizer(module_name, leaf_module, module, self.parallel_context).parallelize()
+                    parallelizer(
+                        module_name, leaf_module, module, self.parallel_context
+                    ).parallelize()
 
             self._save_metadata(module, self.parallel_context)
 
@@ -50,7 +57,9 @@ class TensorParallel(Parallel):
 
         return leaf_modules
 
-    def _find_parallelizer(self, module_name: str, module: nn.Module) -> Optional[ModuleParallelizer]:
+    def _find_parallelizer(
+        self, module_name: str, module: nn.Module
+    ) -> Optional[ModuleParallelizer]:
         for parallelizer in self.PARALLELIZERS:
             if parallelizer.is_parallelizable(module_name, module):
                 return parallelizer
@@ -59,4 +68,6 @@ class TensorParallel(Parallel):
     @torch.no_grad()
     def deparallelize(self) -> nn.Module:
         for module_name, module in self.module.named_modules():
-            self.PARALLELIZERS[module].deparallelize(module_name, module, self.parallel_context)
+            self.PARALLELIZERS[module].deparallelize(
+                module_name, module, self.parallel_context
+            )

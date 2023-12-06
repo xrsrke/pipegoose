@@ -28,22 +28,40 @@ def tokenizer():
 
 
 def run_parallelize_a_transformers_and_inference(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, kwargs
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    kwargs,
 ):
     model = deepcopy(kwargs["model"])
     REF_LOGITS, REF_LOSS = kwargs["logits"], kwargs["loss"]
 
     parallel_context = init_parallel_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+        rank,
+        world_size,
+        port,
+        tensor_parallel_size,
+        pipeline_parallel_size,
+        data_parallel_size,
     )
     parallelized_model = DataParallel(model, parallel_context).parallelize()
 
-    p_generated_tokens = parallelized_model.generate(**kwargs["input"], **kwargs["generation_configs"])
+    p_generated_tokens = parallelized_model.generate(
+        **kwargs["input"], **kwargs["generation_configs"]
+    )
     assert torch.allclose(p_generated_tokens, kwargs["generated_tokens"])
 
     outputs = parallelized_model(**kwargs["input"], labels=kwargs["labels"])
     assert torch.allclose(outputs["logits"], REF_LOGITS)
     assert torch.allclose(outputs["loss"], REF_LOSS)
+
+
+def test_data_parallel_fused_bias_gelu_bias_dropout_fwd():
+    # TODO
+    pass
 
 
 @pytest.mark.parametrize("data_parallel_size", [1, 2])
@@ -87,14 +105,26 @@ def test_parallelize_a_transformer_and_inference(model, tokenizer, data_parallel
 
 
 def run_backward_a_parallelized_transformers(
-    rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, kwargs
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    kwargs,
 ):
     def get_microbatch(inputs, labels):
         local_rank = parallel_context.get_local_rank(ParallelMode.DATA)
         input_chunks = torch.chunk(inputs["input_ids"], chunks=world_size, dim=0)
-        attention_chunks = torch.chunk(inputs["attention_mask"], chunks=world_size, dim=0)
+        attention_chunks = torch.chunk(
+            inputs["attention_mask"], chunks=world_size, dim=0
+        )
         label_chunks = torch.chunk(labels, chunks=world_size, dim=0)
-        return input_chunks[local_rank], attention_chunks[local_rank], label_chunks[local_rank]
+        return (
+            input_chunks[local_rank],
+            attention_chunks[local_rank],
+            label_chunks[local_rank],
+        )
 
     model = deepcopy(kwargs["model"])
     UPDATED_MODEL = deepcopy(kwargs["updated_model"])
@@ -103,7 +133,12 @@ def run_backward_a_parallelized_transformers(
     labels = kwargs["labels"]
 
     parallel_context = init_parallel_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+        rank,
+        world_size,
+        port,
+        tensor_parallel_size,
+        pipeline_parallel_size,
+        data_parallel_size,
     )
 
     input_ids, attention_mask, labels = get_microbatch(inputs, labels)
@@ -111,7 +146,9 @@ def run_backward_a_parallelized_transformers(
     optim = SGD(parallelized_model.parameters(), lr=LR)
 
     optim.zero_grad()
-    outputs = parallelized_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+    outputs = parallelized_model(
+        input_ids=input_ids, attention_mask=attention_mask, labels=labels
+    )
 
     loss = outputs.loss
     loss.backward()
@@ -125,7 +162,9 @@ def run_backward_a_parallelized_transformers(
 
 
 @pytest.mark.parametrize("data_parallel_size", [1, 2])
-def test_backward_pass_a_parallelized_transformers(model, tokenizer, data_parallel_size):
+def test_backward_pass_a_parallelized_transformers(
+    model, tokenizer, data_parallel_size
+):
     TENSOR_PARALLEL_SIZE = 1
     PIPELINE_PARALLEL_SIZE = 1
 
@@ -149,7 +188,9 @@ def test_backward_pass_a_parallelized_transformers(model, tokenizer, data_parall
     # NOTE: if some cases, the updated model and the original model's weights can be identical
     # so we need to make sure the updated model and the original model's weights are different
     similarity = calculate_parameter_similarity(ORIG_MODEL, model)
-    assert similarity < 0.95, f"Two models should be different before training. Similarity: {similarity}"
+    assert (
+        similarity < 0.95
+    ), f"Two models should be different before training. Similarity: {similarity}"
 
     kwargs = {
         "model": ORIG_MODEL,
@@ -169,10 +210,23 @@ def test_backward_pass_a_parallelized_transformers(model, tokenizer, data_parall
     )
 
 
-def run_move_a_model_to_gpu(rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, model):
+def run_move_a_model_to_gpu(
+    rank,
+    world_size,
+    port,
+    tensor_parallel_size,
+    pipeline_parallel_size,
+    data_parallel_size,
+    model,
+):
     model = deepcopy(model)
     parallel_context = init_parallel_context(
-        rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
+        rank,
+        world_size,
+        port,
+        tensor_parallel_size,
+        pipeline_parallel_size,
+        data_parallel_size,
     )
     parallelized_model = DataParallel(model, parallel_context).parallelize()
 
