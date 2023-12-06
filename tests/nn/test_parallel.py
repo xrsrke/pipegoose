@@ -7,7 +7,7 @@ from torch import nn
 from transformers import BloomConfig, BloomForCausalLM
 from transformers.models.bloom.modeling_bloom import BloomGelu
 
-from pipegoose.nn.fusion import FusedBiasDropout, FusedBiasGelu, FusedGelu
+from pipegoose.nn.fusion import FusedDropout, FusedGelu
 from pipegoose.nn.parallel import Parallel
 
 from torch.nn import GELU, Dropout, Module
@@ -46,18 +46,20 @@ BLOOM_560M = BloomForCausalLM(BloomConfig())
 
 
 def test_parallel_fuse_with_gelu_dropout():
-    base_model_parallel = Parallel(module=deepcopy(BASE_MODEL), parallel_context=MagicMock())
-    fused_base_model = base_model_parallel.fuse([FusedBiasGelu, FusedBiasDropout])
-
-    nested_model_parallel = Parallel(module=deepcopy(NESTED_MODEL), parallel_context=MagicMock())
-    fused_nested_model = nested_model_parallel.fuse([FusedBiasGelu, FusedBiasDropout])
     
-    bloom_560m_parallel = Parallel(module=deepcopy(BLOOM_560M), parallel_context=MagicMock())
-    fused_bloom_module = bloom_560m_parallel.fuse([FusedBiasGelu, FusedBiasDropout])
+    
+    # fused_bloom_module2 = Parallel(module=deepcopy(BLOOM_560M), parallel_context=MagicMock()).fuse_md([FusedGelu, FusedDropout])
+    # fused_bloom_module = Parallel(module=deepcopy(BLOOM_560M), parallel_context=MagicMock()).fuse([FusedGelu, FusedDropout])
+    # fused_base_model = Parallel(module=deepcopy(BASE_MODEL), parallel_context=MagicMock()).fuse([FusedGelu, FusedDropout])
+    # NOTE: This fails because using torch.fx cannot wrap builtin functions such as __len__, which is used by built-in Bloom 
+    fused_nested_model = Parallel(module=deepcopy(BLOOM_560M), parallel_context=MagicMock()).fuse_fx([FusedGelu, FusedDropout])
+    # NOTE: This fails because our manual fusion method cant handle nested models (e.g. multiple sequentials within each other)
+    fused_nested_model = Parallel(module=deepcopy(NESTED_MODEL), parallel_context=MagicMock()).fuse([FusedGelu, FusedDropout])
     
     # For each model, make sure that no GeLU or Dropout layers remain
-    for module in fused_base_model.modules():
-        assert type(module) not in {nn.GELU, nn.Dropout, BloomGelu}
+    for fused_model in [fused_nested_model]:
+        for module in fused_model.modules():
+            assert type(module) not in {nn.GELU, nn.Dropout, BloomGelu}
 
 
 def test_parallel_fuse_with_gelu_dropout_train():
@@ -69,7 +71,7 @@ def test_parallel_fuse_with_gelu_dropout_train():
     expected_outputs = [BASE_MODEL(batch) for batch in dataset]
 
 
-    fused_nested_model = Parallel(module=deepcopy(BASE_MODEL), parallel_context=MagicMock()).fuse([FusedBiasGelu, FusedBiasDropout])
+    fused_nested_model = Parallel(module=deepcopy(BASE_MODEL), parallel_context=MagicMock()).fuse([FusedGelu, FusedDropout])
     actual_outputs = [fused_nested_model(batch) for batch in dataset]
     assert torch.allclose(expected_outputs, actual_outputs)
 

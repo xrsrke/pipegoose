@@ -31,27 +31,6 @@ def replace_node_module(node: fx.Node, modules: dict[str, Any], new_module: torc
     setattr(modules[parent_name], name, new_module)
 
 
-def should_fuse_layer(
-    layer: fx.Node, fusion_candidate: FusedLayer, modules: dict[str, Any]
-) -> bool:
-    # Output is not going anywhere, we will run into indexing issues and won't fuse
-    if len(layer.args) == 0:
-        return False
-    # Enforce Node type
-    if not isinstance(layer, fx.Node):
-        return False
-    if layer.op != "call_module":
-        return False
-    if not isinstance(layer.target, str):
-        return False
-    if layer.target not in modules:
-        return False
-    if type(modules[layer.target]) not in fusion_candidate.represents:
-        return False
-
-    return True
-
-
 @torch.jit.script
 def _fused_gelu_fwd(input):
     return (
@@ -169,7 +148,8 @@ class FusedGelu(GELU, FusedLayer):
     @staticmethod
     def forward(input):
         return _FusedGeluFn.apply(input)
-    
+
+ 
 @torch.jit.script
 def fused_bias_dropout(
     input: Tensor,
@@ -181,6 +161,14 @@ def fused_bias_dropout(
     # type: (Tensor, Tensor, float, bool, bool) -> Tensor
     return F.dropout(input + bias, p=dropout_prob, training=training, inplace=inplace)
 
+
+class _FusedDropoutFn(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx, input, p, training, inplace):
+        ctx.save_for_backward(input)
+        return F.dropout(input, p, training, inplace)
+    
 class _FusedBiasDropoutFn(torch.autograd.Function):
 
     @staticmethod
@@ -196,7 +184,7 @@ class _FusedBiasDropoutFn(torch.autograd.Function):
         input, bias = ctx.saved_tensors
         return (tmp := _fused_bias_gelu_bwd(grad_output, input, bias)), tmp
 
-class FusedBiasDropout(_DropoutNd, FusedLayer):
+class FusedDropout(_DropoutNd, FusedLayer):
     """
     Fused dropout + bias function.
     See: https://pytorch.org/docs/stable/_modules/torch/nn/modules/dropout.html#Dropout
@@ -210,38 +198,4 @@ class FusedBiasDropout(_DropoutNd, FusedLayer):
         super().__init__(p=dropout_p, inplace=inplace)
 
     def forward(self, input: Tensor):
-        print(input)
-        return F.dropout(input, self.p, self.training, self.inplace)
-
-import copy
-
-fx_model = fx.symbolic_trace(BASE_MODEL)
-# Maps node.target to the module it represents
-modules = dict(fx_model.named_modules())
-new_graph = copy.deepcopy(fx_model.graph)
-
-
-for node in new_graph.nodes:
-    if node.op == "call_module":
-        if type(modules[node.target]) is GELU:
-            if len(node.users) > 1:  # Output used by other nodes
-                continue
-            gelu = modules[node.target]
-            fused_gelu = FusedGelu(gelu)
-            replace_node_module(node, modules, fused_gelu)
-            # This could be redundant overfitting to the torch example
-            node.replace_all_uses_with(node.target)
-            # In the example , this removes the batch once it was folded.
-            # We are not folding any modules together, so this is not needed
-            # new_graph.erase_node(node)
-        # if type(modules[node.target]) is Dropout:
-        #     if len(node.users) > 1:
-        #         continue
-        #     dropout = modules[node.target]
-        #     fused_dropout = FusedBiasDropout(dropout)
-        #     replace_node_module(node, modules, fused_dropout)
-        #     node.replace_all_uses_with(node.target)
-
-randinp = torch.randn(10)            
-BASE_MODEL = fx.GraphModule(fx_model, new_graph)
-BASE_MODEL(randinp)
+        return _FusedDropoutFn.apply(input, self.p, self.training, self.inplace)
