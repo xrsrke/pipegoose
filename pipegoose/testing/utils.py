@@ -2,7 +2,7 @@ import os
 import random
 import socket
 from functools import partial
-from typing import Callable
+from typing import Callable, Tuple
 
 import pytest
 import torch
@@ -118,3 +118,16 @@ def calculate_parameter_similarity(module1: nn.Module, module2: nn.Module, rtol:
 
 def count_model_parameters(model):
     return sum(p.numel() for p in model.parameters())
+
+
+def get_microbatch(
+    inputs, labels, parallel_context: ParallelContext, parallel_mode: ParallelMode
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    local_rank = parallel_context.get_local_rank(parallel_mode)
+    world_size = parallel_context.get_world_size(parallel_mode)
+
+    input_chunks = torch.chunk(inputs["input_ids"], chunks=world_size, dim=0)
+    attention_chunks = torch.chunk(inputs["attention_mask"], chunks=world_size, dim=0)
+    label_chunks = torch.chunk(labels, chunks=world_size, dim=0)
+
+    return input_chunks[local_rank], attention_chunks[local_rank], label_chunks[local_rank]

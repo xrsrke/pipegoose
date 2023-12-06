@@ -7,22 +7,26 @@ from pipegoose.distributed._initializers.initializer import (
 from pipegoose.distributed.parallel_mode import ParallelMode
 
 
-class ExpertParallelGroupInitializer(ProcessGroupInitializer):
+class ExpertDataParallelGroupInitializer(ProcessGroupInitializer):
+    """
+    Initialize the process group for data parallelism in expert parallelism.
+
+    Pipeline MoE: A Flexible MoE Implementation with Pipeline Parallelism" by Xin Chen et al
+    https://arxiv.org/abs/2304.11414
+
+    NOTE: This looks similar to TensorParallelGroupInitializer, because it aligns with the paper.
+    """
+
     def init_dist_group(self) -> ProcessGroupResult:
         num_tensor_parallel_groups = self.world_size // self.tensor_parallel_size
         local_rank = None
         process_group = None
         local_world_size = None
         ranks_in_group = None
-        parallel_mode = ParallelMode.TENSOR
+        parallel_mode = ParallelMode.EXPERT_DATA
 
         for i in range(num_tensor_parallel_groups):
             ranks = list(range(i * self.tensor_parallel_size, (i + 1) * self.tensor_parallel_size))
-
-            # NOTE: dist.new_group() must be called collectively by all the processes
-            # that would be part of the group, which means every process in the group
-            # needs to call this function. If only a subset of the processes call new_group(),
-            # it will hang because it's waiting for the rest of the processes to join.
             group = dist.new_group(ranks=ranks)
 
             if self.rank in ranks:

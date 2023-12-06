@@ -9,6 +9,7 @@ from pipegoose.distributed import ParallelMode
 from pipegoose.nn import DataParallel
 from pipegoose.testing.utils import (
     calculate_parameter_similarity,
+    get_microbatch,
     init_parallel_context,
     skip_if_no_cuda,
     spawn,
@@ -89,13 +90,6 @@ def test_parallelize_a_transformer_and_inference(model, tokenizer, data_parallel
 def run_backward_a_parallelized_transformers(
     rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size, kwargs
 ):
-    def get_microbatch(inputs, labels):
-        local_rank = parallel_context.get_local_rank(ParallelMode.DATA)
-        input_chunks = torch.chunk(inputs["input_ids"], chunks=world_size, dim=0)
-        attention_chunks = torch.chunk(inputs["attention_mask"], chunks=world_size, dim=0)
-        label_chunks = torch.chunk(labels, chunks=world_size, dim=0)
-        return input_chunks[local_rank], attention_chunks[local_rank], label_chunks[local_rank]
-
     model = deepcopy(kwargs["model"])
     UPDATED_MODEL = deepcopy(kwargs["updated_model"])
     LR = kwargs["lr"]
@@ -106,7 +100,8 @@ def run_backward_a_parallelized_transformers(
         rank, world_size, port, tensor_parallel_size, pipeline_parallel_size, data_parallel_size
     )
 
-    input_ids, attention_mask, labels = get_microbatch(inputs, labels)
+    # NOTE: each model replicas only train on a subset of data
+    input_ids, attention_mask, labels = get_microbatch(inputs, labels, parallel_context, ParallelMode.DATA)
     parallelized_model = DataParallel(model, parallel_context).parallelize()
     optim = SGD(parallelized_model.parameters(), lr=LR)
 

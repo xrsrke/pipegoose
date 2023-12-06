@@ -24,10 +24,10 @@ class ExpertParallel(Parallel):
         num_experts: int,
         expert: Optional[nn.Module] = None,
         mapping: Optional[List[int]] = None,
-        router: Union[int, Callable] = 1,
+        router: Callable = None,
         # noise_poligy: Union[str, Callable],
         enable_tensor_parallelism: bool = False,
-        parallel_context: ParallelContext = None
+        parallel_context: ParallelContext = None,
     ):
         tensor_parallel_size = parallel_context.get_world_size(ParallelMode.TENSOR)
         assert parallel_context is not None, "parallel_context must be provided"
@@ -52,20 +52,28 @@ class ExpertParallel(Parallel):
 
     @torch.no_grad()
     def parallelize(self) -> nn.Module:
-        pattern = re.compile(r"^transformer\.h\.(\d+)\.mlp$")
-
-        for name, module in self.module.named_modules():
+        # TODO: make it generalize
+        def _is_mlp(name) -> Union[bool, Optional[int]]:
+            pattern = re.compile(r"^transformer\.h\.(\d+)\.mlp$")
             match = pattern.match(name)
             if match:
                 layer_idx = int(match.group(1))
+                return True, layer_idx
+            else:
+                return False, None
+
+        for name, module in self.module.named_modules():
+            is_mlp, layer_idx = _is_mlp(name)
+            if is_mlp:
                 if layer_idx in self.mapping:
                     expert_layer = ExpertLayer(
                         self.num_experts,
                         module if self.expert is None else self.expert,
                         self.router,
                         self.enable_tensor_parallelism,
-                        self.parallel_context
+                        self.parallel_context,
                     )
+                    # TODO: make it generalize
                     getattr(self.module, "transformer").h[layer_idx].mlp = expert_layer
 
         return self.module

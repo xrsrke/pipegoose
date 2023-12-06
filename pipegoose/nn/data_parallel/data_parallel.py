@@ -1,3 +1,5 @@
+from functools import partial
+
 import torch
 import torch.distributed as dist
 from torch import nn
@@ -26,9 +28,16 @@ class DataParallel(Parallel):
     def _register_grad_avg_hook(self, module: nn.Module):
         for p in module.parameters():
             if p.requires_grad is True:
-                p.register_hook(self._average_grad)
+                is_expert = getattr(p, "is_expert", False)
+                p.register_hook(partial(self._average_grad, is_expert=is_expert))
 
-    def _average_grad(self, grad: torch.Tensor):
+    def _average_grad(self, grad: torch.Tensor, is_expert: bool):
         # NOTE: (grad1 + grad2 + ... + gradn) / n = grad1/n + grad2/n + ... + gradn/n
         grad.div_(self.parallel_context.data_parallel_size)
-        all_reduce(grad, op=dist.ReduceOp.SUM, parallel_context=self.parallel_context, parallel_mode=ParallelMode.DATA)
+
+        all_reduce(
+            grad,
+            op=dist.ReduceOp.SUM,
+            parallel_context=self.parallel_context,
+            parallel_mode=ParallelMode.EXPERT_DATA if is_expert else ParallelMode.DATA,
+        )
