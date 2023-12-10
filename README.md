@@ -78,7 +78,8 @@ for epoch in range(100):
 You can install the package through the following command:
 
 ```bash
-pip install pipegoose
+git clone https://github.com/xrsrke/pipegoose.git
+cd pipegoose && pip install -e .
 ```
 
 And try out a hybrid tensor and data parallelism training script (You must have at least 4 GPUs in order to try hybrid 2D parallelism).
