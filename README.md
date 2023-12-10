@@ -1,10 +1,18 @@
-# 🚧 pipegoose: Large scale 4D parallelism pre-training for 🤗 `transformers` in Mixture of Experts
+# 🚧 pipegoose: Large-scale 4D parallelism multi-modal pre-training for 🤗 `transformers` in Mixture of Experts
 
 [<img src="https://img.shields.io/badge/license-MIT-blue">](https://github.com/xrsrke/pipegoose) [![tests](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml/badge.svg)](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml) [<img src="https://img.shields.io/discord/767863440248143916?label=discord">](https://discord.gg/s9ZS9VXZ3p) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [<img alt="Codecov" src="https://img.shields.io/codecov/c/github/xrsrke/pipegoose">](https://app.codecov.io/gh/xrsrke/pipegoose) [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
 ![pipeline](3d-parallelism.png)
 
 <!-- [![docs](https://img.shields.io/github/deployments/Production?label=docs&logo=vercel)](https://docs.dev/) -->
+
+We're building a library for an end-to-end framework for training multi-modal MoE in a decentralized way, as proposed by the paper [DiLoCo](https://arxiv.org/abs/2311.08105). The core papers that we are replicating are:
+- DiLoCo: Distributed Low-Communication Training of Language Models [[link]](https://arxiv.org/abs/2311.08105)
+- Pipeline MoE: A Flexible MoE Implementation with Pipeline Parallelism [[link]](https://arxiv.org/abs/2304.11414)
+- Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity [[link]](https://arxiv.org/abs/2101.03961)
+- Flamingo: a Visual Language Model for Few-Shot Learning [[link]](https://arxiv.org/abs/2204.14198)
+- Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism  [[link]](https://arxiv.org/abs/1909.08053)
+
 
 
 ⚠️ **The project is actively under development, and we're actively seeking collaborators. Come join us: [[discord link]](https://discord.gg/s9ZS9VXZ3p) [[roadmap]](https://github.com/users/xrsrke/projects/5) [[good first issue]](https://github.com/xrsrke/pipegoose/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)**
@@ -87,10 +95,10 @@ We did a small scale correctness test by comparing the validation losses between
 - Distributed Optimizer ZeRO-1 Convergence: [[sgd link]](https://wandb.ai/xariusdrake/pipegoose/runs/fn4t9as4?workspace) [[adam link]](https://wandb.ai/xariusdrake/pipegoose/runs/yn4m2sky)
 
 **Features**
-- Megatron-style 3D parallelism
+- End-to-end multi-modal including in 3D parallelism including distributed CLIP..
 - Sequence parallelism and Mixture of Experts that work in 3D parallelism
 - ZeRO-1: Distributed Optimizer
-- Highly optimized CUDA kernels port from Megatron-LM, DeepSpeed
+- Kernel fusion
 - ...
 
 **Appreciation**
