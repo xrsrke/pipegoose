@@ -125,8 +125,8 @@ class ParallelContext:
         self.init_global_dist(rank, world_size, backend, host, port)
         self.init_parallel_groups()
 
-        # if torch.cuda.is_available():
-        #     self.set_device()
+        if torch.cuda.is_available() and backend == "nccl":
+            self.set_device()
 
         self.map_rank_to_device()
 
@@ -261,17 +261,20 @@ class ParallelContext:
 
     def map_rank_to_device(self):
         """Map global rank to device."""
+
         rank_tensor = torch.zeros(len(self._local_ranks), dtype=torch.long)
+        rank_tensor = rank_tensor.cuda() if torch.cuda.is_available() else rank_tensor
 
         for idx, local_rank in enumerate(self._local_ranks.values()):
             rank_tensor[idx] = local_rank
 
         rank_tensor_list = [
-            torch.zeros(rank_tensor.size(), dtype=torch.long) for _ in range(self.get_world_size(ParallelMode.GLOBAL))
+            torch.zeros(rank_tensor.size(), dtype=torch.long).cuda() if torch.cuda.is_available() else torch.zeros(rank_tensor.size(), dtype=torch.long)
+            for _ in range(self.get_world_size(ParallelMode.GLOBAL))
         ]
 
         dist.all_gather(tensor_list=rank_tensor_list, tensor=rank_tensor)
-
+        
         for _rank, _rank_tensor in enumerate(rank_tensor_list):
             modes_and_ranks = {mode: rank for mode, rank in zip(self._local_ranks.keys(), _rank_tensor.tolist())}
             self._ranks_to_device[tuple(modes_and_ranks.items())] = _rank
