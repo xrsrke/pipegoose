@@ -28,6 +28,8 @@ class TensorParallelMapping(ParallelMapping):
             Row(("mlp.dense_4h_to_h", "self_attention.dense")),
             LMHead(("lm_head",)),
         ],
+        "debug_single_mlp": [Column(("debug_single_mlp",))],
+        
     }
 
     @staticmethod
