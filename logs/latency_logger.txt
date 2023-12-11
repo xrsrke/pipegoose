@@ -1,0 +1,1 @@
+[INFO] hello, [WARNING] hello, [DEBUG] hello, [ERROR] hello, [INFO] hello, [INFO] hello, [INFO] hello, [WARNING] hello, [DEBUG] hello, [ERROR] hello, [INFO] hello, [WARNING] hello, [DEBUG] hello, [ERROR] hello, [INFO] hello, [WARNING] hello, [DEBUG] hello, [ERROR] hello
