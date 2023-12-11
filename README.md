@@ -89,7 +89,7 @@ We did a small scale correctness test by comparing the validation losses between
 - ~~Tensor Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/iz17f50n)~~ (We've found a bug in convergence, and we are fixing it)
 - ~~Hybrid 2D Parallelism (TP+DP) [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/us31p3q1)~~
 - Distributed Optimizer ZeRO-1 Convergence: [[sgd link]](https://wandb.ai/xariusdrake/pipegoose/runs/fn4t9as4?workspace) [[adam link]](https://wandb.ai/xariusdrake/pipegoose/runs/yn4m2sky)
-- Mixture of Experts [[link]](https://wandb.ai/xariusdrake/pipegoose/jobs/QXJ0aWZhY3RDb2xsZWN0aW9uOjExOTU2MTU5MA==/version_details/v20)
+- Mixture of Experts [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/ac30wbfy/workspace)
 
 **Features**
 - End-to-end multi-modal including in 3D parallelism including distributed CLIP..
