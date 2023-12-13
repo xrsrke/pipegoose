@@ -14,14 +14,9 @@ We're building a library for an end-to-end framework for **training multi-modal 
 - Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism  [[link]](https://arxiv.org/abs/1909.08053)
 
 
+**If you're interested in contributing, check out [[CONTRIBUTING.md]](./CONTRIBUTING.md) [[good first issue]](https://github.com/xrsrke/pipegoose/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) [[roadmap]](https://github.com/users/xrsrke/projects/5). Come join us: [[discord link]](https://discord.gg/s9ZS9VXZ3p)**
 
-⚠️ **The project is actively under development, and we're actively seeking collaborators. Come join us: [[discord link]](https://discord.gg/s9ZS9VXZ3p) [[roadmap]](https://github.com/users/xrsrke/projects/5) [[good first issue]](https://github.com/xrsrke/pipegoose/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)**
-
-⚠️ **The APIs is still a work in progress and could change at any time. None of the public APIs are set in stone until we hit version 0.6.9.**
-
-⚠️ **Currently only parallelize `bloom-560m` is supported. Support for hybrid 3D parallelism and distributed optimizer for 🤗 `transformers` will be available in the upcoming weeks (it's basically done, but it doesn't support 🤗 `transformers` yet)**
-
-⚠️ **This library is underperforming when compared to Megatron-LM and DeepSpeed (and not even achieving reasonable performance yet).**
+⚠️ **Currently only parallelize `transformers`'s `bloom` is supported.**
 
 ```diff
 from torch.utils.data import DataLoader
@@ -94,6 +89,7 @@ We did a small scale correctness test by comparing the validation losses between
 - ~~Tensor Parallelism [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/iz17f50n)~~ (We've found a bug in convergence, and we are fixing it)
 - ~~Hybrid 2D Parallelism (TP+DP) [[link]](https://wandb.ai/xariusdrake/pipegoose/runs/us31p3q1)~~
 - Distributed Optimizer ZeRO-1 Convergence: [[sgd link]](https://wandb.ai/xariusdrake/pipegoose/runs/fn4t9as4?workspace) [[adam link]](https://wandb.ai/xariusdrake/pipegoose/runs/yn4m2sky)
+- Mixture of Experts [[link]](https://wandb.ai/xariusdrake/pipegoose/jobs/QXJ0aWZhY3RDb2xsZWN0aW9uOjExOTU2MTU5MA==/version_details/v20)
 
 **Features**
 - End-to-end multi-modal including in 3D parallelism including distributed CLIP..
