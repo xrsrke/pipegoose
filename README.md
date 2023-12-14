@@ -1,4 +1,4 @@
-# 🚧 pipegoose: Decentralized large-scale 4D parallelism multi-modal pre-training for 🤗 `transformers` in Mixture of Experts
+# 🚧 pipegoose: Large-scale 4D parallelism multi-modal pre-training for 🤗 `transformers` in Mixture of Experts
 
 [<img src="https://img.shields.io/badge/license-MIT-blue">](https://github.com/xrsrke/pipegoose) [![tests](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml/badge.svg)](https://github.com/xrsrke/pipegoose/actions/workflows/tests.yaml) [<img src="https://img.shields.io/discord/767863440248143916?label=discord">](https://discord.gg/s9ZS9VXZ3p) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [<img alt="Codecov" src="https://img.shields.io/codecov/c/github/xrsrke/pipegoose">](https://app.codecov.io/gh/xrsrke/pipegoose) [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
@@ -6,7 +6,7 @@
 
 <!-- [![docs](https://img.shields.io/github/deployments/Production?label=docs&logo=vercel)](https://docs.dev/) -->
 
-We're building a library for an end-to-end framework for **training multi-modal MoE in a decentralized way, as proposed by the paper [DiLoCo](https://arxiv.org/abs/2311.08105)**. The core papers that we are replicating are:
+We're building an end-to-end library for **training multi-modal MoE in a decentralized way, as proposed by the paper [DiLoCo](https://arxiv.org/abs/2311.08105)**. The core papers that we are replicating are:
 - DiLoCo: Distributed Low-Communication Training of Language Models [[link]](https://arxiv.org/abs/2311.08105)
 - Pipeline MoE: A Flexible MoE Implementation with Pipeline Parallelism [[link]](https://arxiv.org/abs/2304.11414)
 - Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity [[link]](https://arxiv.org/abs/2101.03961)
