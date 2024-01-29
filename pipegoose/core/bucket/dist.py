@@ -56,7 +56,6 @@ class BucketDistributor:
         # then empty and refill the bucket with the tensor
         key = (tensor.dtype, parallel_mode)
         if key not in self.buckets:
-
             self.buckets[key] = Bucket(self.bucket_size, tensor.dtype, self.parallel_context)
         else:
             bucket = self.buckets[key]
